@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+
+# Local data, model checkpoints, and generated results
+/data/
+/artifacts/
+/checkpoints/
+/results/
+*.pt
+*.pth
+
+# Notebook/editor state
+.ipynb_checkpoints/
+.idea/
+.vscode/
+
