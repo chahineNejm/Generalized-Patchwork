@@ -16,22 +16,24 @@ def _numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     return np.asarray(x, dtype=np.float64)
 
 
-def kmeans_supports(
+def observed_supports(
     x: torch.Tensor,
     count: int,
     *,
     seed: int = 0,
 ) -> torch.Tensor:
-    """Select global supports with mini-batch k-means."""
-    if not 1 <= count <= len(x):
-        raise ValueError("count must be between one and the number of observations")
-    estimator = MiniBatchKMeans(
-        n_clusters=count,
-        random_state=seed,
-        batch_size=min(2048, len(x)),
-        n_init=5,
-    ).fit(_numpy(x))
-    return torch.as_tensor(estimator.cluster_centers_, dtype=x.dtype, device=x.device)
+    """Sample distinct interior observations for the open-unit-cube parameters."""
+    values = _numpy(x)
+    if values.ndim != 2 or not np.isfinite(values).all():
+        raise ValueError("Observed support inputs must be a finite [N,D] array")
+    if ((values < 0) | (values > 1)).any():
+        raise ValueError("Observed support inputs must be normalized to [0,1]")
+    _, indices = np.unique(values, axis=0, return_index=True)
+    indices = indices[((values[indices] > 0) & (values[indices] < 1)).all(axis=1)]
+    if not 1 <= count <= len(indices):
+        raise ValueError(f"Requested {count} supports from {len(indices)} distinct observed locations inside (0,1)")
+    chosen = np.random.default_rng(seed).choice(indices, count, replace=False)
+    return x[torch.as_tensor(chosen, dtype=torch.long, device=x.device)].clone()
 
 
 def hierarchical_supports(
@@ -54,21 +56,16 @@ def hierarchical_supports(
         n_init=5,
     )
     labels = outer.fit_predict(values)
-    groups: list[np.ndarray] = []
+    groups: list[torch.Tensor] = []
     for patch in range(patches):
         local = values[labels == patch]
         if len(local) < supports_per_patch:
             raise ValueError(
                 f"Patch {patch} has {len(local)} points for {supports_per_patch} supports"
             )
-        inner = MiniBatchKMeans(
-            n_clusters=supports_per_patch,
-            random_state=seed + 100 + patch,
-            batch_size=min(1024, len(local)),
-            n_init=5,
-        ).fit(local)
-        groups.append(inner.cluster_centers_)
-    return torch.as_tensor(np.stack(groups), dtype=x.dtype, device=x.device)
+        local_x = torch.as_tensor(local, dtype=x.dtype, device=x.device)
+        groups.append(observed_supports(local_x, supports_per_patch, seed=seed + 100 + patch))
+    return torch.stack(groups)
 
 
 def patch_neighbor_graph(
@@ -76,17 +73,19 @@ def patch_neighbor_graph(
 ) -> list[tuple[int, int]]:
     """Build an undirected k-nearest-neighbor graph over patch centers."""
     patches = supports.shape[0]
+    if not isinstance(neighbors, int) or isinstance(neighbors, bool):
+        raise TypeError("neighbors must be an integer")
+    minimum = 0 if patches == 1 else 1
+    if not minimum <= neighbors < patches:
+        raise ValueError(f"neighbors must be in [{minimum}, {patches - 1}] for {patches} patches")
     if patches == 1:
         return []
-    if neighbors < 1:
-        raise ValueError("neighbors must be positive when multiple patches are used")
     centers = supports.mean(1)
     distances = torch.cdist(centers, centers)
     distances.fill_diagonal_(torch.inf)
     edges: set[tuple[int, int]] = set()
-    count = min(neighbors, patches - 1)
     for left in range(patches):
-        for right in torch.topk(distances[left], k=count, largest=False).indices.tolist():
+        for right in torch.topk(distances[left], k=neighbors, largest=False).indices.tolist():
             edges.add(tuple(sorted((left, right))))
     return sorted(edges)
 

@@ -10,6 +10,17 @@ class NumericalConfig:
     prior_jitter: float = 1e-4
     min_variational_cholesky: float = 1e-3
     variance_floor: float = 1e-12
+    weight_epsilon: float = 1e-8
+
+
+@dataclass(frozen=True)
+class ProSparConfig:
+    """Explicit new ProSpar values; no inferred initialization or jitter choice."""
+
+    temperatures: float | tuple[float, ...]
+    exponent: float
+    inducing_nuggets: float | tuple[float | tuple[float, ...], ...]
+    prior_jitter: float
 
 
 @dataclass(frozen=True)

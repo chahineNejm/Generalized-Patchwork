@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import torch
@@ -32,8 +33,9 @@ def fit(
     batch_size: int,
     seed: int = 0,
     optimizer: OptimizerConfig = DEFAULT_OPTIMIZER_CONFIG,
+    on_epoch: Callable[[int, torch.nn.Module, FitHistory], None] | None = None,
 ) -> FitHistory:
-    """Optimize a model ELBO, alternating Patchwork q and structure updates."""
+    """Optimize the training objective, alternating Patchwork q and structure updates."""
     if epochs < 1 or batch_size < 1:
         raise ValueError("epochs and batch_size must be positive")
     if x.ndim != 2 or y.ndim != 1 or len(x) != len(y):
@@ -43,14 +45,18 @@ def fit(
     structure_groups: list[dict[str, object]] = []
     if model.support.trainable:
         structure_groups.append(
-            {"params": [model.support.raw], "lr": optimizer.learning_rate_supports}
+            {"params": list(model.support.parameters()), "lr": optimizer.learning_rate_supports}
         )
     if hasattr(model, "stitch") and model.stitch.trainable:
         structure_groups.append(
             {"params": [model.stitch.raw], "lr": optimizer.learning_rate_stitches}
         )
     hyperparameters = [parameter for parameter in model.hyp.parameters() if parameter.requires_grad]
-    warmup_epochs = max(1, round(optimizer.warmup_fraction * epochs))
+    if not 0.0 <= optimizer.warmup_fraction <= 1.0:
+        raise ValueError("warmup_fraction must lie between zero and one")
+    warmup_epochs = (
+        0 if optimizer.warmup_fraction == 0.0 else max(1, round(optimizer.warmup_fraction * epochs))
+    )
     groups: list[dict[str, object]] = [
         {
             "params": q_parameters,
@@ -125,14 +131,15 @@ def fit(
                     optimizer.gradient_clip,
                 )
                 if not torch.isfinite(gradient_norm):
-                    raise FloatingPointError(
-                        f"Non-finite gradient at epoch {epoch}, phase {phase}"
-                    )
+                    raise FloatingPointError(f"Non-finite gradient at epoch {epoch}, phase {phase}")
                 adam.step()
             accumulated += float(loss.detach()) * len(batch_x)
             seen += len(batch_x)
         history.losses.append(accumulated / seen)
         progress.set_postfix(loss=f"{history.losses[-1]:.5f}")
+        history.elapsed_seconds = time.perf_counter() - started
+        if on_epoch is not None:
+            on_epoch(epoch + 1, model, history)
     for parameter in all_parameters:
         parameter.requires_grad_(True)
     if device.type == "cuda":
@@ -163,4 +170,3 @@ def predict_batched(
         means.append(mean.cpu())
         variances.append(variance.cpu())
     return torch.cat(means), torch.cat(variances)
-

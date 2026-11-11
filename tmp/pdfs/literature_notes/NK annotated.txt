@@ -1,0 +1,1716 @@
+=== PDF PAGE 1 ===
+Nested Kriging predictions for datasets with large number of
+observations
+Didier Rullière ∗, Nicolas Durrande †, François Bachoc ‡ and Clément Chevalier §.
+Wednesday 26th July, 2017
+Abstract
+This work falls within the context of predicting the value of a real function at some input loca-
+tions given a limited number of observations of this function. The Kriging interpolation technique
+(or Gaussian process regression) is often considered to tackle such a problem but the method suﬀers
+from its computational burden when the number of observation points is large. We introduce in
+this article nested Kriging predictors which are constructed by aggregating sub-models based on
+subsets of observation points. This approach is proven to have better theoretical properties than
+other aggregation methods that can be found in the literature. Contrarily to some other methods
+it can be shown that the proposed aggregation method is consistent. Finally, the practical interest
+of the proposed method is illustrated on simulated datasets and on an industrial test case with104
+observations in a 6-dimensional space.
+Keywords: Gaussian process regression · big data · aggregation methods · best linear unbiased
+predictor · spatial processes.
+1 Introduction
+Gaussian process regression models have proven to be of great interest in many ﬁelds when it comes
+to predict the output of a functionf : D → R, D ⊂ Rd, based on the knowledge ofn input-output
+tuples (xi,f (xi)) for 1 ≤ i ≤ n [Stein, 2012, Santner et al., 2013, Williams and Rasmussen, 2006].
+One asset of this method is to provide not only a mean predictor but also a quantiﬁcation of the
+model uncertainty. The Gaussian process regression framework uses a (centered) real-valued Gaussian
+processY overD as a prior distribution forf and approximates it by the conditional distribution ofY
+given the observationsY (xi) =f(xi) for 1 ≤i ≤n. In this framework, we denote byk :D ×D → R
+the covariance function (or kernel) ofY: k(x,x ′) = Cov [Y (x),Y (x′)], and byX ∈ Dn the vector of
+observation points with entriesxi for 1 ≤i ≤n.
+In the following, we use classical vectorial notations: for any functionsf :D → R, g :D ×D → R
+and for any vectorsA = (a1,...,a n) ∈ Dn and B = (b1,...,b m) ∈ Dm, we denote byf(A) the
+n × 1 real valued vector with componentsf(ai) and byg(A,B ) the n ×m real valued matrix with
+components g(ai,bj), i = 1,...,n , j = 1,...,m . With such notations, the conditional distribution of
+Y given then × 1 vector of observationsY (X) is Gaussian with mean, covariance and variance:
+
+
+
+Mfull (x) = E [Y (x)|Y (X)] =k(x,X )k(X,X )−1Y (X),
+cfull (x,x ′) = Cov
+
+Y (x),Y (x′)|Y (X)
+
+=k(x,x ′) −k(x,X )k(X,X )−1k(X,x ′),
+vfull (x) =cfull (x,x ).
+(1)
+∗Université de Lyon, Université Claude Bernard Lyon 1, ISF A, Laboratoire SAF, EA2429, 50 avenue Tony Garnier,
+69366 Lyon, France, didier.rulliere@univ-lyon1.fr.
+†Corresponding author, Mines Saint-Étienne, H. Fayol Institute, 158 cours Fauriel, Saint-Étienne, France and CNRS
+LIMOS, UMR 5168, durrande@emse.fr.
+‡Institut de Mathématiques de Toulouse, Université Paul Sabatier, 118 route de Narbonne, 31062 Toulouse, France,
+francois.bachoc@math.univ-toulouse.fr.
+§Institute of Statistics, University of Neuchâtel, avenue de Bellevaux 51, 2000 Neuchâtel, Switzerland,
+clement.chevalier@unine.ch.
+1
+arXiv:1607.05432v3  [stat.ML]  25 Jul 2017
+
+=== PDF PAGE 2 ===
+Since we do not specify yet the values taken byY at X, the “mean predictor”Mfull (x) is random
+so it is denoted by an upper-case letterM. The approximation off(x) given the observationsf(X)
+is thus given bymfull (x) = E [Y (x)|Y (X) =f(X)] = k(x,X )k(X,X )−1f(X). This method is quite
+general since an appropriate choice of the kernel allows to recover the models obtained from various
+frameworks such as linear regression and splines models [Wahba, 1990].
+One limitation of such models is the computational time required for building models based on
+a large number of observations. Indeed, these models require computing and inverting then ×n
+covariance matrixk(X,X ) between the observed valuesY (X), which leads to aO(n2) complexity in
+space andO(n3) in time. In practice, this computational burden makes Gaussian process regression
+diﬃcult to use when the number of observation points is in the range[103, 104] or greater.
+Many methods have been proposed in the literature to overcome this limit. Let us ﬁrst mention
+that, when the observations are recorded on a regular grid, choosing a separable covariance function
+k enables to drastically simplify the inversion of the covariance matrixk(X,X ), since the latter can
+be written as a Kronecker product. In the same context of gridded data, alternative approaches such
+as Gaussian Markov Random Fields are also available [Rue and Held, 2005].
+For irregularly spaced data, a common approach in machine learning relies on inducing points.
+It consists in introducing a setW of pseudo input points and in approximating the full conditional
+distributionY (x)|Y (X)byY (x)|Y (W ). Thechallengehereistoﬁndthebestlocationsfortheinducing
+inputs and to decide which values should be assigned to the outputs atW. Various methods are
+suggested in the literature to answer these questions [Guhaniyogi et al., 2011, Hensman et al., 2013,
+Katzfuss, 2013,Zhang et al., 2015]. Onedrawbackofthiskindofapproximationisthatthepredictions
+do not interpolate the observation points any more. Note that this method has recently been combined
+with the Kronecker product method in [Nickson et al., 2015].
+Other methods rely on low rank approximations or compactly supported covariance functions. Both
+methods show limitations when the scale dependence is respectively short and large. For more details
+and references, see [Stein, 2014, Maurya, 2016, Bachoc et al., 2017]. Another drawback – which to
+the best of our knowledge is little discussed in the literature – is the diﬃculty to use these methods
+when the dimension of the input space is large (say larger than 10, which is frequent in computer
+experiments or machine learning).
+Let us also mention that the computation ofk(X,X )−1y, for an arbitrary vectory ∈ Rn can be per-
+formed using iterative algorithms, like the preconditionned conjugate gradient algorithm
+[Golub and Van Loan, 2012]. Unfortunately, the algorithms need to be run many times when a pos-
+terior variance – involving the computation ofk(X,X )−1k(X,xi) – needs to be computed for a large
+set of prediction points.
+The method proposed in this paper belongs to the so-called “mixture of experts” family. The
+latter relies on the aggregation of sub-models based on subsets of the data which make them easy to
+compute. This kind of methods oﬀers a great ﬂexibility since it can be applied with any covariance
+function and in large dimension while retaining the interpolation property. Some existing “mixture of
+experts” methods are product of experts [Hinton, 2002], and the (robust) Bayesian committee machine
+[Tresp, 2000,Deisenroth and Ng, 2015]. Allthesemethodsarebasedonasimilarapproach: foragiven
+pointx, each sub-model provides its own prediction (a mean and a variance) and these predictions are
+then merged into one single mean and prediction variance. The diﬀerences between these methods lie
+in how to aggregate the predictions made by each sub-model. It shall be noted that aggregating expert
+opinions is the topic ofconsensus statistical methods(sometimes referred to asopinion synthesis or
+averaging methods), where probability distributions representing expert opinions are joined together.
+Early references are [Winkler, 1968, Winkler, 1981]. A detailed review and an annotated bibliography
+is given in [Genest and Zidek, 1986] (see also [Satopää et al., 2016, Ranjan and Gneiting, 2010] for
+2
+
+=== PDF PAGE 3 ===
+recent related developments). From a probabilistic perspective, usual mixture of experts methods
+assume that there is some (conditional) independence between the sub-models. Although this kind
+of hypothesis leads to eﬃcient computations, it is often violated in practice and may lead to poor
+predictions as illustrated in [Samo and Roberts, 2016]. Furthermore, these methods only provide
+pointwise conﬁdence intervals instead of a full Gaussian process posterior distribution.
+Since our method is part of the mixture of experts framework, it beneﬁts from the properties of the
+mixture of experts techniques: it does not require the data to be on a grid, the predictions can inter-
+polate the observations and it can be applied to data with small or large scale dependencies regardless
+of the input space dimension. Compared to other mixtures of experts, we relax the usually made
+independence assumption so that the prediction takes into account alln2 pairwise cross-covariances
+between observations. We show that this addresses two main pitfalls of usual mixture of experts. First,
+the predictions are more accurate. Second, the theoretical consistency is ensured whereas it is not the
+case for the product of experts and the Bayesian committee machine methods. The detailed proofs of
+the later are out of the scope of this paper and we refer the interested reader to [Bachoc et al., 2017]
+for further details. The proposed method remains computationally aﬀordable: predictions are per-
+formed in a few seconds forn = 104 and a few minutes forn = 105 using a standard laptop and the
+proposed online implementation. Finally, the prediction method comes with a naturally associated
+inference procedure, which is based on cross validation errors.
+The proposed method is presented in Section 2. In Section 3, we introduce an iterative scheme for
+nesting the predictors derived previously. A procedure for estimating the parameters of models is then
+given in Section 4. Finally, Section 5 compares the method with state-of-the-art aggregation methods
+on both a simulated dataset and an industrial case study.
+2 Pointwise aggregation of experts
+Let us now address in more details the framework of this article. The method is based on the
+aggregation of sub-models deﬁned on smaller subsets of points. LetX1, ..., Xp be subvectors of the
+vector of observations input pointsX, it is thus possible to deﬁnep associated sub-models (orexperts)
+M1, ..., Mp. For example, the sub-modelMi can be a Gaussian process regression model based on
+a subset of the data
+Mi(x) = E [Y (x)|Y (Xi)] =k(x,Xi)k(Xi,Xi)−1Y (Xi), (2)
+however, we make no Gaussian assumption in this section. For a given prediction pointx ∈ D, the
+p sub-models predictions are gathered into ap × 1 vector M(x) = (M1(x)...,M p(x))t. The random
+column vector(M1(x),...,M p(x),Y (x))t is supposed to be centered with ﬁnite ﬁrst two moments and
+we consider that both thep × 1 covariance vectorkM(x) = Cov [M(x),Y (x)] and thep ×p covariance
+matrix KM(x) = Cov [M(x),M (x)] are given. Sub-models aggregation (or mixture of experts) aims
+at merging all the pointwise sub-modelsM1(x),...,M p(x) into one unique pointwise predictorMA(x)
+of Y (x). We propose the following aggregation:
+Deﬁnition 1 (Sub-models aggregation). For a given pointx ∈ D, letMi(x), i ∈ A = {1,...,p } be
+sub-models with covariance matrixKM(x). Then, whenKM(x) is invertible, we deﬁne the sub-model
+aggregation as:
+MA(x) =kM(x)tKM(x)−1M(x). (3)
+In practice, the invertibility condition onKM(x) can be avoided by using matrices pseudo-inverses.
+Given the vector of observationsM(x) =m(x), the associated prediction is
+mA(x) =kM(x)tKM(x)−1m(x). (4)
+Notice that we are here aggregating random variables rather than their distributions. For dependent
+non-elliptical random variables, expressing the probability density function ofMA(x) as a function
+3
+this is very light
+
+=== PDF PAGE 4 ===
+of each expert densityMi(x) is not straightforward. This diﬀerence in the approaches implies that
+the proposed method diﬀers from usual consensus aggregations. For example, aggregating random
+variables allows to specify the correlations between the aggregated prediction and the experts whereas
+aggregatingexpertdistributionsintoaunivariatepredictiondistributiondoesnotcharacterizeuniquely
+these correlations.
+Proposition1 (BLUP). MA(x)is the best linear unbiased predictor ofY (x) that writes∑
+i∈Aαi(x)Mi(x).
+The mean squared errorvA(x) = E
+
+(Y (x) −MA(x))2
+writes
+vA(x) =k(x,x ) −kM(x)tKM(x)−1kM(x). (5)
+The coeﬃcients {αi(x),i ∈ A} are given by the vectorα =kM(x)tKM(x)−1.
+Proof. Thestandardproofapplies: Thesquareerrorwrites E
+
+(Y (x) −αtM(x))2
+=k(x,x )−2αtkM(x)+
+αtKM(x)α. The value ofα∗ minimising it can be found by diﬀerentiation:−2kM(x) + 2α∗KM(x) = 0
+which leads toα∗ = KM(x)−1kM(x). Then, vA(x) = k(x,x) − 2α∗tkM(x) +α∗tKM(x)α∗ and the
+result holds.
+Proposition 2(Basic properties). Letx be a given prediction point inD.
+(i) Linear case: ifM(x) is linear inY (X), i.e. if there exists ap×n deterministic matrixΛ(x) such
+that M(x) = Λ(x)Y (X) and if Λ(x)k(X,X )Λ(x)t is invertible, thenMA(x) is linear inY (X)
+with {
+MA(x) = λA(x)tY (X),
+vA(x) = k(x,x ) −λA(x)tk(X,x ). (6)
+whereλA(x)t =k(x,X )Λ(x)t(
+Λ(x)k(X,X )Λ(x)t)−1Λ(x).
+(ii) Interpolation case: ifM interpolatesY at X, i.e. if for any componentxk of the vectorX there
+is at least one indexik ∈ A such that Mik(xk) = Y (xk), and ifKM(xk) is invertible for any
+componentxk of X, thenMA is also interpolating, i.e.
+{
+MA(X) = Y (X),
+vA(X) = 0 n, (7)
+where 0n is an × 1 vector with entries0. This property can be extended when someKM(xk) are
+not invertible by using pseudo-inverse in place of matrix inverse in Deﬁnition 1.
+(iii) Gaussian case: if the joint distribution(M(x),Y (x)) is multivariate normal, then the conditional
+distribution ofY (x) given M(x) is normal with moments
+{
+E [Y (x)|Mi(x),i ∈ A] =MA(x),
+V [Y (x)|Mi(x),i ∈ A] =vA(x). (8)
+Proof. Linearity directly derives fromkM(x) = Λ(x)k(X,x ) and KM(x) = Λ(x)K(X,X )Λ(x)t.
+Interpolation: Let k ∈ {1,...,n}, and i ∈ A be an index such thatMi(xk) = Y (xk). As KM(xk) =
+Cov [M(xk),M (xk)], theith line ofKM(xk) is equal toCov [Mi(xk),M (xk)] = Cov [Y (xk),M (xk)] =
+kM(xk)t. Setting ei the p dimensional vector having entries 0 except on its ith component, it
+is thus clear that eitKM(xk) = kM(xk)t. As KM(xk) is assumed to be invertible, then eit =
+kM(xk)tKM(xk)−1, so that MA(xk) = kM(xk)tKM(xk)−1M(xk) = eitM(xk) = Mi(xk) = Y (xk).
+This result can be plugged into the deﬁnition ofvA to obtain the second part of Eq. (7):vA(xk) =
+E
+
+(Y (xk) −MA(xk))2
+= 0.
+Finally the Gaussian case can be proved directly by applying the usual multivariate normal condition-
+ing formula.
+4
+this is light too
+easy prop
+might use same thing works well
+he4y tnajam tkoun l formule i4a ken nhotha mba3ed as a proposition
+
+=== PDF PAGE 5 ===
+Let us assume here that conditions in items (i) and (ii) of Proposition 2 are satisﬁed, that is that
+M(x) is linear inY (X), and thatMA(X) = Y (X). Then, the proposed aggregation method also
+beneﬁts from several other interesting properties:
+• First, the aggregation can be seen as an exact conditional process for a slightly diﬀerent prior
+distribution on Y. One can indeed deﬁne a process YA as YA = MA +ε′
+A where ε′
+A is an
+independent replicate ofY −MA and withMA as in (3). One can then show thatYA(X) =Y (X)
+and {
+MA(x) = E [YA(x)|YA(X)] ,
+vA(x) = V [YA(x)|YA(X)] .
+Denoting kA the covariance function ofYA, one can also show thatkA(x,x ) = k(x,x ) for all
+x ∈D and kA(X,X ) =k(X,X ).
+• Second, the error between the aggregated model and the full model of Equation (1) can be
+bounded. For any norm∥.∥, one can show that there exists some constantsλ,µ ∈ R+ such that
+{
+|MA(x) −Mfull (x)| ≤ λ∥k(X,x )∥∥Y (X)∥,
+|vA(x) −vfull (x)| ≤ µ∥k(X,x )∥2.
+One can also show that the diﬀerences between the full and aggregated models write as norm
+diﬀerences, where ∥u∥2
+K =utk(X,X )−1u:
+
+
+
+E
+
+(MA(x) −Mfull (x))2
+
+= ∥k(X,x ) −kA(X,x )∥2
+K ,
+vA(x) −vfull (x) = ∥k(X,x )∥2
+K − ∥kA(X,x )∥2
+K .
+• Third, contrarily to several other aggregation methods, when sub-models are informative enough,
+the diﬀerence between the aggregated model and the full model vanishes: when M(x) =
+Λ(x)Y (X) where Λ(x) is an×n matrix with full rank, thenYA
+law= Y andYA|YA(X) law= Y |Y (X).
+Furthermore, in this full-information case,
+{
+MA(x) = Mfull (x),
+vA(x) = vfull (x).
+• Finally, in the Gaussian case and under some supplementary conditions, it can be proven that,
+contrarily to several other aggregation methods, the proposed method is consistent when the
+number of observation points tends toward inﬁnity. Let(xni)1≤i≤n,n∈N be a triangular array of
+observation points such that for allx ∈ D, limn→∞ mini=1,...,n ||xni −x|| = 0. For n ∈ N, let
+X = (xn1,...,x nn)t, letM1(x),...,M pn(x) be any collection ofpn simple Kriging predictors based
+on respective design pointsX1, ..., Xpn where ∪pn
+i=1Xi =X (with a slight abuse of notation),
+then
+sup
+x∈D
+E
+(
+(Y (x) −MA(x))2)
+→n→∞ 0.
+One can also exhibit non-consistency results for other aggregation methods of the literature that
+do not use covariances between sub-models.
+The full development of these properties is out of the scope of this paper and we dedicate a separate
+article to detail them [Bachoc et al., 2017].
+We now illustrate our aggregation method with two simple examples.
+Example 1(Gaussian process regression aggregation). In this example, we setD = R and we approxi-
+mate the functionf(x) = sin(2πx)+x based on a set of ﬁve observation points inD: {0.1, 0.3, 0.5, 0.7, 0.9}.
+These observations are gathered in two column vectorsX1 = (0.1, 0.3, 0.5) andX2 = (0.7, 0.9). We use
+5
+potentially??? this seems stupid? would it fit my construction???
+same as before???
+
+=== PDF PAGE 6 ===
+2
+1
+0
+1
+2
+0.2
+ 0.0 0.2 0.4 0.6 0.8 1.0 1.2
+2
+1
+0
+1
+2
+(a) sub-models to aggregate
+0.2
+ 0.0 0.2 0.4 0.6 0.8 1.0 1.2
+2
+1
+0
+1
+2 (b) aggregated model (solid lines) and full model (dashed lines)
+Figure 1: Example of aggregation of two Gaussian process regression models. For each model, we
+represent the predicted mean and95% conﬁdence intervals.
+as prior a centered Gaussian processY with squared exponential covariancek(x,x ′) = exp
+(
+−12.5(x −x′)2)
+in order to build two Kriging sub-models, fori ∈ {1, 2}:
+{
+Mi(x) = E [Y (x)|Y (Xi)] =k(x,Xi)k(Xi,Xi)−1Y (Xi),
+mi(x) = E [Y (x)|Y (Xi)=f(Xi)] =k(x,Xi)k(Xi,Xi)−1f(Xi).
+(9)
+The expressions required to computeMA as deﬁned in Eq.(3) are fori,j ∈ {1, 2}:
+
+
+
+(
+kM(x)
+)
+i = Cov [Mi(x),Y (x)] =k(x,Xi)k(Xi,Xi)−1k(Xi,x ),
+(
+KM(x)
+)
+i,j = Cov [Mi(x),Mj(x)] =k(x,Xi)k(Xi,Xi)−1k(Xi,Xj)k(Xj,Xj)−1k(Xj,x ). (10)
+Recall mfull (x) = E [Y (x)|Y (X)=f(X)] and vfull (x) = V [Y (x)|Y (X)=f(X)], as it can be seen in
+Figure 1, the resulting modelmA appears to be a very good approximation ofmfull and there is only
+a slight diﬀerence between prediction variancesvA and vfull on this example.
+Example 2 (Linear regression aggregation). In this distribution-free example, we setD = R and
+we consider the processY (x) = ε1 +ε2x where ε1 and ε2 are independent centered random variables
+with unit variance.Y is thus centered with covariancek(x,x ′) = 1 +xx′. Furthermore, we consider
+that Y is corrupted by some observation noiseYobs(x) =Y (x) +ε3(x) whereε3(x) is an independent
+white noise process with covariancek3(x,x ′) = 1{x=x′}. Note that we only make assumptions on
+the ﬁrst two moments ofε1, ε2 or ε3(x) but not on their laws. We introduce ﬁve observation points
+gathered in two column vectors:X1 = (0.1, 0.3, 0.5)t and X2 = (0.7, 0.9)t and their associated outputs
+y1 = (2.05, 0.93, 0.31)t and y2 = (−0.47, 0.12)t. The linear regression sub-models, obtained by square
+error minimization, areMi(x) = k(x,Xi)(k(Xi,Xi) +Id)−1Yobs(Xi), i ∈ { 1, 2}, whereId stands for
+the identity matrix. Resulting covariancesCov [Mi(x),Y (x)], Cov [Mi(x),Mj(x)] and aggregated model
+MA(x), vA(x) of Eq.(8) are then easily obtained. The resulting model is illustrated in Figure 2.
+3 Iterative scheme
+In the previous sections, we have seen how to aggregate sub-modelsM1,...,M p into one unique aggre-
+gated valueMA. Now, starting from the same sub-models, one can imagine creating several aggregated
+values, MA1,...,M As, each of them based on a subset of{M1,...,M p}. One can show that these
+aggregated values can themselves be aggregated. This makes possible the construction of an iterative
+algorithm that merges sub-models at successive steps, according to a tree structure. Such tree-based
+schemes are sometimes used to reduce the complexity of models, see e.g. [Tzeng et al., 2005], or to
+allow parallel computing [Wei et al., 2015].
+6
+
+=== PDF PAGE 7 ===
+10
+5
+0
+5
+10
+1.0
+ 0.5
+ 0.0 0.5 1.0 1.5 2.0
+10
+5
+0
+5
+10
+(a) sub-models to aggregate
+1.0
+ 0.5
+ 0.0 0.5 1.0 1.5 2.0
+10
+5
+0
+5
+10 (b) aggregated model (solid lines) and full model (dashed lines)
+Figure 2: Example of aggregation of two linear regression sub-models. Exhibited conﬁdence bands
+correspond to a diﬀerence to mean value of two standard deviations.
+1 Aν
+1 = {1, 2}
+1 Aν
+1 = {1, 2, 3}
+1 2 3
+2 Aν
+2 = {4, 5}
+4 5
+ν = 0, nν = 5
+ν = 1, nν = 2
+ν = 2, nν = 1
+Figure 3: One aggregation tree with height¯ν = 2, n0 = 5 initial leave nodes (observation points) and
+n1 = 2 sub-models.
+The aim of this section is to give a generic algorithm for aggregating sub-models according to a tree
+structure and to show that the choice of the tree structure helps partially reducing the complexity of
+the algorithm. It also aims at giving perspectives for further large reduction of the global complexity.
+Let us introduce some notations. The total height (i.e number of layers) of the tree is denoted¯ν and
+the number of node of a layerν ∈ {1,..., ¯ν} isnν. We associate to each node (say nodei in layerν) a
+sub-model Mν
+i corresponding to the aggregation of its child node sub-models. In other words,Mν
+i is
+the aggregation of{Mν−1
+k , k∈ Aν
+i } where Aν
+i is the set of children of nodei in layerν. These notations
+are summarized in Figure 3 which details the tree associated with Example 1. In practice, there will
+be oneroot node(n¯ν = 1) and each node will have at least one parent:∪i=1,...,nν Aν
+i = {1,...,n ν−1}.
+Typically, the sets Aν
+i, i = 1,...,n ν, are a partition of {1,...,n ν−1} but this assumption is not
+required and a child node may have several parents (which can generate a lattice rather than a tree).
+3.1 Two-Layer aggregation
+We discuss in this section the tree structure associated with the case¯ν = 2 as per the previous exam-
+ples. With such settings, the ﬁrst step consists in calculating the initial sub-modelsM 1
+1,...,M 1
+p of the
+layerν = 1 and the second one is to aggregate all sub-models of layerν = 1 into one unique predictor
+M 2
+1 (see for example Figure 3). This aggregation is obtained by direct application of Deﬁnition 1.
+In practice the sub-models can be any covariates, like gradients, non-Gaussian underlying factors
+or even black-box responses, as soon as cross-covariances and covariances withY (x) are known. When
+7
+
+=== PDF PAGE 8 ===
+sub-models are calculated from direct observationsY (x1),...,Y (xn), the number of leave nodes at
+layerν = 0 is n0 =n. In further numerical illustrations of Section 5, the sub-modelsM 1
+i are simple
+Kriging predictors ofY (x), with fori = 1,...,p ,
+
+
+
+M 1
+i (x) = k(x,Xi)k(Xi,Xi)−1Y (Xi),
+Cov
+
+M 1
+i (x),Y (x)
+
+= k(x,Xi)k(Xi,Xi)−1k(Xi,x ),
+Cov
+
+M 1
+i (x),M 1
+j (x)
+
+= k(x,Xi)k(Xi,Xi)−1k(Xi,Xj)k(Xj,Xj)−1k(Xj,x ).
+(11)
+With these particular simple Kriging initial sub-models, the layerν = 1 corresponds to the aggregation
+of covariatesM 0
+i (x) =Y (xi) at the previous layerν = 0, i = 1,...,n .
+3.2 Multiple Layer aggregation
+In order to extend the two-layer settings, one needs to compute covariances among aggregated sub-
+models. The following proposition gives covariances between aggregated models of a given layer.
+Proposition 3(aggregated models covariances). Let us consider a layerν ≥ 1 and given aggregated
+modelsMν
+1 (x),...,M ν
+nν(x). Assume that the following covariances(kν(x))i = Cov [Mν
+i (x),Y (x)] and
+(Kν(x))ij = Cov
+
+Mν
+i (x),M ν
+j (x)
+
+are given, i,j ∈ { 1,...,n ν}. Let nν+1 ≥ 1 be a number of new
+aggregated values. Consider subsetsAν+1
+i of {1,...,n ν}, i = 1,...,n ν+1, and assume thatMν+1
+i (x)
+is the aggregation ofMν
+k (x), k ∈ Aν+1
+i . Then
+
+
+
+(Mν+1(x))i = αν+1
+i (x)
+t (
+Mν(x)[Aν+1
+i ]
+)
+,
+Cov
+
+Mν+1
+i (x),Y (x)
+
+= αν+1
+i (x)
+t (
+kν(x)[Aν+1
+i ]
+)
+,
+Cov
+
+Mν+1
+i (x),M ν+1
+j (x)
+
+= αν+1
+i (x)
+t
+(
+Kν(x)[Aν+1
+i ,Aν+1
+j ]
+)
+αν+1
+j (x),
+(12)
+where the vectors of optimal weights areαν+1
+i (x) =
+(
+Kν
+[Aν+1
+i ,Aν+1
+i ]
+)−1 (
+kν(x)[Aν+1
+i ]
+)
+and wherekν(x)[Aν+1
+i ]
+corresponds to the sub-vector ofkν(x) of indices inAν+1
+i and similarly forMν(x)[Aν+1
+i ] and the sub-
+matrix Kν(x)[Aν+1
+i ,Aν+1
+i ], which is assumed to be invertible.
+Furthermore, Cov
+
+Mν+1
+i (x),Y (x)
+
+= Cov
+
+Mν+1
+i (x),M ν+1
+i (x)
+
+.
+Proof. This follows immediately from Deﬁnition 1: as the aggregated values are linear expressions, the
+calculation of their covariances is straightforward. The last equality is simply obtained by inserting
+the value ofαν+1
+i (x) into the expression ofCov
+
+Mν+1
+i (x),M ν+1
+i (x)
+
+.
+The following algorithm, which is a generic algorithm for aggregating sub-models according to
+a tree structure, is based on an iterative use of the previous proposition. It is given for one pre-
+diction point x ∈ D and it assumes that the sub-models are already calculated, starting directly
+from layer 1. This allows a large variety of sub-models, and avoids the storage of the possibly large
+covariance matrixK0(x). Its outputs are the ﬁnal scalar aggregated model,M¯ν(x), and the scalar
+covarianceK¯ν(x) from which one deduces the prediction errorE
+
+(Y (x) −M¯ν(x))2
+=k(x,x ) −K¯ν(x).
+In order to give dimensions in the algorithm and to ease the calculation of complexities, we deﬁne
+cν
+i as the number of children of the sub-modelMν
+i , cν
+i = card Aν
+i. We also denotecmax = max
+ν,i
+cν
+i the
+maximal number of children.
+8
+
+=== PDF PAGE 9 ===
+Algorithm 1:Nested Kriging algorithm
+inputs : M1, vector of lengthn1 (sub-models evaluated atx)
+k1, vector of lengthn1 (covariance betweenY (x) and sub-models atx)
+K1, matrix of sizen1 ×n1 (covariance between sub-models atx)
+A, a list describing the tree structure
+outputs: M¯ν, K¯ν
+Create vectorsM, k of sizecmax and matrixK of sizecmax ×cmax
+for ν = 2,..., ¯ν do
+Create vectorsMν of sizenν and matrixKν of sizenν ×nν
+for i = 1,...,n ν do
+Create vectorαi of sizecν
+i
+M ← subvector ofMν−1 on Aν
+i
+K ← submatrix ofKν−1 on Aν
+i
+if ν = 2 then k ←k1 else k ← Diag(K)
+αi ←K−1k
+Mν[i] ← (αi)tM
+Kν[i,i ] ← (αi)tk
+for j = 1,...,i − 1 do
+K ← submatrix ofKν−1 on Aν
+i × Aν
+j
+Kν[i,j ] ← (αi)tKαj
+Kν[j,i ] ←Kν[i,j ]
+Mν−1, Kν−1 and allαi can be deleted
+Notice that Algorithm 1 uses the result(Kν+1(x))ii = (kν+1(x))i from Prop. 3: when we consider ag-
+gregated models (ν ≥ 2), we do not need to store and compute the vectorkν(x)any more. Whenν = 1,
+depending on the initial covariates,Cov
+
+M 1
+i (x),Y (x)
+
+is not necessarily equal toCov
+
+M 1
+i (x),M 1
+i (x)
+
+(this is however the case whenM 1
+i (x) are simple Kriging predictors).
+For the sake of clarity, some improvements have been omitted in the algorithm above. For instance,
+covariances can be stored in triangular matrices, one can store two couples(Mν,Kν) instead of ¯ν
+couples by using objectsM(ν mod 2) and K(ν mod 2). Furthermore, it is quite natural to adapt this
+algorithm to parallel computing, but this is out of the scope of this article.
+3.3 Complexity
+We study here the complexity of Algorithm 1 in space (storage footprint) and in time (execution time).
+For the sake of clarity we consider in this paragraph a simpliﬁed tree wherenν is decreasing inν and
+each child has only one parent. This corresponds to the most common structure of trees, without
+overlapping. Furthermore, at any given levelν, we consider that each node has the same number of
+children: cν
+i =cν for alli = 1,...,n ν. Such a tree will be calledregular. In this setting, one easily sees
+that nν = nν−1
+cν = n
+c1...cν, ν ∈ {1,..., ¯ν}. Complexities obviously depend on the choice of sub-models,
+we give here complexities for Kriging sub-models as in Eq. (11), but this can be adapted to other
+kinds of sub-models.
+For one prediction pointx ∈D, we denote byS the storage footprint of Algorithm 1, and byC its
+complexity in time, including sub-models calculation. One can show that in a particular two-layers
+setting with √n sub-models (¯ν = 2 andc1 =c2 = √n), a reachable global complexity forq prediction
+points is (see assumptions below and expression details in the proof of Proposition 4)
+S =O(n) and qC =O(n2q). (13)
+9
+
+=== PDF PAGE 10 ===
+This is to be compared withO(n3)+O(n2q) for the same prediction with the full model. The aggrega-
+tion of sub-models can be useful when the number of prediction points is smaller than the number of
+observations. Notice that the storage needed forq prediction points is the same as for one prediction
+point, but in some cases (as for leave-one-out errors calculation), it is worth using aO(nq) storage to
+avoid recalculations of some quantities.
+We now detail chosen assumptions on the calculation ofS and C, and study the impact of the tree
+structure on these quantities. For one prediction pointx ∈D, including sub-models calculation, the
+complexity in time can be decomposed intoC = Ccov + Cα + Cβ, where
+- Ccov is the complexity for computing all cross covariances among initial design points, which
+does not depend on the tree structure (neither on the number of prediction points).
+- Cα is the complexity for building all aggregation predictors, i.e. the sum overν,i of all operations
+in thei-loop in Algorithm 1 (excluding operations in thej-loop).
+- Cβ is the complexity for building the covariance matrices among these predictors, i.e. the sum
+overν,i,j of all operations in thej-loop in Algorithm 1.
+We assume here that there exists two constantsα > 0 and β > 0 such that the complexity of
+operations inside thei-loop (excluding those of thej-loop) isαc3
+ν, and the complexity of operations
+inside thej-loop isβc2
+ν. Despite perfectible, this assumption follows from the fact that one usually
+considers that the complexity ofcν ×cν matrix inversion isO(c3
+ν) and the complexity of matrix-vector
+multiplication isO(c2
+ν). We also assume that the tree height¯ν is ﬁnite, and that all numbers of children
+cν tend to+∞ asn tends to+∞. This excludes for example binary trees, but makes assumptions on
+complexities more reliable. Under these assumptions, the following proposition details how the tree
+structure aﬀects the complexities.
+Proposition 4 (Complexities). The following storage footprint S and complexities Cα, Cβ hold for
+the respective tree structures, when the number of observationsn tends to ∞.
+(i) The two-layer equilibrated √n-tree, wherep = c1 = c2 = √n, ¯ν = 2, is the optimal storage
+footprint tree, and
+S =O(n), Cα ∼αn2, Cβ ∼ β
+2n2. (14)
+(ii) The ¯ν-layer equilibrated ¯ν√n-tree, wherec1 = · · · =c¯ν = ¯ν√n, ¯ν ≥ 2, is such that
+S =O(n2−2/¯ν), Cα ∼αn1+ 2
+¯ν , Cβ ∼ β
+2n2. (15)
+(iii) The optimal complexity tree is deﬁned as the regular tree structure that minimizesCα, as it is
+not possible to reduceCβ to orders lower thanO(n2). This tree is such that
+S =O
+(
+n2− 1
+δ¯ν −1
+)
+, Cα ∼γαn1+ 1
+δ¯ν −1, Cβ ∼ β
+2n2, (16)
+with δ = 3
+2 and γ = 27
+4δ− ¯ν
+δ¯ν −1
+(
+1 −δ−¯ν )
+. This tree is obtained forcν = δ
+(
+δ−¯νn
+)δ(ν−1)
+2(δ¯ν −1), ν =
+1,..., ¯ν. In a particular two-layers setting one getsc1 =
+(
+3
+2
+)1/5
+n2/5 and c2 =
+(
+3
+2
+)−1/5
+n3/5,
+which leads toCα =γαn9/5 and Cβ = β
+2n2 − β
+2
+(
+3
+2
+)1
+5
+n
+7
+5, whereγ = ( 2
+3)−2/5 + (2
+3)3/5 ≃ 1.96.
+Proof. The details of the proof are given in Appendix A.
+We have seen that for q prediction points and n observations, a reachable complexity of the
+algorithm isO(n2q), which is less thanO(n3) +O(n2q) for the same prediction with the full model,
+when q <n.
+10
+
+=== PDF PAGE 11 ===
+More precisely, we have shown that the choice of the tree structure helps partially reducing the
+complexity of the algorithm. Indeed, a large tree height¯ν largely reduces the complexityCα of matrix
+inversions in the algorithm. However,Cβ cannot be reduced and one can expect a maximal complexity
+reduction factor of β
+2α+β when using an optimal tree, compared to the equilibrated two-layers√n-tree.
+One shall however keep in mind that a lower complexity can lead to larger prediction errors or larger
+storage footprint.
+As a perspective, approximating cross-covariances between aggregated models would allow to re-
+duce Cβ to the same order asCα, which approachesO(n) when ¯ν is large. This thus gives perspectives
+for further large reduction of the global complexity, which are let to future work.
+At last, several parts of the algorithm can be computed in parallel execution threads. This is an
+interesting feature since sub-models computation at any layer can also be distributed.
+4 Parameter estimation
+Consider a set of covariance functions {σ2kθ,σ 2 ≥ 0,θ ∈ Θ} where kθ is a correlation function
+from D ×D into [−1, 1] depending on some parametersθ such as length-scales. In this section, we
+address the problem of selecting the value ofσ2 and θ from the input observation points inX and
+the observation vectorf(X). The mean predictormA depends only onθ so it will be writtenmA,θ.
+The prediction variance is a function of bothθ and σ2. Since it is linear in the latter, the prediction
+variance is writtenσ2vA,θ.
+For 1 ≤i ≤n, let the leave-one-out meanmA,θ,−i(xi) be computed asmA,θ(xi), but withX,f (X)
+replaced byX−i,f (X−i), whereX−i is obtained by removing theith line ofX. Note that the input
+divisionX1,...,X p is left unchanged, apart from removingxi when it appears inX1,...,X p. Similarly,
+the tree structure{Aν
+i } is left unchanged. We deﬁneσ2vA,θ,−i(xi) similarly toσ2vA,θ(xi).
+We estimateσ2 and θ with a two-step leave-one-out procedure similar to that of [Bachoc, 2013].
+We ﬁrst selectθ as minimizing the leave-one-out mean square error:
+θ ∈ argmin
+θ∈Θ
+1
+n
+n∑
+i=1
+(f(xi) −mA,θ,−i(xi))2. (17)
+Second, we setσ2 so that the leave-one-out errors have variance one:
+σ2 = 1
+n
+n∑
+i=1
+(
+f(xi) −mA,θ,−i(xi)
+)2
+vA,θ,−i(xi). (18)
+We implemented an algorithm that computes, for a given covariance parameterθ, the quantities
+mA,θ,−i(xi) and vA,θ,−i(xi) for q diﬀerent pointsxi. If the proper storage and precomputations are
+made, the computational cost is ofO(qn2), which is similar to the cost for predicting atq new locations
+using the model aggregation procedure presented in this paper. However using precomputations, the
+algorithm also has a storage cost ofO(nq) which excludes usingq =n in the case wheren is large and
+prevents computing the right-hand side of Equation (17) exactly. Finally, one may notice that whenq
+points are chosen uniformly, without replacement, in the set of alln points, averagingq leave-one-out
+mean square error yields an unbiased estimate of the leave-one-out mean square error, and can be seen
+as an approximation of the latter. We thus propose to solve the optimization problem (17) with a
+stochastic gradient descent algorithm described in Chapter 5 of [Bhatnagar et al., 2013]. At each step
+of the gradient descent, the projection of the gradient of (17) on a random direction is approximated
+by a ﬁnite diﬀerence. The algorithm is as follows.
+11
+Bof Bof
+
+=== PDF PAGE 12 ===
+Algorithm 2:Stochastic gradient descent
+inputs : θ0, initial value ofθ
+(ai)i∈N, sequence of increment terms for the gradient descent
+(δi)i∈N, sequence of step sizes for the ﬁnite diﬀerences
+q, number of leave-one-out predictions
+niter, maximal number of iterations
+outputs: ˆθ
+for i = 1,...,n iter do
+Sample a subsetIi of {1,...,n}, uniformly over all the subsets of{1,...,n} with cardinality
+q.
+Sample am-dimensional vectorhi from am-dimensional random vector with independent
+components, each of them taking the values1 and −1 with probabilities 1/2.
+Let
+∆i = 1
+2δi
+
+1
+q
+∑
+j∈Ii
+(
+f(xj) −mA,−j,θi−1+δihi(xj)
+)2 − 1
+q
+∑
+j∈Ii
+(
+f(xj) −mA,−j,θi−1−δihi(xj)
+)2
+(
+(.
+Let θi =θi−1 −ai∆ihi.
+Let ˆθ =θniter.
+An implementation in R and C++ of both algorithms 1 and 2 is publicly available on the web-
+site http://www.clementchevalier.com/index.php/r-packages. Inpractice, thecomputationcost
+of q leave-one-out predictions is the sum of a ﬁxed cost – involving in particular the computation of
+the n2 covarianceskθ(xi,xj) – and a marginal cost which is proportional toq. When n = 10, 000,
+these two summands take comparable values forq = 100, which is the setting we use in practice.
+Following the recommendations in [Bhatnagar et al., 2013], we setδi = c/(i + 1)γ, withγ = 0.101.
+We setai =a/(A +i + 1)α, withα = 0.602 (as suggested in [Bhatnagar et al., 2013]), orα = 0.2, or a
+combination of these two values. Typically we run a ﬁrst gradient descent withα = 0.2, which termi-
+nation point serves as starting point for a second gradient descent withα = 0.602. Good values ofa,
+c and A depend of the application case. In practice, satisfactory results are obtained forn = 10, 000,
+d = 10 and p = 100, withniter = 500, in which case the computation time would be around a few
+hours on a personal computer with a mono-threaded implementation.
+5 Numerical applications
+5.1 Comparison with other aggregation methods
+We now compare the predictions obtained with various methods when aggregating 15 Kriging sub-
+models based on two observations each. The test functions are samples of a centered Gaussian process
+over [0, 1]. The compared models are the nested Kriging model introduced in this article, the full
+model and other methods developed in the literature:
+Product of expert (PoE)[Hinton, 2002] is based on the assumption that for a givenx, the predic-
+tionsofeachsub-modelcorrespondtoindependentrandomvariables. Asaconsequence, theaggregated
+predicted density forY (x) is equal to the product of the sub-models densities :fpoe(y) ∝ p
+i=1fi(y)
+where fi is the predicted density ofY (x) according to the ith sub-model. The PoE corresponds
+to the normal model developed in [Winkler, 1981], in the case of independent experts, when the
+considered covariance matrix is diagonal (see e.g. section 3.2 in the previously cited article and
+[van Stein et al., 2015]). Some extensions of this method to consensus Monte-Carlo sampling can
+be found in [Scott et al., 2016].
+Generalizedproductofexpert(GPoE) .Asdiscussedin[Deisenroth and Ng, 2015], amajordraw-
+back of Kriging based PoE is that the prediction variance of the aggregated model decreases when
+the number of sub-models increases even in regions with no observation points. [Cao and Fleet, 2014]
+12
+adding a hyperparameter to whatever
+
+=== PDF PAGE 13 ===
+introduced a variant called generalized product of expert where a weighting term is added to overcome
+this issue. The prediction is then given by
+fgpoe(y) ∝
+p
+i=1
+(fi(y))βi. (19)
+Forthisbenchmark, theparameters βi willbesetto 1/pasrecommendedin[Deisenroth and Ng, 2015].
+Notice that GPoE corresponds exactly to what consensus literature refers tologarithmic opinion pool,
+see e.g. Eq.(3.11) in [Genest and Zidek, 1986].
+Bayesian Committee Machine (BCM)has been introduced in [Tresp, 2000] to aggregate Kriging
+sub-models. It is based on the assumption of conditional independence of the sub-models given the
+process values at prediction points. The predicted aggregated density is given by
+fbcm(y) ∝
+p
+i=1fi(y)
+fY (y)p−1 . (20)
+RobustBayesiancommitteemachine(RBCM) hasbeenintroducedin[Deisenroth and Ng, 2015]
+to correct some supposed ﬂaws from BCM aggregations in the case where there are only few observa-
+tions in each sub-model. The predicted aggregated density is given by
+frbcm(y) ∝
+p
+i=1(fi(y))βi
+(fY (y))−1+
+∑
+iβi
+, (21)
+where βi = 1
+2[log(V [Y (x)]) − log(vi(x))] with vi(x) the predicted variance of theith sub-model atx.
+One advantage of these aggregation methods is their very low complexity. However, GPoE, BCM
+and RBCM can be proven to be inconsistent [Bachoc et al., 2017]. For the sake of comparison, we
+add two other methods to the benchmark:
+Smallest prediction variance (SPV). For a given prediction pointx, the aggregation returns the
+prediction of the sub-model with the lowest prediction variance:
+fspv(y) =fk(y) with k = argmin
+i∈{1,...,p}
+vi(x). (22)
+Nearest Neighbors (NN). This is not strictly speaking an aggregation method: For a given pre-
+diction pointx, it consists in a kriging predictor based only on thek observations points that are the
+closest tox.
+These last two methods do not suﬀer from the inconsistency discussed for the above methods, but
+they provide discontinuous predictions. This can be an issue for example if the (aggregated) model is
+used to perform some optimization tasks.
+The test functions are given by samples over[0, 1] of a centered Gaussian processY with a Matérn
+kernel of smoothness 5/2. The variance and length-scale parameters of the latter are ﬁxed toσ2 = 1
+and θ = 0.05. The vector of observation pointsX consists of 30 random points uniformly distributed
+on [0, 1] and we consider in this example the aggregation of 15 sub-models based on two points each.
+Assuming that the observations points are ordered (x1 ≤ ... ≤ xn), each sub-model is trained with
+two consecutive observations points :A1 = {1, 2}, ..., A15 = {29, 30}. The variance and length-scale
+parameters of the sub-models are equal to the values used to generate the process samples.
+First of all, we will focus on the aggregated models obtained with the diﬀerent methods for a
+given sample path and design of experimentsX before looking at the distribution of various criteria
+when replicating the experiment. Figure 4 shows the aggregated models for the aggregation methods
+described above. On this example, PoE and GPoE appear respectively to be over- and under-conﬁdent
+in their predictions and show a mean prediction that tends too quickly to zero as the prediction point
+moves away from the observation points. On the other hand, the predictions from other methods seem
+more reliable and the best approximation is obtained with the proposed nested estimation approach.
+13
+could be a very nice tool to comparaision will add if doesn t clash too much
+fama bzeyed litterature
+is this still true for newer methods??? not so sure????
+
+=== PDF PAGE 14 ===
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3
+(a) PoE
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3 (b) GPoE
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3
+(c) BCM
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3 (d) RBCM
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3
+(e) SPV
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3
+ (f) NN
+0.0 0.2 0.4 0.6 0.8 1.0
+3
+2
+1
+0
+1
+2
+3
+(g) nested GPR
+0.0 0.2 0.4 0.6 0.8 1.0
+2
+1
+0
+1
+2
+3 (h) full
+Figure 4: Comparison of various aggregation methods. The solid lines correspond to aggregated
+models (mean and 95% prediction intervals) and the dashed lines indicate the full model predictions
+(mean and 95% prediction intervals).
+14
+
+=== PDF PAGE 15 ===
+This can be conﬁrmed by replicating 50 times the experiment by sampling independently the ob-
+servation points and the test function. We consider three criteria to quantify the distance between
+the aggregated model and the full model: the mean square error (MSE) to assess the accuracy of
+the aggregated mean, the mean variance error MVE for the accuracy of the predicted variance and
+the mean negative log probability (MNLP) [Williams and Rasmussen, 2006] to quantify the overall
+distribution ﬁt. Letm,v (resp. mfull,vfull) denote the mean and variance of the model to be tested
+(resp. the full model) and letXt be the vector of test points. These criteria are deﬁned as:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+MSE (m,mfull,Xt) = 1
+nt
+nt∑
+i=1
+(m(xt,i) −mfull (xt,i))2,
+MVE (v,vfull,Xt) = 1
+nt
+nt∑
+i=1
+(v(xt,i) −vfull (xt,i)),
+MNLP (m,v,f,X t) = 1
+nt
+nt∑
+i=1
+(
+1
+2 log(2πv(xt,i)) + (m(xt,i) −f(xt,i))2
+2v(xt,i)
+(
+.
+(23)
+Figure 5 shows the boxplots of these criteria for 50 replications of the experiments. It appears that
+the proposed approach gives the best approximation of the full model for the three considered criteria.
+full nested NN BCM SPV RBCMGPoE PoE
+2
+1
+0
+1
+2
+3
+4
+5
+(a) MNLP
+nested NN BCM SPV RBCM GPoE PoE
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35
+0.40
+0.45 (b) MSE
+nested NN BCM SPV RBCM GPoE PoE
+0.2
+0.1
+0.0
+0.1
+0.2
+0.3
+0.4 (c) MVE
+Figure 5: Quality assessment of the aggregated models for 50 test functions. Each test function is
+a sample from a Gaussian process and in each case 30 observation points are sampled uniformly on
+[0, 1]. The test points vectorXt consists of 101 points regularly spaced fromxt,1 = 0 to xt,101 = 1.
+5.2 Application to a high dimensional input space
+We replicate in this section the same experiment as in the previous one but for test functions
+deﬁned over the unit cube in 100 dimensions. We set the number of training points to10, 000 and
+we generate 100 sub-models based on a k-means clustering of the input points. This implies that the
+average number of points per cluster is 100 so we use the 100 closest observation points in the nearest
+neighbors method. As previously the test functions are random samples of a centered Gaussian process
+with squared exponential covariance and we consider two length-scale values to study this parameter
+inﬂuence on the methods to compare: a “short” length-scaleθ = 2 for which the full model captures
+about 50% of the prior variance and a “large” length-scaleθ = 5 for which the full model can explain
+99% of the prior variance.
+The results of the experiment are displayed in Figures 6 and 7. The ﬁrst striking observation is
+that BCM, RBCM and PoE underestimate the variance (since MVEs are negative) and lead to highly
+overconﬁdent models. Regarding the other approaches, NN, SPV and GPoE seem to provide similar
+global accuracy although it can be noted that the Nearest Neighbor method mean predictions are
+inaccurate for large length-scales. This can be explained by the set of inﬂuential neighbors being
+larger than 100 for such values of the length-scales. Finally, it can be seen that the proposed nested
+15
+throw away
+
+=== PDF PAGE 16 ===
+method is the one providing the best approximation of the full model. Compared to the other methods
+its mean is more accurate and it provides prediction intervals that are smaller than NN, SPV and
+GPoE while being realistic as shown by the MNLP. This is especially true for large length-scales for
+which the proposed approach is even more competitive.
+full nested NN BCM SPV RBCMGPoE PoE
+100
+101
+102
+(a) MNLP (log scale)
+nested NN BCM SPV RBCM GPoE PoE
+10-1
+100
+101 (b) MSE (log scale)
+nested NN BCM SPV RBCM GPoE PoE
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+0.1
+0.2
+0.3
+0.4 (c) MVE
+Figure 6: Quality assessment of various aggregation methods. The test functions are given by 50
+samples from a centered Gaussian process over[0, 1]100 with squared exponential kernel, unit variance
+and length-scaleθ = 2. The models are built using 10, 000 observations points drawn uniformly in
+the input space. These input points are gathered into 100 groups using k-means in order to build
+the sub-models. The test point locations are obtained by sampling uniformly 100 points in the input
+space.
+full nested NN BCM SPV RBCMGPoE PoE
+0
+5
+10
+15
+20
+25
+30
+35
+40
+(a) MNLP
+nested NN BCM SPV RBCM GPoE PoE
+0.02
+0.04
+0.06
+0.08
+0.10
+0.12
+0.14
+0.16 (b) MSE
+nested NN BCM SPV RBCM GPoE PoE
+0.02
+0.00
+0.02
+0.04
+0.06
+0.08
+0.10
+0.12
+0.14 (c) MVE
+Figure 7: Same settings as in Figure 6, but the length-scale of the test functions is 5.
+5.3 Application to a large dataset
+In this section, we analyze the performance of the proposed method on a test function with one million
+observations.
+We use two diﬀerent test functions. The ﬁrst one is the Hartman6 test function in dimension
+d = 6 (available for example in the DiceKriging R package [Roustant et al., 2012]). The second one
+in the dimensiond = 18 is called here Hartman18 test function: it is simply the sum of three Hart-
+man6 test functions, each acting on 6 separated parameters:Hartman18(x1:18) = Hartman 6(x1:6) +
+Hartman6(x7:12) + Hartman6(x13:18).
+For the Hartman6 test function, the covariance parameters of a squared exponential kernel have
+been estimated once on a subset of points. We give here the obtained length-scales, so that the results
+can be easily reproduced: (0.262, 0.435, 0.423, 0.348, 0.314, 0.299). For the Hartman18 test function,
+we use two diﬀerent sets of covariance parameters: the ﬁrst one is slightly misspeciﬁed since it is
+16
+
+
+=== PDF PAGE 17 ===
+given by the one estimated for Hartman6 repeated three times, the second one is estimated with usual
+MLE on a subset of 2000 points. Although the model could be improved with a reﬁned estimation of
+the length-scales, this is suﬃcient to compare the diﬀerent methods. The variance parameter has no
+inﬂuence on this comparison since we only consider here the performance of the mean predictors.
+We consider in this examplen = 1, 000, 000 design points andq = 100 predictions points. Several
+methods are considered:
+• the Kriging predictor refers to a simple Kriging predictor based on a random sample (without
+replacement) of 1000 points taken among the initial points. It is mainly computed in order to
+give an order of the reachable error magnitude for a reasonable learning of the test function, and
+to see if reﬁned methods really improve the performance of the prediction.
+• The Neighbor predictor refers to a simple kriging predictor which gives, for each prediction
+point, the prediction based on its nearest neighbors in the design matrixX. Near 100 refers to a
+predictor based on100 nearest neighbors,Near 1000 refers to a predictor based on1000 nearest
+neighbors.
+• The Nested method refers to the proposed method in this paper. For one million points, we have
+chosen a tree structure corresponding toN = 1000 groups of points, each group being obtained
+using kmeans clustering algorithm. Two variants are considered:Nested refers to a clustering
+that is built directly without considering the locations of the prediction points.Nested+ refers
+to a clustering that is built using these locations (i.e. ﬁrstq = 100 clusters are built around each
+prediction points, without overlapping, andN −q = 900 clusters are built on residual design
+points). In all cases, depending on the location of design points, each cluster size typically vary
+between 800 and 1200.
+For each run, we draw uniformly a new design matrixX, a new vector of predictions pointsx, and
+we analyze the performance of the predictors. To this aim, the predictions are compared to the true
+chosen test function, and we collect for each run one mean of errors over all prediction points. We
+reproduce the whole experiment on 10 runs. The results are gathered in the boxplots of Figure 8 and
+Figure 9.
+As announced, the Kriging predictor based on a random sample of 1000 points is mainly given
+to get an order of the errors magnitude with a reasonable learning of the function, but clearly its
+complexity is lower, and it does not reach the precision level of other competitors: other methods
+outperform results based on a random sample of experiments.
+The nearest neighbor is a clear improvement over the randomly selected training points and the
+computation scheme is relatively simple. However it generates non-continuous mean and variance
+predictions, so the practical interest of such a model (e.g. to perform optimization) may be limited.
+While it performs very well in small dimension, one can see on Figure 9 that it becomes less attractive
+in higher dimension since it would require to further increase the number of neighbors to provide com-
+petitive predictions. One can also see that nearest neighbors are also quite sensitive to the estimation
+of the parameters.
+The nested procedure has a greater complexity: each run takes around50 minutes on a modern com-
+puter with 16 threads (1, 000, 000 observations, 100 prediction points, Hartman18 test function,1000
+groups and possible multithreading scalability improvements). The execution time for100, 000 obser-
+vations and unchanged other settings is around30 seconds. Our procedure remains here accurate with
+concatenated parameters, contrarily to other methods. It leads to a very good accuracy and some
+theoretical advantages previously presented. In relatively small dimension, as in Figure 8, depending
+on the length-scales of the underlying process, the closest neighbors may be suﬃcient to explain the
+local shape of the response. In this case, a judicious choice of the tree structure may improve the
+accuracy of the nested method, which is comparable to the one of the1000 closest neighbors. In
+larger dimension, when local information is not suﬃcient, the choice of the tree structure has a lower
+impact, and the reﬁnements of the nested method make sense, as they lead to a better accuracy than
+17
+
+=== PDF PAGE 18 ===
+●
+●
+Nested+
+Nested
+Near1000
+Near100
+Kriging1000
+1e−08
+1e−06
+1e−04
+1e−02
+Mean square errors (log scale)
+(a) Hartman 6
+Figure 8: Boxplot of the mean square errors (in log scale), for the Nested procedure and its variant,
+the nearest neighbors procedure based on 1000 neighbors or 100 neighbors, and for the Kriging method
+based on a random sample of 1000 points. We used one million input points, one hundred prediction
+points and Hartman6 test function.
+●
+●●
+Nested+
+Nested
+Near1000
+Near100
+Kriging1000
+0.05
+0.10
+0.20
+0.50
+1.00
+Mean square errors (log scale)
+(a) Hartman 18, concatenated parameters
+●
+Nested+
+Nested
+Near1000
+Near100
+Kriging1000
+0.05
+0.10
+0.15
+0.20
+0.25
+Mean square errors (log scale) (b) Hartman 18, estimated parameters
+Figure 9: Boxplots of mean square errors (in log scale), for the Nested procedure and its variant, the
+nearest neighbors procedure based on 1000 neighbors or 100 neighbors, and for the Kriging method
+based on a random sample of 1000 points. We used one million input points, one hundred prediction
+points, Hartman18 test function and either concatenated parameters from Hartman6 (left panel) or
+estimated parameters (right panel).
+18
+
+=== PDF PAGE 19 ===
+considered local neighbors methods.
+Finally, despite greater complexity, the proposed method is still tractable with one million of
+observations. It leads to a better accuracy, especially in high dimension. In small dimension and when
+possible, it can be useful to build the tree structure by using the location of the prediction points,
+to take the best of both closest neighbors and nested methods. At last, the proposed nested method
+makes an intensive use of cross-covariances between groups and can surely be improved by using a
+better estimation of these parameters, or by a transformation of the inputs or the outputs that would
+make the assumptions more reliable.
+5.4 Application to an industrial case study
+We consider in this section experimental data on the behavior of a steel test piece subject to cycles
+of tension-compression. During these cycles, the evolution of the tensile strain in the test piece is
+monitored over time using two methods: by performing the actual physical experiment and by a
+numerical simulator based on a Chaboche constitutive equation [Lemaitre and Chaboche, 1994]. The
+quantity of interest is the misﬁt between these two experiments. A test piece is described by6 scalar
+variables (E,C 1,C 2,γ 0
+1,γ 0
+2,r ), whereE is a logarithm transform of the Young’s modulus,C1, C2, γ0
+1
+andγ0
+2 are parameters related to the kinematic hardening andr is the radius of the plastic surface at
+the stabilized state. The set of admissible inputs is denoted byD ⊂ R6.
+Hereafter, we focus on modeling the functionf : D → R that returns the logarithm of theL2
+norm of the diﬀerence between the curve from the actual experiment and the one from the simulator.
+In total, we have at our disposal a set of10, 000 observations [X,f (X)], from which we randomly
+extract a learning set [Xl,f (Xl)] of n = 9000 observations and assign the nt = 1000 remaining
+observations to a test set[Xt,f (Xt)].
+We compare the predictions off(Xt) obtained from the SPV, PoE, GPoE1, GPoE2, BCM and
+RBCMaggregationproceduresdescribedinSection5.1withournestedaggregationprocedure. GPoE1
+corresponds to (19) withβi = 1
+2[log(V [Y (x)]) − log(vi(x))] [Cao and Fleet, 2014] and GPoE2 corre-
+sponds to (19) with βi = 1/p [Deisenroth and Ng, 2015]. For all these methods, we consider an
+aggregation tree of height¯ν = 2 (once sub-models have been evaluated at layer 1, they are all directly
+aggregated into one value at layer 2), so thatp Gaussian process models are directly aggregated. The
+p subsamples form a partition of[Xl,f (Xl)], which is obtained using thek-means clustering algorithm.
+Three covariance functions have been considered for the sub-models: (tensorized) exponential,
+Matérn 3/2 and Matérn 5/2 (see [Williams and Rasmussen, 2006, Roustant et al., 2012] for the deﬁ-
+nition of these functions). For all studied methods, the Matérn5/2 covariance seemed to be the most
+appropriate to the problem at hand since we obtained overall more accurate results. The results pre-
+sented hereafter thus focus on this Matérn5/2 covariance family. Its parameters are estimated with
+two diﬀerent techniques depending on the aggregation method: for the methods from the literature
+and SPV, we follow the recommended procedure which consists in maximizing the sum of the log like-
+lihoods over thep subsamples of[Xl,f (Xl)] (see [Deisenroth and Ng, 2015]). For the proposed nested
+aggregation, we carry out the stochastic-gradient based estimation method described in Section 4,
+with starting points set to the maximizer of the sum of the log likelihoods.
+To assess the quality of a model with predicted meanm and variancev, we compute three quality
+criteria using the test set: MSE and MNLP as per Eq. 23 which are small for a good model, and the
+mean normalized square error (MNSE)
+MNSE (m,v,f,X t) = 1
+nt
+nt∑
+i=1
+(m(xt,i) −f(xt,i))2
+v(xt,i) ,
+which should be close to1.
+19
+
+
+=== PDF PAGE 20 ===
+SPV PoE GPoE1 GPoE2 BCM RBCM Nested
+MSE 0.00416 0 .0662 0 .0033 0 .0662 0 .604 0 .0625 0.00321
+MNSE 1.27 20 .00 4 .55 1.00 219 60 .8 0 .846
+MNLP −1.86 7 .25 −0.949 −0.765 107 27 .2 −1.97
+Table1: Predictionperformancesoftheaggregationof p = 20sub-modelsforthesteelpiececonstraints
+cycles data set. The investigated prediction performance criteria are the mean square error (MSE)
+which should be minimal, mean normalized square error (MNSE) which should be close to1 and
+mean negative log probability (MNLP) which should be small. Bold ﬁgures indicate each line’s best
+performing aggregation method.
+SPV PoE GPoE1 GPoE2 BCM RBCM Nested
+MSE 0.00556 0 .811 0 .0244 0 .811 1 .84 0 .121 0.00418
+MNSE 1.20 465 34 .2 5 .16 980 148 0.84700
+MNLP −1.55 230 14 .1 2 .13 487 71 −1.7
+Table2: Predictionperformancesoftheaggregationof p = 90sub-modelsforthesteelpiececonstraints
+cycles data set. All other settings are the same as in Table 1.
+The prediction results for a given learning and training test set are given in Table 1 for the aggre-
+gation ofp = 20 sub-models and in Table 2 forp = 90. It can be seen that in both cases the proposed
+method outperforms the other aggregation methods for the MSE and MNLP quality criteria. The
+MSE has the same order of magnitude for the SPV and our aggregation method, where the prediction
+errors are small compared to the empirical variance of the test outputsf(xt,i), i = 1,...,n t, which
+is approximately equal to 0.81. In contrast, the MSE can be signiﬁcantly larger for all the other
+aggregation procedures. For the PoE, GPoE1, BCM and RBCM aggregation techniques, the values of
+MNSE are orders of magnitude greater than the target value one, which indicates that the aggregated
+models are highly overconﬁdent. The GPoE2 aggregation technique is also overconﬁdent whenp = 90,
+where its MNSE is equal to 5.16. The SPV and our aggregation methods provide appropriate predic-
+tive variances, and our method provides the best combination of predictions and predictive variances,
+according to the MNLP criterion.
+Tables 1 and 2 also show that aggregatingp = 20 sub-models gives more accurate models than
+aggregating p = 90 sub-models. This suggests that it is a good practice to aggregate few sub-models
+based on many points instead of aggregating many sub-models based on few points. Although this
+would require further testing to be conﬁrmed, it is not surprising since aggregation methods rely on
+some independence assumptions that are not often met in practice.
+Tables 3 and 4 show the values of the quality criteria when the subsamples used for thep = 20
+or p = 90 sub-models are randomly generated into the learning set. They can thus be compared
+to Tables 1 and 2 to study the inﬂuence of the choice of the support points of the sub-models: the
+criteria values are overall better in Tables 1 and 2 so usingk-means is beneﬁcial for the aggregation
+procedures. In addition, our proposed aggregation technique becomes better in comparison to the
+other methods, and speciﬁcally to SPV, when the subsamples are randomly generated.
+All previous results have been obtained for a given random choice of the learning and test sets.
+We now replicate the procedure 20 times, with the same settings as in Tables 1 (p = 20; subsamples
+obtained from thek-means algorithm; Matérn 5/2 covariance function) and 4 (p = 90; subsamples
+randomly selected; Matérn5/2 covariance function), but with diﬀerent learning and test sets for each
+replication. The covariance parameters are reestimated for each learning set, by minimizing the sum of
+log likelihoods for the SPV, PoE, GPoE1, GPoE2, BCM and RBCM aggregation techniques, and with
+the proposed leave-one-out estimation procedure for our nested aggregation method. The boxplots of
+20
+
+=== PDF PAGE 21 ===
+SPV PoE GPoE1 GPoE2 BCM RBCM Nested
+MSE 0.0086 0 .00763 0 .00704 0 .00763 0 .338 0 .274 0.00539
+MNSE 1.21 9 .38 16 .6 0 .469 178 268 0.864
+MNLP −1.25 1 .75 5 .03 −1.21 86 .2 130 −1.5
+Table 3: Same settings as in Table 1 but when the subsamples are randomly selected.
+SPV PoE GPoE1 GPoE2 BCM RBCM Nested
+MSE 0.0182 0 .0293 0 .0246 0 .0293 0 .977 0 .686 0.00575
+MNSE 1.29 42 .5 57 .2 0 .473 852 988 0.867
+MNLP −0.804 18 .3 25 .3 −0.517 423 491 −1.37
+Table 4: Same settings as in Table 1 but withp = 90 sub-models and where the subsamples are
+randomly selected.
+the corresponding 20 mean square errors and mean negative log probability are reported in Figures 10
+and 11. These replications conﬁrm the results obtained previously on single instances of the learning
+and test set: the proposed nested aggregation and covariance parameter estimation jointly give better
+prediction both for the predicted mean and variance than current existing aggregation techniques.
+●
+nested
+SPV
+GPoE1
+GPoE2
+RBCM
+PoE
+BCM
+0.005
+0.010
+0.020
+0.050
+0.100
+0.200
+0.500
+MSE (log scale)
+● ●●●
+●
+●●
+●
+nested
+SPV
+GPoE1
+GPoE2
+RBCM
+PoE
+BCM
+0
+20
+40
+60
+80
+100
+120
+140
+MNLP
+●
+●
+●●
+nested
+SPV
+GPoE1
+GPoE2
+−2.0
+−1.5
+−1.0
+−0.5
+0.0
+0.5
+MNLP (detail)
+Figure 10: Boxplots of 20 values of the mean square error (MSE) prediction criterion and of the
+logarithm of the mean negative log probability (MNLP) prediction criterion where the learning and
+test sets are randomly generated. The settings are as in Table 1 (p = 20 subsamples obtained from
+thek-means algorithm; Matérn5/2 covariance function). The covariance parameters are estimated by
+minimizing the sum of log likelihoods for the SPV, PoE, GPoE1, GPoE2, BCM and RBCM aggregation
+techniques, and with our proposed leave-one-out estimation procedure for the nested aggregation
+procedure.
+Of course, the improvement brought by our proposed aggregation scheme comes with a higher
+computational cost: the proposed estimation procedure takes a few hours on a personal computer,
+against a few tens of minutes for the minimization of the sum of the log likelihoods. Similarly,
+performing 1000 predictions takes around30 seconds with our proposed optimal aggregation, against
+around 1 second for the other simpler aggregation procedures. Nevertheless, we believe that the
+increased accuracy and robustness of the method we propose is worth the additional computational
+burden in many situations.
+21
+
+=== PDF PAGE 22 ===
+●●
+●
+●●
+●●
+●●
+●●
+●●
+nested
+SPV
+GPoE1
+GPoE2
+RBCM
+PoE
+BCM
+0.005
+0.010
+0.020
+0.050
+0.100
+0.200
+0.500
+1.000
+MSE (log scale)
+●
+●
+nested
+SPV
+GPoE1
+GPoE2
+RBCM
+PoE
+BCM
+0
+100
+200
+300
+400
+500
+MNLP
+nested
+SPV
+GPoE1
+GPoE2
+−1.4
+−1.2
+−1.0
+−0.8
+−0.6
+−0.4
+MNLP (detail)
+Figure 11: Same settings as in Figure 10 but withp = 90 and where the subsamples are randomly
+selected.
+6 Conclusion
+We have proposed a new method for aggregating sub-models based on subsets of observation points,
+with a particular emphasis on Kriging sub-models. Our method can be seen as an optimal linear
+weighting of sub-models, where the obtained weights are taking into account all pairwise covariances
+between the sub-models, thus avoiding some usual independence assumptions.
+Compared to current existing aggregation techniques, we ﬁnd several beneﬁts to our our aggregation
+procedure. First, it has some good theoretical properties, like consistency or optimality based on a
+slightly diﬀerent process which can be simulated. We refer again to [Bachoc et al., 2017] for details.
+Second, a dedicated covariance parameter estimation procedure is provided, based on a gradient
+descent minimization of leave-one-out cross validation errors, where the predictions are performed
+using the proposed nested aggregation. Some user-friendly code for computing both prediction and
+covariance parameter estimation is publicly available.
+At last, numerical results are encouraging. In both simulated data and industrial application, our
+method is shown to outperform state-of-the-art aggregation techniques. This improvement comes
+with an increased computational cost compared to more basic aggregation methods, but the proposed
+nested aggregation remains applicable up ton = 106 observation points, while exact Kriging inference
+becomes intractable aroundn = 10 000.
+We would like to mention two avenues for future research. First, we show that the aggregation
+method we propose can be applied recursively, yielding a nested aggregation technique with smaller
+computational cost. It would be interesting to quantify the practical gain one could obtain on real
+data sets from this recursive aggregation. Second, we ﬁnd that the stochastic gradient algorithm
+we propose could be further investigated. In particular, theoretical properties could be derived, the
+practical implementation could be improved, and the principle could be extended to other criteria for
+covariance parameter estimation.
+Acknowledgements
+Part of this research was conducted within the frame of the Chair in Applied Mathematics OQUAIDO,
+gathering partners in technological research (BRGM, CEA, IFPEN, IRSN, Safran, Storengy) and
+academia (Ecole Centrale de Lyon, Mines Saint-Etienne, University of Grenoble, University of Nice,
+University of Toulouse and CNRS) around advanced methods for Computer Experiments. The authors
+would like to warmly thank Dr. Géraud Blatman and EDF R&D for providing us the industrial test
+case. They also thank both editor and reviewers for very precise and constructive comments on this
+paper. This paper has been ﬁnished during a stay of D. Rullière at Vietnam Institute for Advanced
+22
+
+=== PDF PAGE 23 ===
+Study in Mathematics, the latter author thanks the VIASM institute and DAMI research chair (Data
+Analytics & Models for Insurance) for their support.
+References
+[Bachoc, 2013] Bachoc, F. (2013). Cross validation and maximum likelihood estimations of hyper-
+parameters of Gaussian processes with model mispeciﬁcation.Computational Statistics and Data
+Analysis, 66:55–69.
+[Bachoc et al., 2017] Bachoc, F., Durrande, N., Rullière, D., andChevalier, C.(2017). Someproperties
+of nested kriging predictors. Technical report hal-01561747.
+[Bhatnagar et al., 2013] Bhatnagar, S., Prasad, H., and Prashanth, L. (2013).Stochastic recursive
+algorithms for optimization, volume 434. New York: Springer.
+[Cao and Fleet, 2014] Cao, Y. and Fleet, D. J. (2014). Generalized Product of Experts for Automatic
+and Principled Fusion of Gaussian Process Predictions.arXiv preprint arXiv:1410.7827v2, CoRR,
+abs/1410.7827:1–5. Modern Nonparametrics 3: Automating the Learning Pipeline workshop at
+NIPS, Montreal.
+[Deisenroth and Ng, 2015] Deisenroth, M. P. and Ng, J. W. (2015). Distributed Gaussian processes.
+Proceedings of the 32nd International Conference on Machine Learning, Lille, France. JMLR:
+W&CP volume 37.
+[Genest and Zidek, 1986] Genest, C. and Zidek, J. V. (1986). Combining probability distributions: A
+critique and an annotated bibliography.Statistical Science, 1(1):114–135.
+[Golub and Van Loan, 2012] Golub, G. H. and Van Loan, C. F. (2012).Matrix computations, vol-
+ume 3. JHU Press.
+[Guhaniyogi et al., 2011] Guhaniyogi, R., Finley, A. O., Banerjee, S., and Gelfand, A. E. (2011).
+Adaptive gaussian predictive process models for large spatial datasets.Environmetrics, 22(8):997–
+1007.
+[Hensman et al., 2013] Hensman, J., Fusi, N., and Lawrence, N. D. (2013).Gaussian Processes for
+Big Data. Uncertainty in Artiﬁcial Intelligence conference. paper Id 244.
+[Hinton, 2002] Hinton, G. E. (2002). Training products of experts by minimizing contrastive diver-
+gence. Neural computation, 14(8):1771–1800.
+[Katzfuss, 2013] Katzfuss, M. (2013). Bayesian nonstationary spatial modeling for very large datasets.
+Environmetrics, 24(3):189–200.
+[Lemaitre and Chaboche, 1994] Lemaitre, J. and Chaboche, J.-L. (1994).Mechanics of solid materi-
+als. Cambridge university press.
+[Maurya, 2016] Maurya, A. (2016). A well-conditioned and sparse estimation of covariance and inverse
+covariance matrices using a joint penalty.The Journal of Machine Learning Research, 17(1):4457–
+4484.
+[Nickson et al., 2015] Nickson, T., Gunter, T., Lloyd, C., Osborne, M. A., and Roberts, S.
+(2015). Blitzkriging: Kronecker-structured stochastic Gaussian processes. arXiv preprint
+arXiv:1510.07965v2, pages 1–13.
+[Ranjan and Gneiting, 2010] Ranjan, R. and Gneiting, T. (2010). Combining probability forecasts.
+Journal of the Royal Statistical Society: Series B (Statistical Methodology), 72(1):71–91.
+23
+
+=== PDF PAGE 24 ===
+[Roustant et al., 2012] Roustant, O., Ginsbourger, D., and Deville, Y. (2012). DiceKriging, DiceOp-
+tim: Two R packages for the analysis of computer experiments by Kriging-based metamodeling and
+optimization. Journal of Statistical Software, 51(1).
+[Rue and Held, 2005] Rue, H. and Held, L. (2005). Gaussian Markov random ﬁelds, Theory and
+applications. Chapman & Hall.
+[Samo and Roberts, 2016] Samo, Y.-L. K. and Roberts, S. J. (2016). String and membrane gaussian
+processes. Journal of Machine Learning Research, 17(131):1–87.
+[Santner et al., 2013] Santner, T. J., Williams, B. J., and Notz, W. I. (2013).The design and analysis
+of computer experiments. Springer Science & Business Media.
+[Satopää et al., 2016] Satopää, V. A., Pemantle, R., and Ungar, L. H. (2016). Modeling probability
+forecasts via information diversity.Journal of the American Statistical Association, 111(516):1623–
+1633.
+[Scott et al., 2016] Scott, S. L., Blocker, A. W., Bonassi, F. V., Chipman, H. A., George, E. I., and
+McCulloch, R. E. (2016). Bayes and big data: The consensus monte carlo algorithm.International
+Journal of Management Science and Engineering Management, 11(2):78–88.
+[Stein, 2012] Stein, M. L. (2012). Interpolation of spatial data: some theory for kriging. Springer
+Science & Business Media.
+[Stein, 2014] Stein, M. L. (2014). Limitations on low rank approximations for covariance matrices of
+spatial data. Spatial Statistics, 8:1–19.
+[Tresp, 2000] Tresp, V. (2000). A bayesian committee machine.Neural Computation, 12(11):2719–
+2741.
+[Tzeng et al., 2005] Tzeng, S., Huang, H.-C., and Cressie, N. (2005). A fast, optimal spatial-prediction
+method for massive datasets.Journal of the American Statistical Association, 100(472):1343–1357.
+[van Stein et al., 2015] van Stein, B., Wang, H., Kowalczyk, W., Bäck, T., and Emmerich, M. (2015).
+Optimallyweightedclusterkrigingforbigdataregression. In International Symposium on Intelligent
+Data Analysis, pages 310–321. Springer.
+[Wahba, 1990] Wahba, G. (1990).Spline models for observational data, volume 59. SIAM.
+[Wei et al., 2015] Wei, H., Du, Y., Liang, F., Zhou, C., Liu, Z., Yi, J., Xu, K., and Wu, D. (2015).
+A k-d tree-based algorithm to parallelize kriging interpolation of big spatial data.GIScience &
+Remote Sensing, 52(1):40–57.
+[Williams and Rasmussen, 2006] Williams, C. K. and Rasmussen, C. E. (2006).Gaussian Processes
+for Machine Learning. MIT Press.
+[Winkler, 1968] Winkler, R. L. (1968). The consensus of subjective probability distributions.Man-
+agement Science, 15(2):B–61.
+[Winkler, 1981] Winkler, R. L. (1981). Combining probability distributions from dependent informa-
+tion sources. Management Science, 27(4):479–488.
+[Zhang et al., 2015] Zhang, B., Sang, H., and Huang, J. Z. (2015). Full-scale approximations of spatio-
+temporal covariance models for large datasets.Statistica Sinica, pages 99–114.
+24
+
+=== PDF PAGE 25 ===
+A Proof of Proposition 4
+Complexities: under chosen assumption onα and β coeﬃcients, for a regular tree and in the case
+of simple Kriging sub-models,Cα = ∑¯ν
+ν=1
+∑nν
+i=1αc3
+ν =α ∑¯ν
+ν=1c3
+νnν and Cβ = ∑¯ν
+ν=1
+∑nν
+i=2
+∑i−1
+j=1βc2
+ν =
+β
+2
+∑¯ν
+ν=1nν(nν −1)c2
+ν. Notice that the sum starts fromν = 1 in order to include sub-models calculation.
+Equilibrated trees complexities: In a constant child number setting, whencν = c for allν, the tree
+structure ensures that nν = n/cν, thus as c = n1/¯ν, we get when n → +∞, Cα ∼ αn1+ 2
+¯ν and
+Cβ ∼ β
+2n2. The result for equilibrated two-layer tree where ¯ν = 2 directly derives from this one,
+and in this case Cα ∼ αn2 and Cβ ∼ β
+2n2 (it derives also from the expressions of Cα, Cβ, when
+c1 =c2 = √n, n1 = √n, n2 = 1). Optimal tree complexities: One easily shows that under the chosen
+assumptions Cβ ∼ β
+2n2. Thus, it is indeed not possible to reduce the whole complexity to orders
+lower thanO(n2). However, one can choose the tree structure in order to reduce the complexityCα.
+For a regular tree,nν = n/(c1 · · ·cν) such that ∂
+∂ck
+nν = −1{ν≥k}nν/ck. Using a Lagrange multiplier
+ℓ, one deﬁnes ξ(k) = ck ∂
+∂ck
+(Cα −ℓ(c1 · · ·c¯ν −n)) = 3 αc3
+knk −α ∑¯ν
+ν=kc3
+νnν −ℓc1 · · ·c¯ν. The tree
+structure that minimizes Cα is such that for allk < ¯ν, ξ(k) = ξ(k + 1) = 0. Using ck+1nk+1 = nk,
+one gets 3c2
+k+1 = 2c3
+k for all k < ¯ν, and setting c1 · · ·c¯ν = n, cν = δ
+(
+δ−¯νn
+)δν−1
+2(δ¯ν −1), ν = 1,..., ¯ν,
+with δ = 3
+2. Setting γ = 27
+4δ− ¯ν
+δ¯ν −1
+(
+1 −δ−¯ν )
+. After some direct calculations this tree structure
+corresponds to complexities, Cα = γαn1+ 1
+δ¯ν −1 and Cβ ∼ β
+2n2. In a two-layers setting one getsc1 =
+(
+3
+2
+)1/5
+n2/5 and c2 =
+(
+3
+2
+)−1/5
+n3/5, which leads toCα = γαn9/5 and Cβ = β
+2n2 − β
+2
+(
+3
+2
+)1
+5
+n
+7
+5, where
+γ = ( 2
+3)−2/5 + (2
+3)3/5 ≃ 1.96 (eventually notice that even for values ofn of order 105, terms of order
+liken9/5 are not necessarily negligible compared to those of ordern2, and thatCβ is slightly aﬀected
+by the choice of the tree structure, but the global complexity beneﬁts from the optimization ofCα).
+Storage footprint: First, covariances can be stored in triangular matrices. So temporary objectsM,
+k and K in Algorithm 1 require the storage ofcmax(cmax + 5)/2 real values. For a given step ν,
+ν ≥ 2, building all vectorsαi requires the storage of ∑nν
+i=1cν
+i = nν−1 values. At last, for a given
+stepν, we simultaneously need objectsMν−1,Kν−1,Mν,Kν, which require the storage ofnν−1(nν−1 +
+3)/2 +nν(nν + 3)/2 real values. In a regular tree, as nν is decreasing inν, the storage footprint
+is S = (cmax(cmax + 5) +n1(n1 + 5) +n2(n2 + 3))/2. Hence the equivalents for S for the diﬀerent
+tree structures, S ∼ n for the two-layer equilibrated tree,S ∼ 1
+2n2−2/¯ν for the ¯ν-layer, ¯ν > 2, and
+the indicated result for the optimal tree. Simple orders are given in the proposition, which avoids
+separating the case¯ν = 2 and a cumbersome constant for the optimal tree.
+25

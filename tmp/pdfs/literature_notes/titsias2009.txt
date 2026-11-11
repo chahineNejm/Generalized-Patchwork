@@ -1,0 +1,924 @@
+=== PDF PAGE 1 ===
+         567
+Variational Learning of Inducing Variables in Sparse Gaussi an
+Processes
+Michalis K. Titsias
+School of Computer Science,
+University of Manchester, UK
+mtitsias@cs.man.ac.uk
+Abstract
+Sparse Gaussian process methods that use in-
+ducing variables require the selection of the
+inducing inputs and the kernel hyperparam-
+eters. We introduce a variational formula-
+tion for sparse approximations that jointly
+infers the inducing inputs and the kernel hy-
+perparameters by maximizing a lower bound
+of the true log marginal likelihood. The key
+property of this formulation is that the in-
+ducing inputs are deﬁned to be variational
+parameters which are selected by minimizing
+the Kullback-Leibler divergence between the
+variational distribution and the exact poste-
+rior distribution over the latent function val-
+ues. We apply this technique to regression
+and we compare it with other approaches in
+the literature.
+1 INTRODUCTION
+The application of Gaussian process (GP) models is in-
+tractable for large datasets because the time complex-
+ity scales as O(n3) and the storage as O(n2) where
+n is the number of training examples. To overcome
+this limitation, many approximate or sparse meth-
+ods have been proposed in the literature (Williams
+and Seeger, 2001; Smola and Bartlett, 2001; Csato
+and Opper, 2002; Lawrence et al., 2002; Seeger
+et al., 2003; Schwaighofer and Tresp, 2003; Snelson
+and Ghahramani, 2006; Qui˜ nonero-Candela and Ras-
+mussen, 2005). These methods construct an approxi-
+mation based on a small set of m support or inducing
+variables that allow the reduction of the time com-
+Appearing in Proceedings of the 12 th International Confe-
+rence on Artiﬁcial Intelligence and Statistics (AISTATS)
+2009, Clearwater Beach, Florida, USA. Volume 5 of JMLR:
+W&CP 5. Copyright 2009 by the authors.
+plexity from O(n3) to O(nm2). They mainly diﬀer
+in the strategies they use to select the inducing in-
+puts which are typically selected from the training or
+test examples. Snelson and Ghahramani (2006) allow
+the inducing variables to be considered as auxiliary
+pseudo-inputs that are inferred along with kernel hy-
+perparameters using continuous optimization.
+Approximate marginal likelihoods are appropriate ob-
+jective functions for model selection in sparse GP mod-
+els. Existing state-of-the-art methods (Snelson and
+Ghahramani, 2006; Seeger et al., 2003) derive such ap-
+proximations by modifying the GP prior (Qui˜ nonero-
+Candela and Rasmussen, 2005) and then computing
+the marginal likelihood of the modiﬁed model. This
+approach turns the inducing inputs into additional ker-
+nel hyperparameters. While this can increase ﬂexibil-
+ity when we ﬁt the data, it can also lead to overﬁtting
+when we optimize with respect to all unknown hyper-
+parameters. Furthermore, ﬁtting a modiﬁed model is
+not so rigorous approximation procedure since there is
+no distance between the exact and the modiﬁed model
+that is minimized.
+In this paper we introduce a variational method that
+jointly selects the inducing inputs and the hyperpa-
+rameters by maximizing a lower bound to the exact
+marginal likelihood. The important diﬀerence between
+this formulation and previous methods is that here the
+inducing inputs are deﬁned to be variational param-
+eters which are selected by minimizing the Kullback-
+Leibler (KL) divergence between a variational GP and
+the true posterior GP. This allows i) to avoid overﬁt-
+ting and ii) to rigorously approximate the exact GP
+model by minimizing a distance between the sparse
+model and the exact one. The selection of the inducing
+inputs and hyperparameters is achieved either by ap-
+plying continuous optimization over all unknown quan-
+tities or by using a variational EM algorithm where at
+the E step we greedily select the inducing inputs from
+the training data and at the M step we update the
+hyperparameters. In contrast to previous greedy ap-
+like mine
+this is a very good point
+
+=== PDF PAGE 2 ===
+         568
+V ariational Learning of Inducing V ariables in Sparse Gaussian Pro cesses
+proaches, e.g. (Seeger et al., 2003), our scheme mono-
+t
+onically increases the optimized objective function.
+We apply the variational method to regression with
+additive Gaussian noise and we compare its perfor-
+mance to training schemes based on the projected pro-
+cess marginal likelihood (Seeger et al., 2003; Csato and
+Opper, 2002) and the sparse pseudo-inputs marginal
+likelihood (Snelson and Ghahramani, 2006).
+Our method is most closely related to the variational
+sparse GP method described in (Csato and Opper,
+2002; Seeger, 2003) that is applied to GP classiﬁca-
+tion (Seeger, 2003). The main diﬀerence between our
+formulation and these techniques is that we maximize
+a variational lower bound in order to select the induc-
+ing inputs, while these methods use variational bounds
+for estimating only the kernel hyperparameters.
+2 SPARSE GP REGRESSION
+A GP is a set of random variables {f(x)|x ∈ X } for
+which any ﬁnite subset follows a Gaussian distribution.
+To describe a GP, we only need to specify the mean
+function m(x) and a covariance function k(x, x′). The
+covariance function typically depends on a set of hy-
+perparameters θ. A GP can be used as a prior over a
+real-valued function f (x). This prior can be combined
+with data to give a posterior over the function.
+Suppose we have a training dataset {(xi, y i)}n
+i=1 of n
+noisy realizations of some unobserved or latent func-
+tion so that each scalar yi is obtained by adding Gaus-
+sian noise to f (x) at input xi, i.e. yi = fi + ǫ i, where
+ǫ i ∼ N (0, σ 2) and fi = f (xi). Let X denote all train-
+ing inputs, y all outputs and f the corresponding train-
+ing latent function values. The joint probability model
+is p(y, f ) = p(y|f )p(f ) where p(y|f ) is the likelihood
+and p(f ) the GP prior. The data induce a posterior
+GP which is speciﬁed by a posterior mean function and
+a posterior covariance function:
+my(x) = Kxn(σ 2I + Knn)−1 y, (1)
+ky(x, x′) = k(x, x′) − Kxn(σ 2I + Knn)−1 Knx′.
+Here, Knn is the n × n covariance matrix on the train-
+ing inputs, Kxn is n-dimensional row vector of ker-
+nel function values between x and the training in-
+puts and Knx = K T
+xn. Any query related to the
+posterior GP can be answered by the above mean
+and covariance functions. For instance, the Gaus-
+sian posterior distribution p(f |y) on the training la-
+tent variables f is computed by evaluating eq. (1) at
+the inputs X. Similarly the prediction of the output
+y∗ = f∗ + ǫ ∗ at some unseen input x∗ is described by
+p(y∗|y) = N (y∗|my(x∗), k y(x∗, x∗) + σ 2). The poste-
+rior GP depends on the values of the hyperparameters
+(θ, σ 2) which can be estimated by maximizing the log
+marginal likelihood given by
+log p(y) = log[ N (y|0, σ 2I + Knn)]. (2)
+Although the above GP approach is elegant, it is in-
+tractable for large datasets since the computations re-
+quire the inversion of a matrix of size n × n which
+scales as O(n3). Thus, we need to consider approx-
+imate or sparse methods in order to deal with large
+datasets. Advanced sparse methods use a small set
+of m function points as support or inducing variables.
+This yields a time complexity that scales as O(nm2).
+Important issues in these methods involve the selec-
+tion of the inducing variables and the hyperparame-
+ters. For reviews of current approaches see chapter 8
+in (Rasmussen and Williams, 2006) and (Qui˜ nonero-
+Candela and Rasmussen, 2005).
+Suppose we wish to use m inducing variables to con-
+struct our sparse GP method. The inducing variables
+are latent function values evaluated at some inputs
+Xm. Xm can be a subset of the training inputs or aux-
+iliary pseudo-points (Snelson and Ghahramani, 2006).
+Learning Xm and the hyperparameters ( θ, σ 2) is the
+crucial problem we need to solve in order to obtain
+a sparse GP method. An approximation to the true
+log marginal likelihood in eq. (2) can allow us to infer
+these quantities. The current state-of-the-art approxi-
+mate marginal likelihood is given in the sparse pseudo-
+inputs GP method (SPGP) proposed in (Snelson and
+Ghahramani, 2006). A related objective function used
+in (Seeger et al., 2003) corresponds to the projected
+process approximation (PP). These approximate log
+marginal likelihoods have the form
+F = log[N (y|0, σ 2I + Qnn)], (3)
+where Qnn is an approximation to the true covariance
+Knn. In PP, Qnn = KnmK −1
+mmKmn, i.e. the exact co-
+variance is replaced by the Nystr¨ om approximation.
+Here, Kmm is the m × m covariance matrix on the in-
+ducing inputs, Knm is the n × m cross-covariance ma-
+trix between training and inducing points and Kmn =
+K T
+nm. In SPGP, Qnn = diag[Knn − KnmK −1
+mmKmn] +
+KnmK −1
+mmKmn, i.e. the Nystr¨ om approximation is cor-
+rected to be exact in the diagonal. By contrasting eq.
+(2) with (3), it is clear that F is obtained by mod-
+ifying the GP prior. This implies that the inducing
+inputs Xm play the role of extra kernel hyperparam-
+eters (similar to θ) that parametrize the covariance
+matrix Qnn. However because the prior has changed,
+continuous optimization of F with respect to Xm does
+not reliably approximate the exact GP model. Fur-
+ther, since F is heavily parametrized with the extra
+hyperparameters Xm, overﬁtting can occur especially
+when we jointly optimize over ( Xm, θ, σ 2).
+I like this formulation
+this is all so interesting,
+took me 2 months to arrive 
+to the same conclusion
+one could say that , the original worinvolving variatioanl ptimization had in mind to keep the same prior during the optimizaiton ie not affect the original kernel and not bias it
+making the kernel used indepenedt of the inducing points chosen.  So introducing inducing variables leaves the original model unchanged. Choosing their locations changes how well the variational regression approximates its exact posterior.
+although this is very good our objectives here are differetn inducing points used here have the role of domain definintion and thus including them in the model make sense.
+
+=== PDF PAGE 3 ===
+         569
+Titsias
+In the next section, we propose a formulation for
+s
+parse GP regression that follows a diﬀerent philos-
+ophy. Rather than modifying the exact GP model, we
+minimize a distance between the exact posterior GP
+and a variational approximation. The inducing inputs
+Xm become now variational parameters which are rig-
+orously selected so as the distance is minimized.
+3 V ARIATIONAL LEARNING
+We wish to deﬁne a sparse method that directly ap-
+proximates the posterior GP mean and covariance
+functions in eq. (1). This posterior GP can be
+also described by the predictive Gaussian p(z|y) =∫
+p(z|f )p(f |y)df , where p(z|f ) denotes the conditional
+prior over any ﬁnite set of function points z. Suppose
+that we wish to approximate the above Bayesian inte-
+gral by using a small set of m auxiliary inducing vari-
+ables fm evaluated at the pseudo-inputs Xm, which are
+independent from the training inputs. fm are just func-
+tion points drawn from the same GP prior as the train-
+ing function values f . By using the augmented joint
+model p(y|f )p(z, fm, f ), we equivalently write p(z|y) as
+p(z|y) =
+∫
+p(z|fm, f )p(f |fm, y)p(fm|y)df dfm. (4)
+Suppose now that fm is a suﬃcient statistic for the
+parameter f in the sense that z and f are independent
+given fm, i.e. it holds p(z|fm, f ) = p(z|fm). The above
+can be written as
+q(z) =
+∫
+p(z|fm)p(f |fm)φ( fm)df dfm
+=
+∫
+p(z|fm)φ( fm)dfm =
+∫
+q(z, fm)dfm, (5)
+where q(z) = p(z|y) and φ( fm) = p(fm|y). Here,
+p(f |fm) = p(f |fm, y) is true since y is a noisy ver-
+sion of f and because of the assumption we made that
+any z is conditionally independent from f given fm1.
+In practise it is diﬃcult to ﬁnd inducing variables fm
+that are suﬃcient statistics. Thus, we expect q(z) to
+be only an approximation to p(z|y). In such case, we
+can choose φ( fm) to be a “free” variational Gaussian
+distribution, where in general φ( fm) ̸= p(fm|y), that
+depends on a mean vector µ and a covariance matrix
+A. By using eq. (5), we can write down the approxi-
+mate posterior GP mean and covariance functions as
+follows
+mq
+y(x) = KxmK −1
+mmµ, (6)
+kq
+y(x, x′) = k(x, x′) − KxmK −1
+mmKmx′ + KxmBKmx′,
+1F rom p(z|fm, y) =
+R
+p(y|f )p(z,fm,f )dfR
+p(y|f )p(z,fm,f )df dz an d by using the
+fact p(z|fm, f ) = p(z|fm), the result follows.
+where B = K −1
+mmAK −1
+mm. The above deﬁnes the gen-
+eral form of the sparse posterior GP which is computed
+in O(nm2). The question that now arises is how do we
+select the φ distribution, i.e. ( µ, A), and the inducing
+inputs Xm. Next we describe a variational method
+that allows to jointly specify these quantities and treat
+Xm as a variational parameter which is rigorously se-
+lected by minimizing the KL divergence.
+A principled procedure to specify φ and the inducing
+inputs Xm is to form the variational distribution q(f )
+and the exact posterior p(f |y) on the training function
+values f , and then minimize a distance between these
+two distributions. Equivalently, we can minimize a dis-
+tance between the augmented true posterior p(f , fm|y)
+and the augmented variational posterior q(f , fm) where
+clearly from eq. (5) q(f , fm) = p(f |fm)φ( fm). The
+augmented true posterior is associated with the aug-
+mented joint model
+p(y, f , fm) = p(y|f )p(f |fm)p(fm), (7)
+which is equivalent to the initial model p(y, f ) =
+p(f |y)p(f ), since by marginalizing out fm from the for-
+mer we always recover the latter. In particular, notice
+that the conditional prior p(f |fm) and the marginal
+prior p(fm) depend on the speciﬁc values of the in-
+ducing inputs Xm. However, this dependence never
+aﬀects the posterior p(f |y) or the marginal likelihood
+p(y). Hence, the augmented representation has a set
+of “free” parameters Xm which can be treated as varia-
+tional parameters as opposed to the model parameters.
+To determine the variational quantities ( Xm, φ), we
+minimize the KL divergence KL(q (f , fm)||p(f , fm|y)).
+This minimization is equivalently expressed as the
+maximization of the following variational lower bound
+of the true log marginal likelihood:
+FV (Xm, φ) =
+∫
+p(f |fm)φ( fm) log p(y|f )p(fm)
+φ( fm) df dfm,
+(
+8)
+where the term p(f |fm) inside the log cancels out. We
+can ﬁrstly maximize the bound by analytically solving
+for the optimal choice of the variational distribution
+φ. The bound after this maximization is
+FV (Xm) = log
+[
+N (y|0, σ 2I + Qnn)
+]
+− 1
+2σ 2 T r( ˜K),
+(9)
+where Qnn = KnmK −1
+mmKmn and ˜K = Cov( f |fm) =
+Knn − KnmK −1
+mmKmn. Details of the derivation of this
+bound are given in a technical report (Titsias, 2009).
+The novelty of the above objective function is that
+it contains a regularization trace term: − 1
+2σ 2 T r( ˜K).
+This clearly diﬀerentiates FV from all marginal likeli-
+hoods, described by eq. (3), that were previously ap-
+plied to sparse GP regression. We will analyze the
+trace term shortly.
+look up technical report
+
+=== PDF PAGE 4 ===
+         570
+V ariational Learning of Inducing V ariables in Sparse Gaussian Pr ocesses
+The quantity in eq. (9) is computed in O(nm2) time
+and is a lower bound of the true log marginal likeli-
+hood for any value of the inducing inputs Xm. Fur-
+ther maximization of the bound can be achieved by
+optimizing over Xm and optionally over the number
+of these variables. Note that the inducing inputs de-
+termine the ﬂexibility of the variational distribution
+q(f , fm) = p(f |fm)φ (fm) since by tuning Xm we adapt
+both p(f |fm) and the underlying optimal distribution
+φ ∗. To compute this optimal φ ∗, we diﬀerentiate eq.
+(8) with respect to φ (fm) without imposing any con-
+straints. This gives:
+φ ∗(fm) = N (fm|µ, A ), (10)
+where µ = σ − 2KmmΣKmny, A = KmmΣKmm and
+Σ = ( Kmm + σ − 2KmnKnm)− 1. This now fully speci-
+ﬁes our variational GP and we can use eq. (6) to make
+predictions in unseen input points. Clearly, the pre-
+dictive distribution is exactly the one used by the pro-
+jected process (PP) that has been previously proposed
+in (Csato and Opper, 2002; Seeger et al., 2003). Thus,
+as far as the predictive distribution is concerned the
+above method is equivalent to PP.
+However, the variational method is very diﬀerent to
+PP and SPGP as far as the selection of the inducing
+inputs and the kernel hyperparameters is concerned.
+This is because of the extra regularization term that
+appears in the bound in eq. (9) and does not appear in
+the approximate log marginal likelihoods used in PP
+(Seeger et al., 2003) and SPGP (Snelson and Ghahra-
+mani, 2006). As discussed in section 2, for the latter
+objective functions, the role of Xm is to form a set
+of extra kernel hyperparameters. In contrast, for the
+lower bound, the inputs Xm become variational pa-
+rameters due to the KL divergence that is minimized.
+To look into the functional form of the bound, note
+that FV is the sum of the PP log likelihood and the
+regularization trace term − 1
+2 σ − 2T r( ˜K). Thus, FV at-
+tempts to maximize the PP log likelihood and simul-
+taneously minimize the trace T r( ˜K). T r( ˜K) repre-
+sents the total variance of the conditional prior p(f |fm)
+which also corresponds to the squared error of predict-
+ing the training latent values f from the inducing vari-
+ables fm:
+∫
+p(f , fm)||KnmK − 1
+mmfm − f ||2df dfm. When
+T r( ˜K) = 0, the Nystr¨ om approximation is exact, i.e.
+Knn = KnmK − 1
+mmKmn, which means that the induc-
+ing variables become suﬃcient statistics and we can
+reproduce exactly the full GP prediction. Note that
+the trace T r( ˜K) itself has been used as a criterion for
+selecting the inducing points from the training data
+in (Smola and Sch¨ olkopf, 2000) and is similar to the
+criterion used in (Lawrence et al., 2002).
+When we maximize the variational lower bound, the
+hyperparameters ( σ 2, θ) are regularized. It is easy to
+see how this is achieved for the noise variance σ 2. At
+a local maxima, σ 2 satisﬁes:
+σ 2 = 1
+n
+∫
+fm
+φ ∗(fm)||y − α||2dfm + 1
+n T r( ˜K), (11)
+where ||z||denotes the Euclidean norm and α =
+/BX [f |fm] = KnmK − 1
+mmfm. This decomposition reveals
+that the obtained σ 2 will be equal to the estimated
+“actual” noise plus a “correction” term that is the av-
+erage squared error of predicting the training latent
+values from the inducing variables.
+So far we assumed that the inducing inputs are se-
+lected by applying gradient-based optimization. How-
+ever, this can be diﬃcult in high dimensional input
+spaces as the number of variables becomes very large.
+Further, the kernel function might not be diﬀerentiable
+with respect to the inputs. In such cases we can still
+apply the variational method by selecting the induc-
+ing inputs from the training inputs. An important
+property of this discrete optimization scheme is that
+FV monotonically increases when we greedily select in-
+ducing inputs and adapt the hyperparameters. Next
+we discuss this greedy selection method.
+3.1 GREEDY SELECTION
+Let m ⊂ { 1, . . . , n } be the indices of a subset of data
+that are used as the inducing variables. The training
+points that are not part of the inducing set are indexed
+by n− m and are called the remaining points, e.g. fn− m
+denotes the remaining latent function values. The
+variational method is applied similarly to the pseudo-
+inputs case. Assuming the variational distribution
+q(f ) = p(fn− m|fm)φ (fm), we can express a variational
+bound that has the same form as the bound in eq. (9)
+with the only diﬀerence that ˜K = Cov(fn− m|fm).
+The selection of inducing variables among the training
+data requires a prohibitive combinatorial search. A
+suboptimal solution can be based on a greedy selection
+scheme where we start with an empty inducing set
+m = ∅ and a remaining set n − m = {1, . . . , n }. At
+each iteration, we add a training point j ∈ J ⊂ n − m,
+where J is a randomly chosen working set, into the
+inducing set that maximizes the selection criterion ∆ j.
+It is important to interleave the greedy selection pro-
+cess with the adaption of the hyperparameters ( σ 2, θ).
+This can be viewed as an EM-like algorithm; at the
+E step we add one point into the inducing set and at
+the M step we update the hyperparameters. To ob-
+tain a reliable convergence, the approximate marginal
+likelihood must monotonically increase at each E or M
+step. The PP and SPGP log likelihoods do not sat-
+isfy such a requirement because they can also decrease
+as we add points into the inducing set. In contrast,
+
+=== PDF PAGE 5 ===
+         571
+Titsias
+the bound FV is guaranteed to monotonically increase
+since now the EM-like algorithm is a variational EM.
+To clarify this, we state the following proposition.
+Proposition 1. Let ( Xm, fm) be the current set of
+inducing points and m the corresponding set of indices.
+Any point i ∈ n − m added into the inducing set can
+never decrease the lower bound.
+Proof: Before the new point ( fi, xi) is added,
+the variational distribution is p(fn− m|fm)φ ∗(fm) =
+p(fn− (m∪ i)|fi, fm)p(fi|fm)φ ∗(fm). When we add the
+new point, the term p(fi|fm)φ ∗(fm) is replaced by the
+optimal φ ∗(fi, fm) distribution. This can either in-
+crease the lower bound or leave it invariant. A more
+detailed proof is given in (Titsias, 2009).
+A consequence of the above proposition is that the
+greedy selection process monotonically increases the
+lower bound and this holds for any possible crite-
+rion ∆. An obvious choice is to use FV as the cri-
+terion, which can be evaluated in O(nm) time for any
+candidate point in the working set J. Such a selec-
+tion process maximizes the decrease in the divergence
+KL(q(f )||p(f |y)).
+4 COMPARISON
+In this section we compare the lower bound FV , the
+PP and the SPGP log likelihood in some toy prob-
+lems. All these functions are continuous with respect
+to ( Xm, σ 2, θ) and can be maximized using gradient-
+based optimization.
+Our working example will be the one-dimensional
+dataset2 considered in Snelson and Ghahramani (2006)
+that consists of 200 training points; see Figure 1. We
+train a sparse GP model using the squared exponential
+kernel deﬁned by σ 2
+f exp(− 1
+2ℓ 2 ||xi − xj||2). Since the
+dataset is small and the full GP model is tractable,
+we compare the sparse approximations with the ex-
+act GP prediction. The plots in the ﬁrst row of Fig-
+ure 1 show the predictive distributions for the three
+methods assuming 15 inducing inputs. The left plot
+displays the mean prediction with two-standard error
+bars (shown as blue solid lines) obtained by the max-
+imization of FV . The prediction of the full GP model
+is displayed using dashed red lines. The middle plot
+shows the corresponding solution found by PP and the
+right plot the solution found by SPGP. The prediction
+obtained by the variational method almost exactly re-
+produces the full GP prediction. The ﬁnal value of
+the variational lower bound was − 55. 5708, while the
+value of the maximized true log marginal likelihood
+was − 55. 5647. Further, the estimated hyperparame-
+ters found by FV match the hyperparameters found
+2obtained from www.gatsby.ucl.ac.uk/∼snelson/.
+by maximizing the true log marginal likelihood. In
+contrast, training the sparse model using the PP log
+likelihood gives a poor approximation. The SPGP
+method gave a much more satisfactory answer than
+PP although not as good as the variational method.
+To consider a more challenging problem, we decrease
+the number of the original 200 training examples by
+maintaining only 20 of them 3. We repeat the experi-
+ment above using exactly the same setup. The second
+row of Figure 1, displays the predictive distributions
+of the three methods. The prediction of the varia-
+tional method is identical to the full GP prediction
+and the hyperparameters match those obtained by full
+GP training. On the other hand, the PP log likeli-
+hood leads to a signiﬁcant overﬁtting of the training
+data since the mean curve interpolates the training
+points and the error bars are very noisy. SPGP pro-
+vides a solution that signiﬁcantly disagrees with the
+full GP prediction both in terms of the mean predic-
+tion and the errors bars. Notice that the width of
+the error bars found by SPGP varies a lot in diﬀer-
+ent input regions. This nonstationarity is achieved
+by setting σ 2 very close to zero and modelling the
+actual noise by the heteroscedastic diagonal matrix
+diag[Knn − KnmK − 1
+mmKmn]. The fact that this diago-
+nal matrix (the sum of its elements is the trace T r( ˜K))
+is large indicates that the full GP model is not well ap-
+proximated.
+The reason PP and SPGP do not recover the full GP
+model when we optimize over ( Xm, σ 2, θ) is not the
+local maxima. To clarify this point, we repeated the
+experiments by initializing the PP and SPGP log like-
+lihoods to optimal inducing inputs and hyperparam-
+eters values where the later are obtained by full GP
+training. The predictions found are similar to those
+shown in Figure 1. A way to ensure that the full GP
+model will be recovered as we increase the number
+of inducing inputs is to select them from the training
+inputs. This, however, turns the continuous optimiza-
+tion problem into a discrete one and moreover PP and
+SPGP face the non-smooth convergence problem.
+Regarding FV , it is clear from section 3 that by maxi-
+mizing over Xm we approach the full GP model in the
+sense of KL( q(f , fm)|p(f , fm|y)). Something less clear
+is that FV eﬃciently regularizes the hyperparameters
+(σ 2, θ) so as overﬁtting is avoided. This is achieved by
+the regularization trace term: − 1
+2 σ − 2T r( ˜K). When
+T r( ˜K) is large because there are not suﬃciently many
+inducing variables, this term favours kernel parame-
+ters that give a smoother function. Also, when T r( ˜K)
+is large the decomposition in eq. (11) implies that σ 2
+3The points were chosen from the original set according
+to the MATLAB command: X = X(1:10:end).
+
+=== PDF PAGE 6 ===
+         572
+V ariational Learning of Inducing V ariables in Sparse Gaussian Pr ocesses
+Figure 1: The ﬁrst row corresponds to 200 training points and the second r ow to 20 training points. The ﬁrst column
+shows the prediction (blue solid lines) obtained by maximizing FV over the 15 pseudo-inputs and the hyperparameters.
+The full GP prediction is shown with red dashed lines. Initial lo cations of the pseudo-inputs are shown on the top as
+crosses, while ﬁnal positions are given on the bottom as crosses. The secon d column shows the predictive distributions
+found by PP and similarly the third column for SPGP.
+must increase as well. These properties are useful for
+avoiding overﬁtting and also imply that the prediction
+obtained by FV will tend to be smoother than the pre-
+diction of the full GP model. In contrast, the PP and
+SPGP log likelihoods can ﬁnd more ﬂexible solutions
+than the full GP prediction which indicates that they
+are prone to overﬁtting.
+5 EXPERIMENTS
+In this section we compare the variational lower bound
+(V AR), the projected process approximate log likeli-
+hood (PP) and the sparse pseudo-inputs GP (SPGP)
+log likelihood in four real datasets. As a baseline tech-
+nique, we use the subset of data (SD) method. For
+all sparse GP methods we jointly maximize the al-
+ternative objective functions w.r.t. hyperparameters
+(θ, σ 2) and the inducing inputs Xm using the conju-
+gate gradients algorithm. Xm is initialized to a ran-
+domly chosen subset of training inputs. In each run
+all methods are initialized to the same inducing in-
+puts and hyperparameters. The performance crite-
+ria we use are the standardized mean squared error
+(SMSE), given by 1
+T
+||y∗ − f∗ ||2
+var(y∗ ) , and the standardized
+negative log probability density (SNLP) as deﬁned in
+(Rasmussen and Williams, 2006). Smaller values for
+both error measures imply better performance. In all
+the experiments we use the squared-exponential kernel
+with varied length-scale.
+Firstly, we consider the Boston-housing dataset, which
+consists of 455 training examples and 51 test examples.
+Since the dataset is small, full GP training is tractable.
+In the ﬁrst experiment, we ﬁx the parameters ( θ, σ 2)
+to values obtained by training the full GP model. Thus
+we can investigate the diﬀerence of the methods solely
+on how the inducing inputs are selected. We rigorously
+compare the methods by calculating the moments-
+matching divergence KL( p(f∗|y)||q(f∗)) between the
+true test posterior p(f∗|y) and each of the approxi-
+mate test posteriors. For the SPGP method the ap-
+proximate test posterior distribution is computed by
+using the exact test conditional p(f∗|fm). Figure 2(a)
+show the KL divergence as the number of inducing
+points increases. Means and one-standard error bars
+were obtained by repeating the experiment 10 times.
+Note that only the V AR method is able to match the
+full GP model; for around 200 points we closely match
+the full GP prediction. Interestingly, when the induc-
+ing inputs are initialized to all training inputs, i.e.
+Xm = X, PP and SPGP still give a diﬀerent solu-
+tion from the full GP model despite the fact that the
+hyperparameters are kept ﬁxed to the values of the
+full GP model. The reason this is happening is that
+they are not lower bounds to the true log marginal
+likelihood and as shown in Figure 2(c) they become
+upper bounds. To show that the eﬀective selection
+of the inducing inputs achieved by V AR is not a co-
+incidence, we compare it with the case where the in-
+puts are kept ﬁxed to their initial randomly selected
+training inputs. Figure 2(b) displays the evolution of
+the KL divergence for the V AR, the random selection
+plus PP (RSPP) and the SD method. Note that the
+only diﬀerence between V AR and RSPP is that V AR
+
+=== PDF PAGE 7 ===
+         573
+Titsias
+100 200 300 400
+0
+10
+20
+30
+40
+50
+60
+70
+Number of inducing variables
+KL(p||q)
+VAR
+PP
+SPGP
+100 200 300 400
+0
+10
+20
+30
+40
+50
+60
+70
+Number of inducing variables
+KL(p||q)
+VAR
+RSPP
+SD
+100 200 300 400−1500
+−1000
+−500
+0
+Number of inducing variables
+Log marginal likelihood FullGP
+VAR
+PP
+SPGP
+(a) (b) (c)
+100 200 300 4000.05
+0.1
+0.15
+0.2
+Number of inducing variables
+SMSE
+FullGP
+VAR
+PP
+SPGP
+100 200 300 400−1.5
+−1
+−0.5
+0
+0.5
+1
+1.5
+2
+Number of inducing variables
+SNLP
+FullGP
+VAR
+PP
+SPGP
+100 200 300 400−600
+−400
+−200
+0
+200
+400
+Number of inducing variables
+Log marginal likelihood FullGP
+VAR
+PP
+SPGP
+(d) (e) (f)
+Figure 2: (a) show the KL divergence as the number of inducing variable s increases for the V AR the PP and SPGP
+methods. Similarly (b) show the divergence for the V AR, RSPP and S D methods. (c) displays the approximate log
+marginal likelihoods; the true log marginal likelihood value is disp layed by using the dotted horizontal line. (d) and (e)
+show the SMSE and SNLP errors (obtained by joint learning hyperparame ters and inducing-inputs) against the number
+of inducing variables. (f) shows the corresponding log marginal likel ihoods.
+optimizes the lower bound over the initial values of
+the inducing inputs, while RSPP just keep them ﬁxed.
+Clearly RSPP signiﬁcantly improves over the SD pre-
+diction, and V AR signiﬁcantly improves over RSPP.
+In a second experiment, we jointly learn inducing vari-
+ables and hyperparameters and compare the meth-
+ods in terms of the SMSE and SNLP errors. The
+results are displayed in the second row of Figure 2.
+Note that the PP and SPGP methods achieve a much
+higher log likelihood value (Figure 2(f)) than the true
+log marginal likelihood. However, the error measures
+clearly indicate that the PP log likelihood signiﬁcantly
+overﬁts the data. SPGP gives better SMSE error than
+the full GP model but it overﬁts w.r.t. the SNLP error.
+The variational method matches the full GP model.
+We now consider three large datasets: the kin40k
+dataset, the sarcos and the abalone datasets4 that
+have been widely used before. Note that the abalone
+dataset is small enough so as we will be able to train
+the full GP model. The inputs were normalized to
+have zero mean and unit variance on the training set
+4kin40k: 10000 training, 30000 test, 8 attributes,
+ida.ﬁrst.fraunhofer.de/ anton/data.html.
+sarcos: 44 , 484 training, 4 , 449 test, 21 attributes,
+www.gaussianprocess.org/gpml/data/.
+abalone: 3 , 133 training, 1 , 044 test, 8 attributes,
+www.liaad.up.pt/ ltorgo/Regression/DataSets.html.
+and the outputs were centered so as to have zero mean
+on the training set. For the kin40k and the sarcos
+datasets, the SD method was obtained in a subset of
+2000 training points. We vary the size of the inducing
+variables in powers of two from 16 to 1024. For the
+sarcos dataset, the experiment for 1024 was not per-
+formed since is was unrealistically expensive. All the
+objective functions were jointly maximized over induc-
+ing inputs and hyperparameters. The experiment was
+repeated 5 times. Figure 3 shows the results.
+From the plots in Figure 3, we can conclude the fol-
+lowing. The PP log likelihood is signiﬁcantly prone to
+overﬁtting as the SNLP errors clearly indicate. How-
+ever, note that in the kin40k and sarcos datasets,
+PP gave the best performance w.r.t. to SMSE error.
+This is probably because of the ability of PP to in-
+terpolate the training examples that can lead to good
+SMSE error when the actual observation noise is low.
+SPGP often has the worst performance in terms of the
+SMSE error and almost always the best performance
+in terms of the SNLP error. In the abalone dataset,
+SPGP had signiﬁcantly better SNLP error than the
+full GP model. Since the SNLP error depends on the
+predictive variances, we believe that the good perfor-
+mance of SPGP is due to its heteroscedastic ability.
+For example, in the kin40k dataset, SPGP makes
+σ 2 almost zero and thus the actual noise in the like-
+lihood is modelled by the heteroscedastic covariance
+
+=== PDF PAGE 8 ===
+         574
+V ariational Learning of Inducing V ariables in Sparse Gaussian Pr ocesses
+0 200 400 600 800 10000
+0.05
+0.1
+Number of inducing variables
+SMSE
+SD
+VAR
+PP
+SPGP
+0 100 200 300 400 5000.01
+0.015
+0.02
+0.025
+0.03
+0.035
+0.04
+0.045
+0.05
+Number of inducing variables
+SMSE
+SD
+VAR
+PP
+SPGP
+0 200 400 600 800 10000.4
+0.42
+0.44
+0.46
+0.48
+0.5
+Number of inducing variables
+SMSE
+FullGP
+VAR
+PP
+SPGP
+0 200 400 600 800 1000
+−2.5
+−2
+−1.5
+−1
+−0.5
+0
+0.5
+1
+Number of inducing variables
+SNLP
+SD
+VAR
+PP
+SPGP
+0 100 200 300 400 500−2.5
+−2
+−1.5
+−1
+−0.5
+0
+Number of inducing variables
+SNLP
+SD
+VAR
+PP
+SPGP
+0 200 400 600 800 1000
+−0.5
+−0.4
+−0.3
+−0.2
+−0.1
+0
+0.1
+Number of inducing variables
+SNLP
+FullGP
+VAR
+PP
+SPGP
+Figure 3: The ﬁrst column displays the SMSE (top) and SNLP (bottom) er rors for the kin40k dataset with respect to
+the number of inducing points. The second column shows the corresp onding plots for the sarcos dataset and similarly
+the third column shows the results for the abalone dataset.
+diag[Knn − KnmK − 1
+mmKmn]. The fact that the latter
+term is large may indicate that the full GP model is
+not well approximated. Finally the variational method
+has good performance. V AR never had the worst per-
+formance and it didn’t exhibit overﬁtting. The exam-
+ples in section 4, the Boston-housing and the abalone
+dataset indicate that the V AR method remains much
+closer to the full GP model than the other methods.
+6 CONCLUSION
+We proposed a variational framework for sparse GP
+regression that can reliably learn inducing inputs and
+hyperparameters by minimizing the KL divergence be-
+tween the true posterior GP and an approximate one.
+This method can be more generally applicable. Cur-
+rently we apply this technique to classiﬁcation. An
+interesting topic for the future is to apply this method
+to GP models that assume multiple latent functions.
+Acknowledgments
+I am grateful to Neil Lawrence for his help. This work
+is funded by EPSRC Grant No EP/F005687/1 ”Gaus-
+sian Processes for Systems Identiﬁcation with Appli-
+cations in Systems Biology”.
+References
+Csato, L. and Opper, M. (2002). Sparse online Gaussian
+processes. Neural Computation , 14:641–668.
+Lawrence, N. D., Seeger, M., and Herbrich, R. (2002). Fast
+sparse Gaussian process methods: the informative vector
+machine. In Neural Information Processing Systems, 13 .
+MIT Press.
+Qui˜ nonero-Candela, J. and Rasmussen, C. E. (2005). A
+unifying view of sparse approximate Gaussian process re-
+gression. Journal of Machine Learning Research, 6:1939–
+1959.
+Rasmussen, C. E. and Williams, C. K. I. (2006). Gaussian
+Processes for Machine Learning . MIT Press.
+Schwaighofer, A. and Tresp, V. (2003). Transductive and
+inductive methods for approximate Gaussian process re-
+gression. In Neural Information Processing Systems 15 .
+MIT Press.
+Seeger, M. (2003). Bayesian Gaussian Process Models:
+PAC-Bayesian Generalisation Error Bounds and Sparse
+Approximations. PhD thesis, University of Edinburgh.
+Seeger, M., Williams, C. K. I., and Lawrence, N. D. (2003).
+Fast forward selection to speed up sparse Gaussian pro-
+cess regression. In Ninth International Workshop on Ar-
+tiﬁcial Intelligence . MIT Press.
+Smola, A. J. and Bartlett, P. (2001). Sparse greedy Gaus-
+sian process regression. In Neural Information Process-
+ing Systems, 13 . MIT Press.
+Smola, A. J. and Sch¨ olkopf, B. (2000). Sparse greedy ma-
+trix approximations for machine learning. In Interna-
+tional Conference on Machine Learning .
+Snelson, E. and Ghahramani, Z. (2006). Sparse Gaussian
+process using pseudo-inputs. In Neural Information Pro-
+cessing Systems, 13 . MIT Press.
+Titsias, M. K. (2009). Variational Model Selection for
+Sparse Gaussian Process Regression. Technical report,
+School of Computer Science, University of Manchester.
+Williams, C. K. I. and Seeger, M. (2001). Using the
+Nystr¨ om method to speed up kernel machines. InNeural
+Information Processing Systems 13 . MIT Press.

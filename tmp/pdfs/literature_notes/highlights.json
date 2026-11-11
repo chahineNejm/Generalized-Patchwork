@@ -1,0 +1,720 @@
+[
+  {
+    "file": "CPOE.pdf",
+    "title": "Draft\nCorrelated Product of Experts\nfor Sparse Gaussian Process Regression\nManuel Sch\u00a8 urch1,2 Dario Azzimonti1 Alessio Benavoli3,1, Marco Za\ufb00alon 1\n1Istituto Dalle Molle di Studi sull\u2019Intelligenza Arti\ufb01ciale (IDSIA), Lugano, Switzerland.\n{manuel.schuerch, dario.azzimonti, marco.zaffalon}@idsia.ch\n2Universit` a della Svizzera italiana (USI), Lugano, Switzerland.\n3 University of Limerick (UL), Limerick, Ireland.\nalessio.benavoli@tcd.ie\nAbstract\nGaussian processes (GPs) are an important tool in machine learning and statistics with\napplications ranging from social and natural science through engineering. They constitute\na powerful kernelized non-parametric method with well-calibrated uncertaint",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "They constitute a powerful kernelized non-parametric method with well-calibrated uncertainty estimates, however, off-the-shelf GP inference procedures are limited to datasets with several thousand data points because of their cubic computational complexity. For this reason, many sparse GPs techniques have been developed over the past years."
+      },
+      {
+        "page": 1,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "In this paper, we focus on GP regression tasks and propose a new approach based on aggregating predictions from several local and correlated experts."
+      },
+      {
+        "page": 1,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "The individual predictions of the experts are aggregated taking into account their correlation resulting in consistent uncer- tainty estimates."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "lot of work has been done to optimize the loca- tions of the inducing inputs e.g. [4, 29, 30], which allows to have less inducing points but more optimization parameters."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "This optimization procedures were further improved by stochastic optimization e.g. [2, 12, 17, 27], which allows to update the parameters in mini-batches and thus speed up the inference. Optimization"
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "of optimization parameters makes these methods hard to train and they are still limited to M g global inducing points."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "On the other hand, there are independent and local models based on averaging predictions from J independent local experts/models resulting in a block-diagonal approximation of the kernel matrix. The final probabilistic aggregation is then based on a product of the individual predictive densities, thus they are called Product of Experts (PoEs), see [10, 8, 13, 25, 31, 19]."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "so that it approximates full GP in two orthogonal directions: sparsity and locality."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Compared to the number of global inducing point M g which is usual much smaller than the number of data points N, our approach allows a much higher of total local inducing points in the order of N which helps to cover the space and therefore model more complicated functions."
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "sparse and global"
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "independent and local"
+      },
+      {
+        "page": 4,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "In Section 3.5, we show that the quality of our approximation consistently improves in terms of Kullback-Leibler- (KL)-divergence (22) w.r.t. full GP for increasing degree of correlation."
+      },
+      {
+        "page": 7,
+        "color": "[0.858826, 0.203918, 0.145096]",
+        "subject": "Highlight",
+        "text": "ordered"
+      }
+    ]
+  },
+  {
+    "file": "GP for big data.pdf",
+    "title": "Gaussian Processes for Big Data\nJames Hensman\u2217\nDept. Computer Science\nThe University of She\ufb03eld\nShe\ufb03eld, UK\nNicol` o Fusi\u2217\nDept. Computer Science\nThe University of She\ufb03eld\nShe\ufb03eld, UK\nNeil D. Lawrence\u2217\nDept. Computer Science\nThe University of She\ufb03eld\nShe\ufb03eld, UK\nAbstract\nWe introduce stochastic variational inference\nfor Gaussian process models. This enables\nthe application of Gaussian process (GP)\nmodels to data sets containing millions of\ndata points. We show how GPs can be vari-\nationally decomposed to depend on a set\nof globally relevant inducing variables which\nfactorize the model in the necessary manner\nto perform variational inference. Our ap-\nproach is readily extended to models with\n",
+    "highlights": []
+  },
+  {
+    "file": "GP2scale.pdf",
+    "title": "gp2Scale: A Class of Compactly Supported\nNon-Stationary Kernels and Distributed\nComputing for Exact Gaussian Processes on 10 Million Data Points\nMarcus M. Noack * 1 Mark D. Risser 2 Hengrui Luo 3 1 Vardaan Tekriwal1 4 Ronald J. Pandolfi1\nAbstract\nDespite a large corpus of recent work on scal-\ning up Gaussian processes, a stubborn trade-off\nbetween computational speed, prediction, and un-\ncertainty quantification accuracy, and customiz-\nability persists. This is because the vast majority\nof existing methodologies exploit various levels\nof approximation that lower accuracy and limit\nthe flexibility of kernel and noise-model designs\n\u2014 an unacceptable drawback at a time when ex-\npressive non-sta",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "Despite a large corpus of recent work on scal- ing up Gaussian processes, a stubborn trade-off between computational speed,"
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Although we show su- perior approximation performance in many cases, the method\u2019s real power lies in its agnosticism toward arbitrary GP customizations"
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Sparsity is entirely derived from the chosen kernel function; even if many function values f are uncorrelated 0), (Cov(f ,f ) i j ="
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "most kernel functions would be unable to assign a zero covariance,"
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Existing kernels that are compactly supported, and therefore able to return zero, can do so only in a stationary, purely distance-related manner, which limits accuracy; this is often referred to as co- variance tapering"
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "inducing-point methods, which introduce a smaller set of points to represent the latent function,"
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "local approximation methods, which exploit neighborhood"
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "structures for reduced computation."
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "To recap, the core idea motivating the proposed method gp2Scale is that GPs may well scale to large datasets if the kernel design is customized to allow the discovery of a sparse covariance matrix. Therefore, the kernel has to possess the ability to return zero when two function values are deemed independent."
+      },
+      {
+        "page": 6,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "5.3. 8-Dimensional California Housing Dataset This dataset comprises 20,000 data points in eight dimen- sions, along with their corresponding labels, which are hous- ing prices from California (https://www.dcc.fc.up.  pt/~ltorgo/Regression/cal_housing.html). The test data set contains 640 points. The complexity of this dataset lies in the fact that the high-dimensional space induces data scarcity, making the discovery of naturally occurring sparsity in the covariance structure more difficult. gp2Scale was executed using kernel (3) with axially-anisotropic distances (Automated Relevance Determination, ARD (Williams & Rasmussen, 1995)) and performed competitively (see Table 3) nonetheless. SKI used an additive kernel because the dataset\u2019s dimensionality exceeds the recommended value of 4 (Wilson & Nickisch, 2015). The implementation details for the competing methods are available in the Appendix and the shared repository."
+      },
+      {
+        "page": 7,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "5.5. 3-Dimensional Temperature Dataset with 10 Million Points The last example is specifically designed to illustrate the scaling potential of gp2Scale. The training dataset com- prises 10 million measured temperatures across the United States, spanning approximately 10 years (Menne et al., 2012). We ran this experiment on 1024 A100 GPUs on NERSC\u2019s Perlmutter supercomputing system. Within the available computing time, we managed to run circa 500 MCMC iterations on a 1-million-data-point representative subset of the data and 100 MCMC iterations on the full dataset, leading to a well-performing but not yet optimal model; however, we obtained competitive results, beating the best competitor (Vecchia) by a slight margin nonethe- less. This test demonstrates that truly massive exact GPs are"
+      },
+      {
+        "page": 7,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "possible. One MCMC iteration took 477 seconds to com- plete. From this, we can deduce that a full run from scratch might take about a week of runtime. Although this might sound like a long time, it is in line with the training times of some large neural networks or LLMs. When a highly cus- tomizable exact GP is needed for a large data set, gp2Scale can deliver superior performance when computing time and resources are available. The results are summarized in Table 5. For this dataset, we are only reporting the RMSE of one execution due to computing resource limitations."
+      }
+    ]
+  },
+  {
+    "file": "GPOE.pdf",
+    "title": "arXiv:1410.7827v2  [cs.LG]  24 Nov 2015\nGeneralized Product of Experts for Automatic and\nPrincipled Fusion of Gaussian Process Predictions\nYanshuai Cao David J. Fleet\nDepartment of Computer Science, University of Toronto\nAbstract\nIn this work, we propose a generalized product of experts (gP oE) framework for\ncombining the predictions of multiple probabilistic model s. We identify four de-\nsirable properties that are important for scalability, expressiveness and robustness,\nwhen learning and inferring with a combination of multiple m odels. Through\nanalysis and experiments, we show that gPoE of Gaussian proc esses (GP) have\nthese qualities, while no other existing combination schem es satisfy",
+    "highlights": []
+  },
+  {
+    "file": "NK annotated.pdf",
+    "title": "Nested Kriging predictions for datasets with large number of\nobservations\nDidier Rulli\u00e8re \u2217, Nicolas Durrande \u2020, Fran\u00e7ois Bachoc \u2021 and Cl\u00e9ment Chevalier \u00a7.\nWednesday 26th July, 2017\nAbstract\nThis work falls within the context of predicting the value of a real function at some input loca-\ntions given a limited number of observations of this function. The Kriging interpolation technique\n(or Gaussian process regression) is often considered to tackle such a problem but the method su\ufb00ers\nfrom its computational burden when the number of observation points is large. We introduce in\nthis article nested Kriging predictors which are constructed by aggregating sub-models based on\nsubsets of observation",
+    "highlights": [
+      {
+        "page": 2,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "One drawback of this kind of approximation is that the predictions do not interpolate the observation points any more."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "Let us also mention that the computation of k(X,X)\u22121y,  for an arbitrary vector y \u2208 Rn  can be per- formed using iterative algorithms, like the preconditionned conjugate gradient algorithm [Golub and Van Loan, 2012]. Unfortunately, the algorithms need to be run many times when a pos- terior variance \u2013 involving the computation of k(X,X)\u22121k(X,x  i ) \u2013 needs to be computed for a large set of prediction points."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "The method proposed in this paper belongs to the so-called \u201cmixture of experts\u201d family."
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Furthermore, these methods only provide pointwise confidence intervals instead of a full Gaussian process posterior distribution."
+      },
+      {
+        "page": 13,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "These last two methods do not suffer from the inconsistency discussed for the above methods, but they provide discontinuous predictions. This can"
+      },
+      {
+        "page": 13,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "be an issue for example if the (aggregated) model is used to perform some optimization tasks."
+      }
+    ]
+  },
+  {
+    "file": "patchwork kriging.pdf",
+    "title": "Journal of Machine Learning Research XX (2018) 1-44 Submitted 07/2018; Published XX/XX\nPatchwork Kriging for Large-scale Gaussian Process\nRegression\nChiwoo Park cpark5@fsu.edu\nDepartment of Industrial and Manufacturing Engineering\nFlorida State University\n2525 Pottsdamer St., Tallahassee, FL 32310-6046, USA.\nDaniel Apley apley@northwestern.edu\nDept. of Industrial Engineering and Management Sciences\nNorthwestern University\n2145 Sheridan Rd., Evanston, IL 60208-3119, USA.\nEditor: Neil Lawrence\nAbstract\nThis paper presents a new approach for Gaussian process (GP) regression for large datasets.\nThe approach involves partitioning the regression input domain into multiple local regions\nwith a di\ufb00e",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[1, 0.384308, 0.0]",
+        "subject": "Highlight",
+        "text": "The approach involves partitioning the regression input domain into multiple local regions with a different local GP model fitted in each region."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.384308, 0.0]",
+        "subject": "Highlight",
+        "text": "Unlike existing local partitioned GP approaches, we introduce a technique for patching together the local GP models nearly seamlessly to ensure that the local GP models for two neighboring regions produce nearly the same response prediction and prediction error variance on the boundary between the two regions."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "This largely mitigates the well-known discontinuity problem that degrades the prediction accuracy of existing local partitioned GP methods over regional boundaries."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "In contrast to heuristic continuity adjustments, this has an advantage of working within a formal GP framework, so that the GP-based predictive uncertainty quantification remains valid."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Our approach also inherits a sparse block-like structure for the sample covariance matrix,"
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "(Rasmussen and Williams, 2006)."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The posterior estimate can be easily derived in a simple closed form using the properties induced by the GP prior, and the estimator has several desirable properties, e.g., it is the best linear unbiased estimator under the assumed model and offers convenient quantification of the prediction error uncertainty."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Such local approximation approaches have many advantages. By their local nature, they adapt better to local and nonstationary data features, and independent local approxi- mation models can be computed in parallel to reduce total computation time."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Their major weakness is that two local models for two neighboring local regions produce different predic- tions at the boundary between the regions, creating discontinuity of the regression function over the boundary. This boundary discontinuity is not just an aesthetic problem, as it was empirically shown that greater discontinuity implies greater degradation in prediction accuracy, particularly around the boundaries of the local regions (Park and Huang, 2016)."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "but we introduce a different form of continuity constraints that are more easily and more naturally integrated into the GP modeling framework."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The optimization-based formulations make it infeasible to derive the marginal likelihood and the predictive variances in closed forms, which were roughly approximated."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "We note that observing the differenced GPs to be zero at a set of boundary points is essentially equivalent to assuming continuity at these points without imposing any further assumptions on the nature of the GPs."
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "The new modeling is simpler than the previous approachesor, fors thoe opttimhizaetion marginal likelihood function can be explicitly derived for tuning hyperparameters, which was not possible for the previous approaches."
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Unlike the previous approaches, observ- ing the pseudo-observations of the differenced GPs to be zero does not require specifying the actual values of the predictive means and variances on the boundaries."
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Furthermore, the proposed approach enforces that the local models for neighboring regions produce the same values for both the predictive means and variances at the boundary points between the local regions, while both of the previous approaches are only able to enforce the same predictive means but not the same predictive variances."
+      },
+      {
+        "page": 4,
+        "color": "[1, 0.384308, 0.0]",
+        "subject": "Highlight",
+        "text": "Section 2 briefly reviews the general GP regression problem and notational convention. Section 3 presents the core methodology of the patchwork kriging approach, including the prior model assumptions, the pseudo- observation definition, the resulting posterior predictive mean and variance equations, and the detailed computation steps along with choice of tuning parameters."
+      },
+      {
+        "page": 5,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "hy- perprior condition."
+      },
+      {
+        "page": 5,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Since the pseudo-observations should also be viewed as additional prior information, the independence condition in Assumption 1 might be more appropriately viewed as a"
+      },
+      {
+        "page": 7,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Deriving the exact prior distribution of the surface conditioned on \u03b4 k,l (x) = 0 everywhere on the boundaries appears to be computationally intractable, because there are uncountablymaybe infinitely many x\u2019s in \u0393 j,k"
+      },
+      {
+        "page": 8,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "(k)  Var[f |y,\u03b4] \u2217"
+      },
+      {
+        "page": 8,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The continuity imposed certainly does not guarantee that the posterior means (k) (l) x\u2217 and variances of f and f are equal for every \u2208 \u0393 k,l , including those not in the \u2217 \u2217 locations of pseudo observations x k,l ."
+      },
+      {
+        "page": 9,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "This essentially allows data to be shared across regions when estimating the covariance parameters."
+      },
+      {
+        "page": 9,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "the predictive mean (6) and the predictive variance (7) can be evaluated for each x \u2217 \u2208 \u2126 k , (k) (k) E[f E[f |y,\u03b4 = 0] = (c \u2212 \u2217 wTv)Qy \u2217 \u2217D (10) (k) (k) (k)   Var[f |y,\u03b4 = 0] = c \u2217\u2217 \u2212 wTw \u2217 \u2217 \u2212 (c \u2212 \u2217 wTv)Q(c \u2212 \u2217 wTv)T, \u2217 \u2217D \u2217D where w \u2217"
+      },
+      {
+        "page": 10,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "CT D\u03b4 C\u22121 The second part of the inversion (9) is to invert C \u03b4,\u03b4 \u2212 D\u03b4 C D\u03b4 . The matrix is (cid:80)K DD     )\u22121  is very sparse, because Cov(\u03b4 ,\u03b4 k,l u,v ) \u2212 Cov(\u03b4 k,l ,y m  )Cov(y ,y m m  Cov(y m ,\u03b4 u,v ) m=1 is a zero matrix unless the tuple (k,l,u,v) satisfies the non-zero conditions listed in (4)."
+      },
+      {
+        "page": 11,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "This is simple and effective if the data are uniformly distributed over a low dimensional space. However, if the input dimension is high, it would either generate too many regions or it would produce many sparse regions that contain very few or no observations, and the latter also happens when the data are non-uniformly distributed;"
+      },
+      {
+        "page": 19,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Fully Independent Training Conditional (FITC) algorithm"
+      },
+      {
+        "page": 21,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The first spatial dataset, TCO.L2, 182,591 observations collected by the NIMBUS-7/TOMS satellite, which measures the total column of ozone over the globe on Oct 1 1988."
+      },
+      {
+        "page": 22,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The second dataset, ICETHICK, contains ice thickness measurements at 32,481 locations on the western Antarctic ice sheet and is available at http://nsidc.org/. "
+      },
+      {
+        "page": 23,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The dataset has many sparse regions where there are very few observations."
+      },
+      {
+        "page": 23,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The third dataset, PROTEIN, has nine input variables that describe the tertiary structure of proteins and one independent variable that describes the physiochemical property of pro- teins. These data, which are available at https://archive.ics.uci.edu/ml/datasets,  consist of 45,730 observations. Like typical high dimensional datasets, the measurements are embedded on a low dimensional subspace of the entire domain."
+      },
+      {
+        "page": 23,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The last dataset, FLIGHT, consists of 800,000 flight records randomly selected from the database available at http://stat-computing.org/dataexpo/2009/. The same size subset of the database was used as a benchmark dataset in literature (Hensman et al., 2013). Following the use in the literature, we used 8 predictors that include the age of the aircraft, distance that needs to be covered, airtime, departure time, arrival time, day of the week, day of the month and month, and the response variable is the arrival time delay."
+      },
+      {
+        "page": 23,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The fourth dataset, SARCOS, contains measurements from a seven degrees-of-freedom SARCOS anthropomorphic robot arm. There are 21 predictors that describe the posi- tions, moving velocities and accelerations of seven joints of the robot arm, and the seven response variables are the corresponding torques at the seven joints. We only use the first response variable for this numerical study. The dataset, which is available at http://www. gaussianprocess.org/gpml/data/, contains 44,484 training observations and 4,449 test observations. The main objective of the regression analysis is to predict one of the joint torques in a robot arm when the values of the predictors are available."
+      }
+    ]
+  },
+  {
+    "file": "product of sparse GPs.pdf",
+    "title": "ProSpar-GP: scalable Gaussian process\nmodeling with massive non-stationary\ndatasets\nKevin Li\u2217, Simon Mak \u2217\nNovember 16, 2023\nAbstract\nGaussian processes (GPs) are a popular class of Bayesian nonparametric models,\nbut its training can be computationally burdensome for massive training datasets.\nWhile there has been notable work on scaling up these models for big data, existing\nmethods typically rely on a stationary GP assumption for approximation, and can\nthus perform poorly when the underlying response surface is non-stationary, i.e., it\nhas some regions of rapid change and other regions with little change. Such non-\nstationarity is, however, ubiquitous in real-world problems, including our ",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[0.858826, 0.203918, 0.145096]",
+        "subject": "Highlight",
+        "text": "and can thus perform poorly when the underlying response surface is non-stationary, i.e., it has some regions of rapid change and other regions with little change."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "We further show that the ProSpar-GP is Kolmogorov-consistent, in that its generative distribution defines a valid stochastic process over the prediction space; such a property provides essential stability for variational inference,"
+      },
+      {
+        "page": 1,
+        "color": "[0.858826, 0.203918, 0.145096]",
+        "subject": "Highlight",
+        "text": "in a suite of numerical experiments and an application for surrogate modeling of a satellite drag simulator."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "including rocket design [78], cosmology [34], and high-energy physics [17, 29, 30],"
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Such methods parameterize the GP using m \u226a n latent \u201cpseudo-observations\u201d (to be introduced later), which induce a low-rank covariance structure that can greatly reduce training and prediction costs. Inducing point approaches also allow for easy integration of stochastic variational inference and mini-batching [24] for further computational efficiency, and have thus been widely used in the machine learning (ML) literature"
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "there may be regions of the prediction space where the response surface changes rapidly, and other regions where the surface is relatively smooth. This arises naturally in our motivating surrogate modeling application for satellite drag [64],"
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "One seemingly straight-forward solution is to simply fit a GP model with a non-stationary covariance kernel; such models have been widely explored in the context of spatial statistics [23, 51, 60]."
+      },
+      {
+        "page": 4,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "With a carefully-designed variational inference procedure, each sparse GP expert can be trained via an efficient optimization of its length-scale parameters and local inducing points."
+      },
+      {
+        "page": 7,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "However, a key limitation of existing sparse GP approaches is that, for a fixed number of however, is ubiquitous in many applications. can become increasingly poor when the response surface is non-stationary; such non-stationarity, inducing points m, its approximation of the desired \u201cfull\u201d GP fit (i.e., using all n data points)"
+      },
+      {
+        "page": 8,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Such methods, however, have been noted to suffer from blurry (i.e., over-smoothed) predictions, due to its approximation via a stationary model using few inducing points [8, 64, 77]."
+      },
+      {
+        "page": 11,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "k[j](\u00b7,\u00b7) Here, the j-th expert has its distinct kernel    equipped [j] mj \u03b8[j], with separate length-scale parameters along with its own set of inducing points {z {z } and l l=1 u[j]  Rmj. corresponding pseudo-observations \u2208"
+      },
+      {
+        "page": 12,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Equation (8) then specifies the separate sparse GP models for each expert j, following the FITC formulation (4),"
+      },
+      {
+        "page": 18,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "This inconsistency can greatly limit the model flexibility and stability of such approaches, and may explain why these methods tend to perform better with identical expert length-scale parameters as a safeguard against over-fitting"
+      },
+      {
+        "page": 19,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "To contrast, the ProSpar-GP relies on a valid generative stochastic process (Proposition 1) when making inference on model hyperparameters; this then improves the stability of parameter"
+      },
+      {
+        "page": 19,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Finally, another appealing property of the ProSpar-GP is that, by allowing local sparse GP experts access to the full (global) dataset y, it inherits both the desired computational efficiency of local-expert models and the predictive power of global models."
+      },
+      {
+        "page": 23,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "We first explore the performance of these methods for the aforementioned Michalewicz function [45, 64, 68], a common test function for surrogate modeling and uncertainty quantification [69]. As is clear from Figure 2a, this function is highly non-stationary,"
+      },
+      {
+        "page": 27,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "We now explore the effectiveness of the ProSpar-GP in a surrogate modeling application on emulating satellite drag; further details in [68]."
+      }
+    ]
+  },
+  {
+    "file": "rates of convergence for SVGP.pdf",
+    "title": "Rates of Convergence for Sparse Variational Gaussian Process Regression\nDavid R. Burt 1 Carl Edward Rasmussen 1 2 Mark van der Wilk 2\nAbstract\nExcellent variational approximations to Gaussian\nprocess posteriors have been developed which\navoid theO\n(\nN 3)\nscaling with dataset size N.\nThey reduce the computational cost toO\n(\nNM 2)\n,\nwithM\u226aN the number of inducing variables,\nwhich summarise the process. While the com-\nputational cost seems to be linear in N, the true\ncomplexity of the algorithm depends on howM\nmust increase to ensure a certain quality of ap-\nproximation. We show that with high probability\nthe KL divergence can be made arbitrarily small\nby growingM more slowly than N. A particu-",
+    "highlights": [
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Titsias [2014] introduced an upper bound (cid:0) that can be computed in NM2(cid:1) O"
+      },
+      {
+        "page": 3,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "when they are drawn from the model."
+      }
+    ]
+  },
+  {
+    "file": "sparse within sparse GP.pdf",
+    "title": "Sparse within Sparse Gaussian Processes using Neighbor Information\nGia-Lac Tran 1 2 Dimitrios Milios 1 Pietro Michiardi 1 Maurizio Filippone 1\nAbstract\nApproximations to Gaussian processes (GPs)\nbased on inducing variables, combined with varia-\ntional inference techniques, enable state-of-the-art\nsparse approaches to infer GPs at scale through\nmini-batch based learning. In this work, we fur-\nther push the limits of scalability of sparse GPs\nby allowing large number of inducing variables\nwithout imposing a special structure on the induc-\ning inputs. In particular, we introduce a novel\nhierarchical prior, which imposes sparsity on the\nset of inducing variables. We treat our model\nvariationally",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "However, the general case remains elusive and it is still possible that the required value for M may ex- ceed a certain computational budget."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The idea is to operate on a subset of inducing points during training and H prediction, with  H (cid:28) M,"
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "We then considerways toselect the set of inducing points based on neighbor information; H at training time, for a given mini-batch, we activate out H of inducing variables considering the nearest inducing M inputs to the samples in the mini-batch,"
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "To maintain positive-definiteness of and perform uncon- S strained optimization, is parametrized as LLT, with S S = lower triangular. L"
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Burt et al., 2019)."
+      },
+      {
+        "page": 4,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The majority of the contribution is given by the inducing points with the largest kernel values,"
+      },
+      {
+        "page": 4,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "so we can use this as a criterion to establish whether an inducing input is \u201cclose\u201d to an input vector (the effect of different kernels on the definition of nearest neighbors is explored in the supplement)."
+      },
+      {
+        "page": 9,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Burt, D., Rasmussen, C. E., and Van Der Wilk, M. Rates of convergence for sparse variational Gaussian process regression. In Proceedings of the 36th International Con- ference on Machine Learning, volume 97 of Proceedings of Machine Learning Research, pp. 862\u2013871. PMLR, 2019."
+      }
+    ]
+  },
+  {
+    "file": "titsias2009.pdf",
+    "title": "         567\nVariational Learning of Inducing Variables in Sparse Gaussi an\nProcesses\nMichalis K. Titsias\nSchool of Computer Science,\nUniversity of Manchester, UK\nmtitsias@cs.man.ac.uk\nAbstract\nSparse Gaussian process methods that use in-\nducing variables require the selection of the\ninducing inputs and the kernel hyperparam-\neters. We introduce a variational formula-\ntion for sparse approximations that jointly\ninfers the inducing inputs and the kernel hy-\nperparameters by maximizing a lower bound\nof the true log marginal likelihood. The key\nproperty of this formulation is that the in-\nducing inputs are de\ufb01ned to be variational\nparameters which are selected by minimizing\nthe Kullback-Leibler",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "This approach turns the inducing inputs into additional ker- nel hyperparameters."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "While this can increase flexibil- ity when we fit the data, it can also lead to overfitting when we optimize with respect to all unknown hyper- parameters."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "Furthermore, fitting a modified model is not so rigorous approximation procedure since there is no distance between the exact and the modified model that is minimized.this"
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "This allows i) to avoid overfit- ting and ii) to rigorously approximate the exact GP model by minimizing a distance between the sparse model and the exact one."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756863, 0]",
+        "subject": "",
+        "text": "(\u03b8,\u03c32)  which can be estimated by maximizing the log marginal likelihood given by logp(y) = log[N(y|0,\u03c32I  + K nn )]. (2) Although the above GP approach is elegant, it is in- tractable for large datasets since the computations re- quire the inversion of a matrix of size n \u00d7 n which scales as O(n3).  "
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "Thus, we need to consider approx- imate or sparse methods in order to deal with large datasets."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "related objective function used in (Seeger et al., 2003) corresponds to the projected process approximation (PP). These approximate log marginal likelihoods have the form  F = log[N(y|0,\u03c32I  + Q )], nn (3) where Q is an approximation to the true covariance nn K K\u22121 nm mm  K . In PP, Q = nn nn K , i.e. the exact co- mn K\u22121 mm variance is replaced by the Nystro\u00a8m approximation."
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "This implies that the inducing inputs X play the role of extra kernel hyperparam- m eters (similar to \u03b8) that parametrize the covariance matrix Q . nn"
+      },
+      {
+        "page": 2,
+        "color": "[0.0235291, 0.541183, 0.109802]",
+        "subject": "Highlight",
+        "text": "However because the prior has changed, continuous optimization of F with respect to X does m not reliably approximate the exact GP model."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Rather than modifying the exact GP model, we minimize a distance between the exact posterior GP and a variational approximation."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "In practise it is difficult to find inducing variables f m that are sufficient statistics. Thus, we expect q(z) to be only an approximation to p(z|y)."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "In such case, we can choose \u03c6(f ) to be a \u201cfree\u201d variational Gaussian m distribution, where in general \u03c6(f m ) 6= p(f m |y),"
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The question that now arises is how do we select the \u03c6 distribution, i.e. (\u00b5, A), and the inducing inputs X m"
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Hence, the augmented representation has a set of \u201cfree\u201d parameters X which can be treated as varia- m tional parameters as opposed to the model parameters."
+      },
+      {
+        "page": 3,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "The bound after this maximization is   1   F V (X ) = log m N(y|0,\u03c32I + Q ) \u2212 nn Tr(K), 2\u03c32 (9) K K nm K m \u22121  where Q nn = K = Cov(f|f  m ) = \u2212K nm K m \u22121  K nn \u2212K K mn . Details of the e derivation of this m m bound are given in a technical report (Titsias, 2009). m m K mn and  Tr(K),"
+      }
+    ]
+  },
+  {
+    "file": "VNNGP.pdf",
+    "title": "Variational Nearest Neighbor Gaussian Process\nLuhuan Wu 1 Geoff Pleiss 2 John Cunningham 1 2\nAbstract\nVariational approximations to Gaussian processes\n(GPs) typically use a small set of inducing points\nto form a low-rank approximation to the co-\nvariance matrix. In this work, we instead ex-\nploit a sparse approximation of the precision ma-\ntrix. We propose variational nearest neighbor\nGaussian process (VNNGP), which introduces\na prior that only retains correlations within\nK\nnearest-neighboring observations, thereby induc-\ning sparse precision structure. Using the vari-\national framework, VNNGP\u2019s objective can be\nfactorized over both observations and inducing\npoints, enabling stochastic optim",
+    "highlights": [
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "For example, spatiotemporal datasets often have intrinsically low lengthscale, meaning that the data can vary rapidly with small changes in space and time. In these settings, low-rank approximations cannot capture fast variations, often resulting in low fidelity or \u201cblurry\u201d pre- dictions (e.g. Datta et al., 2016a; Pleiss et al., 2020; Wu et al., 2021)."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "Whereas a low-rank approximation assumes that observations are explained through a small number of global latent variables, a sparse precision approximation instead assumes that observations are conditionally independent given their nearest neighboring observations."
+      },
+      {
+        "page": 1,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "This assumption is quite reasonable in the context of spatiotemporal modeling. For example, it is reasonable to assume that the weather in Los Angeles and Maine are conditionally independent, given neighboring cities in California."
+      },
+      {
+        "page": 2,
+        "color": "[1, 0.756866, 0.0]",
+        "subject": "Highlight",
+        "text": "1VNNGP is implemented in the GPyTorch library. See the example in"
+      }
+    ]
+  }
+]

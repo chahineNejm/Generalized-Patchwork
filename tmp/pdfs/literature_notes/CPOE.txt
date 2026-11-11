@@ -1,0 +1,4785 @@
+=== PDF PAGE 1 ===
+Draft
+Correlated Product of Experts
+for Sparse Gaussian Process Regression
+Manuel Sch¨ urch1,2 Dario Azzimonti1 Alessio Benavoli3,1, Marco Zaﬀalon 1
+1Istituto Dalle Molle di Studi sull’Intelligenza Artiﬁciale (IDSIA), Lugano, Switzerland.
+{manuel.schuerch, dario.azzimonti, marco.zaffalon}@idsia.ch
+2Universit` a della Svizzera italiana (USI), Lugano, Switzerland.
+3 University of Limerick (UL), Limerick, Ireland.
+alessio.benavoli@tcd.ie
+Abstract
+Gaussian processes (GPs) are an important tool in machine learning and statistics with
+applications ranging from social and natural science through engineering. They constitute
+a powerful kernelized non-parametric method with well-calibrated uncertainty estimates,
+however, oﬀ-the-shelf GP inference procedures are limited to datasets with several thousand
+data points because of their cubic computational complexity. For this reason, many sparse
+GPs techniques have been developed over the past years. In this paper, we focus on GP
+regression tasks and propose a new approach based on aggregating predictions from several
+local and correlated experts. Thereby, the degree of correlation between the experts can
+vary between independent up to fully correlated experts. The individual predictions of the
+experts are aggregated taking into account their correlation resulting in consistent uncer-
+tainty estimates. Our method recovers independent Product of Experts, sparse GP and full
+GP in the limiting cases. The presented framework can deal with a general kernel function
+and multiple variables, and has a time and space complexity which is linear in the number
+of experts and data samples, which makes our approach highly scalable. We demonstrate
+superior performance, in a time vs. accuracy sense, of our proposed method against state-
+of-the-art GP approximation methods for synthetic as well as several real-world datasets
+with deterministic and stochastic optimization.
+Keywords: Gaussian processes, non-parametric regression, prediction aggregation
+1
+arXiv:2112.09519v1  [stat.ML]  17 Dec 2021
+gold
+due to the high number of hyperparameters we do not pretend to give justce b trying out a few and opt out of this.
+my general opinion on this paper is that it could be good general baseline but it has a lot of hyperparameters and uses the same kernel in all of the submodels, 
+thus it s not necessarily very good? maybe a goo mention is enough and no note necessarily full comparision
+
+=== PDF PAGE 2 ===
+Draft
+1 Introduction
+Gaussian processes (GPs) are a class of powerful probabilistic method used in many statisti-
+cal models due to their modelling ﬂexibility, robustness to overﬁtting and availability of well-
+calibrated predictive uncertainty estimates with many applications in machine learning and
+statistics. However, oﬀ-the-shelf GP inference procedures are limited to datasets with a few
+thousand data points N, because of their computational complexity O(N 3) and memory com-
+plexity O(N 2) due to the inversion of a N × N kernel matrix [24]. For this reason, many GP
+approximation techniques have been developed over the past years. There are at least two
+diﬀerent approaches to circumvent the computational limitation of full GP. On the one hand,
+there are sparse and global methods [6, 23, 24, 28] based on Mg ≪ N so-called (global) inducing
+points, which cover sparsely the input space and optimally summarizing the dependencies of the
+training points. This results in a low-rank approximation of the kernel matrix of size Mg × Mg
+which is less expensive to invert. These methods consistently approximate full GP, for instance
+the authors in [30] have shown that it converges to full GP as Mg → N. However, all these
+methods are still cubic in the number of global inducing points Mg and for many applications
+- in particular in higher dimensions - the amount of inducing points has to be rather large to
+capture the pattern of the function properly. A lot of work has been done to optimize the loca-
+tions of the inducing inputs e.g. [4, 29, 30], which allows to have less inducing points but more
+optimization parameters. This optimization procedures were further improved by stochastic
+optimization e.g. [2, 12, 17, 27], which allows to update the parameters in mini-batches and
+thus speed up the inference. Optimization of these (variational) parameters helps to scale GP
+approximations, however, the large number of optimization parameters makes these methods
+hard to train and they are still limited to Mg global inducing points.
+On the other hand, there are independent and local models based on averaging predictions
+from J independent local experts/models resulting in a block-diagonal approximation of the
+kernel matrix. The ﬁnal probabilistic aggregation is then based on a product of the individual
+predictive densities, thus they are called Product of Experts (PoEs), see [10, 8, 13, 25, 31, 19].
+PoE methods provide fast and rather accurate predictions, because they have fewer hyperparam-
+eters than inducing point methods and are locally exact. However, the predictive aggregation of
+complete independent experts leads to unreliable uncertainty estimates and less accurate pre-
+dictions in regions between experts. Further, also a rigorous connection to full GP is missing.
+Beside the mentioned local and global methods, there are also numerical approaches for the
+inversion exploiting parallelism in specialized hardware [32]. For a more thorough overview of
+GP approximations we refer to [20, 24].
+Our approach has the aim to overcome these limitations by introducing a framework based
+on J correlated experts so that it approximates full GP in two orthogonal directions: sparsity
+and locality. Thereby, our model is a generalization of the independent PoEs and sparse global
+GPs by introducing local correlations between experts. These experts correspond to local and
+sparse GP models represented by a set of local inducing points, which are points on the GP
+2
+somewhere around that
+
+=== PDF PAGE 3 ===
+Draft
+0
+Correlated
+PoE
+F
+ull GP
+J
+N
+sparse
+M
+N
+1
+lo
+cal
+J
+1
+dense
+Indep
+endent PoE
+global
+γ
+Sparse
+Global GP
+C
+globalit
+y = locality−1
+densit
+y
+sparsit
+y−1
+=
+(a)
+Precision Matrices.
+0
+J
+N
+1
+lo
+cal
+Indep
+endent PoE
+J
+global
+C
+γ
+1
+F
+ull GP
+M
+N
+globalit
+y = locality−1
+Sparse
+Global
+GP
+sparse
+dense
+Correlated
+PoE (b)
+KL to full GP.
+summarizing locally the dependencies of the training data. The degree of correlation C between
+the experts can vary between independent up to fully correlated experts in a consistent way,
+so that our model recovers independent PoEs, sparse global GP and full GP in the limiting
+cases. Our method exploits the conditional independence between the experts resulting in a
+sparse and low-rank prior as well as posterior precision (inverse of covariance) matrix, which
+can be used to eﬃciently obtain local and correlated predictions from each expert. These cor-
+related predictions are aggregated by the covariance intersection method [16], which is useful
+for combining consistently several estimates with unknown correlations. The resulting predic-
+tive distribution is a smooth weighted average of the predictive distributions of the individual
+experts. Our algorithm works with a general kernel function and perform well with variables
+in higher dimensions. The number of hyperparameters to optimize of our method is the same
+as for full GP, which are just a few parameters (depending on the kernel). These parameters
+can be similarly estimated via the log marginal likelihood which is analytically and eﬃciently
+computable for our model. In our inference, also log normal priors can be incorporated leading
+to maximum-a-posteriori estimates for the hyperparameters.
+Compared to the independent Product of Experts, the performance can already signiﬁcantly
+improve by modelling just a few of the pairwise correlations between the experts. Compared to
+the number of global inducing point Mg which is usual much smaller than the number of data
+points N, our approach allows a much higher of total local inducing points in the order of N
+which helps to cover the space and therefore model more complicated functions. Our method
+shares also some similarities with other sparse precision matrix GP approximations. The works
+[9, 11] exploit a band precision matrix together with univariate kernels whereas [3] propose a
+precision structure according to a tree. The authors [7, 18] use a more general precision matrix
+structure, however they need to know the prediction points in advance and are only well suited
+for low dimensional data (i.e. 1D and 2D) which is usually not useful in the context of machine
+learning where the dimension is higher and predictions are needed after training.
+In Section 2, we brieﬂy review full GP for regression and sparse and global as well as
+independent and local approaches for GP approximation. In Section 3, we propose our method
+3
+this creates a sense of separation between the two? this is nice
+
+=== PDF PAGE 4 ===
+Draft
+Correlated Product of Experts (CPoEs) where we introduce the graphical model (3.1) of our
+method and explain the local and sparse character of the prior approximation (3.2). Further,
+we discuss how to make inference (3.3) and prediction (3.4) in our model. In Section 3.5, we
+show that the quality of our approximation consistently improves in terms of Kullback-Leibler-
+(KL)-divergence (22) w.r.t. full GP for increasing degree of correlation. Moreover, we present
+deterministic and stochastic hyperparameter optimization techniques (3.6) and comparisons
+(4) against state-of-the-art GP approximation methods in a time versus accuracy sense, for
+synthetic as well as several real-world datasets. We demonstrate superior performance of our
+proposed method for diﬀerent kernels in multiple dimensions. Section 5 concludes the work and
+presents future research directions.
+2 GP Regression
+Suppose we are given a training set D = {yi, Xi}N
+i=1 of N pairs of inputs Xi ∈ RD and
+noisy scalar outputs yi generated by adding independent Gaussian noise to a latent func-
+tion f, that is yi = f(Xi) + εi, where εi ∼ N
+(
+0, σ2
+n
+)
+. We denote y = [ y1, . . . , yN]T the
+vector of observations and with X = [ X T
+1 , . . . , XT
+N]T ∈ RN×D. We model f with a Gaus-
+sian Process, i.e. f ∼ GP(m, kθ) with mean m(X) and a covariance function (or kernel)
+kθ(X, X′) for any X, X′ ∈ RD where θ is a set of hyperparemeters. For the sake of sim-
+plicity, we assume m(X) ≡ 0 and a squared exponential (SE) kernel with individual length-
+scales for each dimension if not otherwise stated, however, the mean function can be arbitrary
+and the covariance any positive deﬁnite kernel function (consider e.g. [24]). For any input
+matrix A = [A 1; . . .; AM] ∈ RM×D consisting of rows Ai ∈ RD, we deﬁne the GP output
+value a = f (A) = [f (A1), . . . , f(AM)]T = [ a1, . . . , aM]T ∈ RM so that the joint distribution
+p (a) = p (a1, . . . , aM) is Gaussian N (a|0, KAA) with a kernel matrix KAA ∈ RM×M where
+the entries [K AA]ij = KAiAj correspond to the kernel evaluations kθ(Ai, Aj) ∈ R.
+In particular, the joint distributionp(f , f∗) of the training valuesf = f (X) = [f(X1), . . . , f(XN)]T
+and a test function value f∗ = f(X∗) at test point X∗ ∈ RD is Gaussian N
+(
+0, K[X;X∗][X;X∗]
+)
+where [X ; X∗] is the resulting matrix when stacking the matrices above each other. For GP
+regression, the Gaussian likelihood p (y|f) = N
+(
+y|f , σ2
+nI
+)
+can be combined with the joint prior
+p(f , f∗) so that the predictive posterior distribution can be analytically derived [24]. Alter-
+natively, we present a two stage procedure to highlight later connections to our model. The
+posterior distribution over the latent variables given the data can be explicitly formulated as
+p (f |y) ∝ p (f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f 1:j−1
+)
+, (1)
+where the data is split into J mini-batches of size B, i.e. D =
+{
+yj, X j
+}J
+j=1 with inputs
+X j ∈ RB×D, outputs yj ∈ RB and the corresponding latent function values f j = f(X j) ∈ RB.
+In (1) we used the notation f k:j indicating [f k, . . . ,f j] and the conditionals p
+(
+f j|f 1:j−1
+)
+can be
+4
+maybe ???
+same same
+
+=== PDF PAGE 5 ===
+Draft
+derived from the joint Gaussian. Given the posteriorp(f |y), the predictive posterior distribution
+from above is equivalently obtained as p (f∗|y) =
+∫
+p (f∗|f) p (f |y) df via Gaussian integration
+(18). The corresponding graphical model is depicted in Fig. 1(a)i) and 1(b)i), respectively.
+The GP depends via the kernel matrix on the hyperparameters θ, which are typically es-
+timated by maximizing the log marginal likelihood log p (y|θ) = log N
+(
+y|0, KXX + σ2
+nI
+)
+. Al-
+though GP inference is an elegant probabilistic approach for regression, the computations for
+inference and parameter optimization require the inversion of the matrix KXX + σ2
+nI ∈ RN×N
+which scales as O(N 3) in time and O(N 2) for memory which is infeasible for large N.
+y1
+y2
+yj
+yJ
+...
+...
+f1
+f2
+fj
+fJ
+...
+...
+y1
+y2
+...
+...
+f1
+f2
+a
+y1
+y2
+...
+...
+f1
+f2
+...
+...
+iii)
+PoE
+ii)
+SGP
+i)
+Full GP
+fj
+fJ
+fj
+fJ
+yj
+yJ
+yj
+yJ
+(a) Training.
+f1
+fJ
+fj
+y∗
+f∗
+i)
+Full GP
+y∗
+f∗
+a
+ii)
+SGP
+fj
+f1
+fJ
+iii)
+PoE
+y∗
+f∗
+f∗j
+f∗1
+f∗J (b) Prediction.
+Figure 1: Graphical models of diﬀerent GP approaches.
+2.1 Global Sparse GPs
+Sparse GP regression approximations based on global inducing points reduce the computational
+complexity by introducing Mg ≪ N inducing points a ∈ RMg that optimally summarize the
+dependency of the whole training data globally as illustrated in the graphical model in Fig.
+1(a)ii) and is denoted in the following as SGP(M g). Thereby the inducing inputs A ∈ RMg×D
+are in the D-dimensional input data space and the inducing outputs a = f(A) ∈ RMg are
+the corresponding GP-function values. Similarly to full GP in Eq. (1), the posterior over the
+inducing points p(a|y) ∝
+∫
+p (a, f , y) df can be derived from the joint distribution
+p (a, f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|a
+)
+p(a), (2)
+where the usual Gaussian likelihood p
+(
+yj|f j
+)
+= N
+(
+f j, σ2
+nI
+)
+and the Gaussian conditional
+p
+(
+f j|a
+)
+are used. Based on the joint distribution in (2), the posterior p(a|y) can be derived
+from which prediction can be performed using the predictive conditional p (f∗|a) as more pre-
+cisely explained in B.1 in the Appendix and illustrated in Figure 1(b)ii). Batch inference in
+these sparse global models can be done in O(M 2
+g N) time and O(MgN) space ([23]).
+In order to ﬁnd optimal inducing inputs A and hyperparameters θ, a sparse variation of the
+log marginal likelihood similar to full GP can be used [4, 29, 30]. For larger datasets, stochas-
+tic optimization has been applied e.g. [2, 12, 17, 27] to obtain faster and more data eﬃcient
+optimization procedures. For recent reviews on the subject we refer to [20, 23, 24].
+5
+
+=== PDF PAGE 6 ===
+Draft
+2.2 Local Independent GPs
+Local approaches constitute an alternative to global sparse inducing point methods, which
+exploit multiple local GPs combined with averaging techniques to perform predictions. In this
+work we focus on Product of Expert (PoE) [13], where individual predictions from J experts
+based on the local data yj are aggregated to the ﬁnal predictive distribution
+p (f∗|y) =
+J∏
+j=1
+gj
+(
+p
+(
+f∗j|yj
+))
+(3)
+where gj is a function introduced in order to increase or decrease the importance of the experts
+and depends on the particular PoE method [13, 10, 31, 19, 20]. Note, in particular, the gen-
+eralized PoE (GPoE) [10], where the weights are set to the diﬀerence in entropy of the local
+prior and posterior. The individual predictions p
+(
+f∗j|yj
+)
+are based on a local GP for which the
+implicit joint posterior can be formulated as
+p (f |y) ∝ p (f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j
+)
+, (4)
+where the corresponding graphical model is depicted in Figure 1iii) and more details are pro-
+vided in Appendix B.2. Other important contributions in this ﬁeld are distributed local GPs [8]
+and local experts with consistent aggregations [25, 22]. Simple baseline methods for local meth-
+ods are the minimal variance (minVar) and the nearest expert (NE) aggregation, where only
+the prediction from the expert with minimal variance and nearest expert is used, respectively.
+Although both methods show often surprisingly good performance, they suﬀer from the impor-
+tant disadvantage that there are serious discontinuities at the boundaries between the experts
+(see for instance Fig. 2) and thus often not useful in practice. This is also the main limitation
+of all local methods based only on the prediction of one expert which was the main reason for
+introducing smooth PoEs with combined experts. We refer to [20] for a recent overview.
+3 Correlated Product of Experts
+In this section we present our GP regression method Correlated Product of Expert CPoE(C, γ)
+which is a generalization of the independent PoEs and sparse global GPs. The ﬁrst generalization
+is the introduction of correlations between the experts which can be adjusted by the parameter
+1 ≤ C ≤ J and allows to interpolate between local and global models. Secondly, similar to
+the sparse global approximation, our method allows to sparsify the inducing points by sparsity
+parameter 0 < γ ≤ 1. We refer to Table 4 in the Appendix for an overview of the used notation.
+6
+gen of POE and Sparse?
+
+=== PDF PAGE 7 ===
+Draft
+4
+3
+2
+1
+0
+1
+2
+3
+4
+Sparse GP(25)
+KL to full GP = 6.74
+minVar
+KL to full GP = 7.62
+1.0
+ 0.5
+ 0.0 0.5 1.0
+4
+3
+2
+1
+0
+1
+2
+3
+4
+GPoE
+KL to full GP = 10.43
+mean 95%-CI inducing points
+1.0
+ 0.5
+ 0.0 0.5 1.0
+CPoE(2,1)
+KL to full GP = 0.14
+mean full GP data 95%-CI full GP
+Figure 2: Diﬀerent GP approximations (with comparable time complexity) indicated with pre-
+dictive mean (solid blue) and 95%-credible interval (dotted blue) compared to full GP (black
+and shaded blue area). The number in the right bottom corner indicates the KL-divergence (22)
+to full GP. In the bottom plot, our method Correlated Prodcuct of Expert (CPoE) is presented
+for a degree of correlation C = 2 and sparsity γ = 1.
+3.1 Graphical Model
+Assuming N = BJ data samples which are divided into J ordered partitions (or experts) of
+size B, i.e. D =
+{
+yj, X j
+}J
+j=1 with inputs X j ∈ RB×D and outputs yj ∈ RB. We denote
+f j = f(X j) ∈ RB the corresponding latent function values on the GP f. We abbreviate
+y = y1:J ∈ RN , X = X 1:J ∈ RN×D and f = f 1:J ∈ RN.
+Deﬁnition 1 (Local Inducing Points). We refer to local inducing points {aj, Aj}J
+j=1 with
+inducing inputs Aj ∈ RL×D and the corresponding inducing outputs aj = f(Aj) ∈ RL of size
+L = ⌊γB ⌋ with 0 < γ ≤ 1.
+These L local inducing points (a j, Aj) of expert j serve as local summary points for the
+data
+(
+yj, X j
+)
+where the sparsity level can be adjusted by γ. If γ = 1, the inducing inputs
+Aj correspond exactly to X j and correspondingly aj = f j. We abbreviate a = a1:J ∈ RM
+with M = LJ for all local inducing outputs with the corresponding local inducing inputs
+A = A1:J ∈ RM×D.
+Next, we model connections between the experts by a set of neighbour experts according to
+the given ordering.
+Deﬁnition 2 (Predecessor and Correlation Index Sets). Let φi(j) ∈ {1, . . . , j − 1} the index
+of the ith predecessor of the jth expert. For a given correlation parameter 1 ≤ C ≤ J, we
+introduce the predecessor set πC(j) = ⋃Ij
+i=1 φi(j) satisfying
+πC(j) ⊂ {1, . . . , j − 1} and πC+1(j) = πC(j) ∪ φC+1(j)
+such that the size of the set Ij = |πC(j)| = min(j − 1, C − 1). Further, we deﬁne the region of
+7
+good point to look at, discontinuities 
+as told in the PW paper
+re the inducig points trained at all??? what is an inducing point here?
+selected as a fraction of the data????
+as you add correlation structure you add more info ok
+
+=== PDF PAGE 8 ===
+Draft
+correlation with the correlation indices
+ψC(j) =
+
+
+
+πC(j) ∪ { j, . . . , C}, if j < C
+πC(j) ∪ j, if j ≥ C
+such that |ψC(j)| = C and ψC(j) = ψC(C) = {1, . . . , C} for all j ≤ C.
+The purpose of these predecessor and correlation indices are to model the local correlations
+among the experts of degree C. If for all j the indices πC(j) are the C − 1 previous indices, we
+say that the predecessors are consecutive and non-consecutive otherwise. If C is clear from the
+context, πC(j) and ψC(j) are abbreviated by π(j) and ψ(j), respectively. Details about the
+speciﬁc choices of the ordering, partition, inducing points and predecessor indices are given in
+Section 3.6.1.
+a1
+a5
+a4
+a3
+a2
+a5
+a4
+a3
+a2
+a1
+a5
+a4
+a3
+a2
+a1
+a5
+a4
+a3
+a2
+a1
+a5
+a4
+a3
+a2
+a1
+π1
+π2
+π3
+π4
+π5
+F
+C = 1
+C = 2
+C = 3
+C = 4
+C = 5
+S,T, Σ−1
+H
+Figure 3: Correlation structure πC between the J = 5 experts for diﬀerent degrees of correlation
+1 ≤ C ≤ J. Left: Graphical model among the local inducing points aj. Right: Structure of
+sparse transition matrix F , projection matrix H, prior precision S, likelihood precision T and
+posterior precision Σ−1. Note that πC does not have to be consecutive, e.g 2 /∈ π2(3).
+Deﬁnition 3 (Graph). We deﬁne a directed graph G(V, E) with nodes V = a ∪ f ∪ y and
+directed edges
+E = { {(aπi
+C (j), aj)}Ij
+i=1 ∪ { (aψi
+C (j), f j)}C
+i=1 ∪ (f j, yj) }J
+j=1,
+where πi
+C(j) and ψi
+C(j) denote the ith element in the corresponding set.
+The directed graph G is depicted in Fig. 4aii) where the local inducing points of the jth
+expert are connected with the inducing points of the Ij experts in πC(j). Further, the function
+values f j are connected in the region of correlation ψC(j) to the local inducing points. The
+graph G = (V, E) can be equipped with a probabilistic interpretation, in particular, each node
+v ∈ V and each incoming edge ( vi, v) ∈ E for all predecessors i = 1, . . . , I can be interpreted
+as a conditional probability density p (v|v1, . . . ,vI).
+8
+
+=== PDF PAGE 9 ===
+Draft
+y1
+y2
+yj
+yJ
+...
+...
+f1
+f2
+fj
+fJ
+πC(J)
+πC(j)
+i) Full CPoE
+(γ = 1)
+y1
+y2
+yj
+yJ
+...
+...
+f1
+fj
+fJ
+f2
+aJ
+...
+...
+πC(J)
+πC(j)
+a1
+aj
+a2
+ψC(j)
+ψC(j)
+ii) Sparse CPoE
+(γ < 1)
+(a) Training.
+a1
+a2
+aJ
+f∗C
+f∗J
+ψC (j)
+aj
+ψC (J)
+ψC (2)
+y∗
+f∗j
+f∗ (b) Prediction.
+Figure 4: Graphical model for training and prediction of CPoE( C, γ).
+Proposition 4 (Graphical Model; Proof 21). We deﬁne a graphical model corresponding to the
+graph G(V, E) with the conditional probability distributions
+p
+(
+yj|f j
+)
+= N
+(
+yj|f j, σ2
+nI
+)
+(5)
+p
+(
+f j|aψ(j)
+)
+= N
+(
+f j|H jaψ(j), V j
+)
+(6)
+p
+(
+aj|aπ(j)
+)
+= N
+(
+aj|F jaπ(j), Qj
+)
+, (7)
+where (5) is the usual Gaussian likelihood for GP regression with noise variance σ2
+n, (6) the
+projection conditional and (7) the prior transition. Thereby, the matrices are deﬁned as
+H j = KXj Aψ(j)K−1
+Aψ(j)Aψ(j)
+∈ RB×LC;
+V j = Diag[KXj Xj − KXj Aψ(j)K−1
+Aψ(j)Aψ(j)
+KAψ(j)Xj] ∈ RB×B;
+F j = KAj Aπ(j)K−1
+Aπ(j)Aπ(j)
+∈ RL×LIj;
+Qj = KAj Aj − KAj Aπ(j)K−1
+Aπ(j)Aπ(j)
+KAπ(j)Aj ∈ RL×L
+with F 1 = 0 and Q1 = KA1A1.
+The two conditional distributions (6) and (7) can be derived from the true joint prior dis-
+tribution p(a, f , y) as shown in Proof 21. Alternatively, a generalization of this model can be
+obtained when using a modiﬁed projection distribution p
+(
+f j|aψ(j)
+)
+so that for C → J and
+γ < 1 our model recovers a range of well known global sparse GP methods as described in Sec-
+tion A.1 and Prop. 11. In any case, these local conditional distributions lead to the following
+joint distribution.
+9
+
+=== PDF PAGE 10 ===
+Draft
+Deﬁnition 5 (Joint Distribution). For the graphical model corresponding to graph G, the joint
+distribution over all variables f , a, y can be written as
+qc,γ(f , a, y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|aψ(j)
+)
+p
+(
+aj|aπ(j)
+)
+.
+In the case γ = 1 and thus a = f, the joint distribution simpliﬁes (Proof 22) to
+qc,1(f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f π(j)
+)
+.
+We use q = qc,γ instead of p in order to indicate that it is an approximate distribution.
+The joint distributions in Def. 5 and the corresponding graphical model in Fig. 4a allow inter-
+esting comparisons to other GP models in Fig. 1 and the corresponding formulas (1), (2), (4).
+Whereas the conditioning set for full GP are all the previous latent values f 1:j−1, for sparse
+GPs some global inducing points a and for local independent experts the empty set, we propose
+to condition on the C − 1 predecessors f π(j) (or a sparsiﬁed version in the general case). From
+this point of view, we can notice that our probabilistic model is equal to full GP, sparse GP
+and PoEs under certain circumstances which are more precisely formulated in Prop. 11.
+3.2 Sparse and Local Prior Approximation
+The conditional independence assumptions between the experts induced by the predecessor
+structure πC lead to an approximate prior qc,γ(a) and approximate projection qc,γ(f |a) yielding
+a sparse and local joint prior qc,γ(a, f , y).
+Proposition 6 (Joint Prior Approximation, Proof 24). The prior over all local inducing points
+a in our CPoE model is
+qc,γ(a) =
+J∏
+j=1
+p
+(
+aj|aπ(j)
+)
+= N
+(
+a|0, S−1
+C
+)
+,
+with the prior precision SC = S = F T Q−1F ∈ RM×M where Q = Diag [Q1, . . . ,QJ] ∈ RM×M
+and F ∈ RM×M is given as the sparse lower triangular matrix in Fig. 5. Morover, the projection
+is
+qc,γ(f |a) =
+J∏
+j=1
+p
+(
+f j|aψ(j)
+)
+= N
+(
+f |Ha,
+V
+)
+,
+where H ∈ RN×M deﬁned in Figure 5 and V = Diag
+[
+V 1, . . . ,V J
+]
+∈ RN×N. Together with the
+exact likelihood p (y|f) = ∏J
+j=1 p(yj|f j) = N
+(
+y|f , σ2
+nI
+)
+determines the joint approximate prior
+qc,γ(a, f , y) = p(y|f) qc,γ(f |a) qc,γ(a).
+10
+not relevant to me
+
+=== PDF PAGE 11 ===
+Draft
+I
+I
+I
+I
+I
+I
+I
+I
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+-F 1
+2
+-F 1
+3
+-F 2
+3
+-F 1
+4
+-F 2
+4
+0
+-F 1
+5
+-F 2
+5
+0
+0
+F =
+-F C
+J
+-F 1
+J
+0
+0
+0
+0
+0
+0
+0
+-F i
+j
+j
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+-F C
+J
+-2
+πi (j)
+-1
+0
+0
+H1
+5
+H2
+5
+0
+0
+H =
+0
+0
+0
+H1
+4
+H2
+4
+0
+0
+0
+0
+H3
+4
+0
+0
+H1
+3
+H2
+3
+0
+0
+0
+H3
+3
+0
+H1
+2
+0
+0
+0
+H2
+2
+H3
+2
+0
+0
+0
+0
+0
+H1
+1
+H2
+1
+H3
+1
+0
+0
+0
+0
+0
+0
+HC
+j
+-1
+0
+0
+0
+0
+Hi
+j
+j
+HC
+j
+0
+0
+0
+0
+HC
+j
++1
+0
+HC
+J
+H1
+J
+0
+0
+HC
+J
+-2
+ψi (j)
+-1
+HC
+J
+Figure 5: Sparse transition matrix F ∈ RM×M and sparse projection matrix H ∈ RN×M, where
+F i
+j ∈ RL×L and H i
+j ∈ RB×L are the ith part of F j ∈ RL×L(C−1) and H j ∈ RB×LC, respectively,
+corresponding to the contribution of the ith predecessor πi(j) and ψi(j).
+Note that the joint prior qc,γ(a, f , y) is Gaussian N (0, W ) with dense covariance W and
+sparse precision Z = W−1 as shown in Fig. 16 in the Appendix. If the predecessor set is
+consecutive, the matrix F is a lower band (block)matrix with bandwidth C and in the non-
+consecutive case each row has exactly C non-zero blocks. The sparsity pattern of F is inherited
+to the prior precision S = F T Q−1F which is also a sparse matrix (see Fig. 3). For the
+consecutive case, S is a block-band matrix with bandwidth 2C − 1. Note that the inverse S−1
+is dense. The likelihood matrix H is exact in the corner up to indices C which ensures that we
+recover sparse global GP in the limiting case C = J. The quality of the approximation of our
+CPoE(C, γ) model is discussed in Section 3.5 where we show that qc,γ(a, f , y) converges to the
+true prior p(a, f , y) for C → J.
+3.3 Inference
+For our model it is possible to infer analytically the posterior qc,γ(a|y) and the marginal likeli-
+hood qc,γ(y) used later for prediction and for hyperparameter estimation, respectively.
+Proposition 7 (Posterior Approximation; Proof 32) . From the joint distribution, the latent
+function values f can be integrated out yielding
+qc,γ(a, y) =
+∫
+qc,γ(f , a, y) df = qc,γ(y|a)qc,γ(a) = N (y|Ha, V ) N
+(
+a|0, S−1)
+with V =
+V + σ2
+nI ∈ RN×N . The posterior can be analytically computed by
+qc,γ(a|y) = qc,γ(a, y)
+qc,γ(y) ∝ qc,γ(a, y) = N (a|µ, Σ) ,
+with Σ = (T + S)−1 ∈ RM×M, µ = Σb ∈ RM, b = H T V−1y ∈ RM and T = H T V−1H ∈
+RM×M.
+11
+bof? naturel non?
+
+=== PDF PAGE 12 ===
+Draft
+The posterior precision matrix Σ−1 = T + S inherits the sparsity pattern of the prior since
+the addition of the projection precision T = H T V−1H has the same sparsity structure as
+depicted in Figs. 3 and 6. On the other hand, the posterior covariance Σ is dense, therefore it
+will be never explicitly fully computed. Instead, the sparse linear system of equations Σ−1µ = b
+can be eﬃciently solved for µ = Σb.
+Further, in our CPoE model, the marginal likelihood qc,γ(y|θ) can be analytically computed
+by
+∫
+qc,γ(y, a) da = N (0, P ) (see Proof 14) with the (dense) matrix P = HS−1H T + V ∈
+RN×N which is used in Section 3.6.2 for hyperparameter optimization.
+The posterior approximation qc,γ(a|y) as well as the approximate marginal likelihoodqc,γ(y)
+converge to the true distributions p (a|y) and p (y), respectively, for C → J. In particular, they
+correspond exactly to the posterior and marginal likelihood of full GP and sparse global GP
+with ⌊γN ⌋ inducing points for C = J, γ = 1 and C = J, γ < 1, respectively.
+=
++
+H
+V −1
+H T
+F
+F T
+Q−1
+Σ−1
+prior
+precision S
+p
+osterior precision
+pro
+jection and likelihood precision T
+Figure 6: Sparse posterior precision approximation.
+3.4 Prediction
+The ﬁnal predictive posterior distribution is obtained by an adaptation of the PoE aggregation
+in (3). The main idea is to consistently aggregate weighted local predictions form the experts
+such that the correlations between them are taken into account resulting in a smooth and
+continuous predictive distribution.
+Proposition 8 (Prediction Aggregation; Proof 37) . Similarly to the PoE aggregation in (3),
+we deﬁne the ﬁnal predictive posterior distribution qc,γ(f∗|y) for a query point x∗ ∈ RD as
+qc,γ(f∗|y) =
+J∏
+j=C
+qc,γ(f∗j|y)β∗j ,
+involving the local predictions qc,γ(f∗j|y) = N (m∗j, v∗j) and weights β∗j ∈ R deﬁned in Prop.
+9 and Def. 10, respectively. Moreover, the distribution qc,γ(f∗|y) = N (m∗, v∗) with m∗ =
+v∗
+∑J
+j=C β∗j
+m∗j
+v∗j
+and 1
+v∗ = ∑J
+j=C
+β∗j
+v∗j
+is analytically available. The ﬁnal noisy prediction is
+p (y∗|y) = N
+(
+m∗, v∗ + σ2
+n
+)
+.
+The graphical model corresponding to this prediction procedure is depicted in Fig. 4b. Note
+that the ﬁrst C −1 experts are only implicitly considered sinceψ (j) = ψ (C) for j ≤ C, resulting
+12
+asically the idea is a sliding windiw of models.
+
+=== PDF PAGE 13 ===
+Draft
+in J2 = J − C + 1 predictive experts so that the proposed prediction aggregation interpolates
+between predictions from J2 = J completely independent experts and predictions from J2 = 1
+fully correlated expert which is depicted in Fig. 13 in the Appendix.
+Proposition 9 (Local Predictions, Proof 38). The local prediction qc,γ(f∗j|y) = N (m∗j, v∗j)
+of the jth expert are based on the region ψ (j) where the correlations are modelled and can be
+computed as
+qc,γ(f∗j|y) =
+∫
+p
+(
+f∗j|aψ(j)
+)
+qc,γ(aψ(j)|y) daψ(j) = N
+(
+h∗µψ(j), hT
+∗ Σψ(j)h∗ + v∗
+)
+involving the local posteriors qc,γ(aψ(j)|y) = N
+(
+µψ(j), Σψ(j)
+)
+and the predictive conditional
+p
+(
+f∗j|aψ(j)
+)
+= N
+(
+h∗aψ(j), v∗
+)
+(which is exactly deﬁned in Proof 38).
+The local posteriors with mean µψ(j) and covariance entries Σψ(j) could be obtained from
+the corresponding entries ψ (j) of µ and Σ. However, computing explicitly some entries in
+the dense covariance Σ based on the sparse precision Σ−1 is not straightforward since in the
+inverse the blocks are no longer independent. However, we can exploit the particular sparsity
+and block-structure of our precision matrix and obtain an eﬃcient implementation of this part
+which is key to achieve a competitive performance of our algorithm. More details are given in
+the Appendix in Section A.2.
+Deﬁnition 10 (Aggregation Weights). The input depending weights β∗j = βj(X∗) at query
+point X∗ models the inﬂuence of expert j. In particular, the unnormalized weights
+¯β∗j = H[p (f∗)] − H[p (f∗j|y)] = 1
+2 log
+(v∗0
+v∗j
+)
+,
+are set to the diﬀerence in entropy H (21) before and after seeing the data similarly proposed
+by [10]. Thereby, the predictive prior is p (f∗) = N (0, v∗0) with v∗0 = kX∗X∗ and the predictive
+posterior deﬁned in Prop. 9. The normalized weights are then obtained by β∗j = b−1 ¯βZ
+∗j where
+b = ∑J
+j=C ¯βZ
+∗j and Z = log(N)C.
+These weights bring the ﬂexibility of increasing or reducing the importance of the experts
+based on the predictive uncertainty. However, independent of the particular weights, our aggre-
+gation of the predictions is consistent since it is based on the covariance intersection method
+[16], which is useful for combining several estimates of random variables with known mean and
+variance but unknown correlation between them. The Z in the exponent of the normalization
+of the weights has a sharpening eﬀect, so that the informative experts have even more weight
+compared to the non-informative experts for more data N and more correlations C. This is
+a heuristic but showed quite robust performance in experiments. Moreover, the consistency
+properties are more relevant than the particular weights.
+13
+self indulgent, insititing on itself bull
+
+=== PDF PAGE 14 ===
+Draft
+3.5 Properties
+Proposition 11 (Equality; Proof 23). Our model correlated Product of Experts CPoE (C, γ) is
+equal to full GP for C = J and γ = 1. For γ < 1, our model correspond to sparse global GP
+with Mg = ⌊γN ⌋ inducing points. Further, with C = 1 and γ = 1, our model is equivalent to
+independent PoEs. That is, we have
+CPoE(J, 1) = GP; CPoE(J, γ) = SGP(⌊γN ⌋); CPoE(1, 1) = GPoE∗,
+where SGP refers to the FTIC model [29] and GPoE ∗ correspond to GPoE [10] with slightly
+diﬀerent weights ( Z = 1) in the prediction.
+In Section A.1 in the Appendix we present a generalization of our model so that CPoE( J, γ)
+correspond to a range of other well known versions of sparse global GP by changing the projec-
+tion distribution and adding a correction term in the log marginal likelihood similarly discussed
+in [27] for the global case. For instance, we can extend our model analogously to the variational
+version of [30].
+For correlations between the limiting cases C = 1 and C = J, we investigate the diﬀerence
+in KL of the true GP model with CPoE( C, γ) and CPoE( C2, γ) for 1 ≤ C ≤ C2 ≤ J. For
+that reason, we deﬁne the diﬀerence in KL between the true distribution of x and two diﬀerent
+approximate distributions, i.e.
+D(C,C2)[x] = KL[p (x) || qc,γ(x)] − KL[p (x) || qc2,γ(x)]
+Similarly, the diﬀerence in KL for a conditional distribution is deﬁned in Eq. (26). Using
+these deﬁnitions, we show that the approximation quality of the prior qc,γ(a) and projection
+approximation qc,γ(f |a) monotonically improves for C → J so that the KL between the true
+joint distribution p(a, f , y) and our approximate joint distribution qc,γ(a, f , y) is decreasing for
+C → J.
+Proposition 12 (Decreasing KL; Proof 26) . For any predecessor structure πC and any 0 <
+γ ≤ 1 and 1 ≤ C ≤ C2 ≤ J, the diﬀerence in KL of the marginal prior, projection and data
+likelihood are non negative, i.e.
+D(C,C2)[a] ≥ 0; D(C,C2)[f |a] ≥ 0; D(C,C2)[y|f] = 0 ,
+so that the joint diﬀerence in KL is also non-negative
+D(C,C2)[a, f , y] = D(C,C2)[a] + D(C,C2)[f |a] + D(C,C2)[y|f] ≥ 0.
+Moreover, we can quantify the approximation quality, in particular
+D(C,C2)[a] = 1
+2 log |QC|
+|QC2| and D(C,C2)[f |a] = 1
+2 log | ¯V C|
+| ¯V C2| .
+14
+
+=== PDF PAGE 15 ===
+Draft
+The last statement demonstrates that our CPoE model is a sound GP prior precision approx-
+imation which converges monotonically to the true prior for C → J. Moreover, we can quantify
+the relative approximation quality of our model which constitute an approach of estimating the
+needed C since it is independent of the true (and non-calculable) full GP distribution. The
+decreasing KL of the joint prior is depicted in Fig. 7 together with the decreasing KL of the
+posterior, marginal likelihood and predictive posterior. More details and proofs are given in
+Appendix D.
+C
+101
+102
+103
+KL[p || q]
+joint prior qc, (a, f, y)
+C
+101
+102
+103
+KL[p || q]
+posterior qc, (f|y)
+1 2 3 4 5 6 7 8
+C
+0
+10 1
+100
+101
+102
+KL[p || q]
+marginal likelihood qc, (y)
+1 2 3 4 5 6 7 8
+C
+0
+101
+102
+103
+KL[p || q]
+predictive posterior qc, (f* |y)
+= 1/64
+= 10/64
+= 19/64
+= 28/64
+= 37/64
+= 46/64
+= 55/64
+= 64/64
+PoE
+SGP(  N)
+full GP
+Figure 7: Decreasing KL[ p||q] between true distribution p of full GP and approximate distribu-
+tion q = qc,γ of CPoE for increasing values of C and γ for the joint prior, posterior, marginal
+likelihood and predictive posterior for synthetic GP data ( N = 1024, D = 2, SE kernel).
+3.6 Computational Details
+3.6.1 Graph
+The graphical model in Section 3.1 is generically deﬁned and several choices are left for com-
+pletely specifying the graph G(V, E) for a particular dataset: the partition method, the ordering
+of the partition, the selection of the predecessors and the local inducing points. We tried to
+make these choices as simple and straightforward as possible with focus on computational ef-
+ﬁciency, however, there might be more sophisticated heuristics. Concretely, we use KD-trees
+[21] for partitioning the data D into J regions and the ordering starts with a random partition
+which is then greedily extended by the closest partition in euclidean distance (represented by
+the mean of the inducing points). The L ≤ B inducing inputs Aj ∈ RL×D of the jth partition
+(or expert) can be in principle arbitrary, however, in this work they are chosen as a random
+subset of the data inputs X j ∈ RB×D of the jth expert for the sake of simplicity. For the
+predecessors (block-)indices πC, the C − 1 closest partitions among the previous (according to
+the ordering) predecessors in euclidean distance are greedily selected. These explained concepts
+are illustrated for a toy example in Fig. 8.
+15
+
+=== PDF PAGE 16 ===
+Draft
+4
+2
+3
+4
+2
+3
+5
+1
+c) directed graph
+center of Aj
+predecessor π3(j)
+2
+5
+data Xj
+local inducing inputs Aj
+predecessor π2(j)
+1
+3
+4
+1
+center of Aj
+center of Aj
+a) ordered partition
+b) directed graph
+5
+C = 2
+C = 3
+Figure 8: Toy example for partition, local inducing points, predecessors and directed graph
+illustrated for D = 2 with J = 5 experts/partitions each with B = 4 samples, γ = 0 .75 and
+thus L = 3 local inducing points. In a) the ordered partition with the data (black), local
+inducing points (green) and their mean (blue) are depicted. In b) and c) the directed graph
+for C = 2 and C = 3 are shown with corresponding predecessors π2(1) = {}, π2(2) = {1},
+π2(3) = {1}, π2(4) = {2}, π2(5) = {3} and π3(1) = {}, π3(2) = {1}, π3(3) = {1, 2},
+π3(4) = {2, 3}, π3(5) = {3, 4}, respectively. In the previous example, π3 is consecutive and π2
+is non-consecutive.
+3.6.2 Hyperparameter Estimation
+In Section 3, we introduced CPoE for ﬁxed hyperparameters θ where implicitly all distributions
+are conditioned on θ, however, we omitted the dependencies on θ in the most cases for the
+sake of brevity. Similar to full GP, sparse GP or PoEs, the log marginal likelihood (LML) can
+be used as an objective function for optimizing the few hyperparameters θ. The log of the
+marginal likelihood of our model formulated in Section 3.3 is L(θ) = log q (y|θ) = log N (0, P )
+with P = HS−1H T + V which can be eﬃciently computed as detailed in Section A.3 and can
+be used for deterministic optimization with full batch y for moderate sample size N. How-
+ever, in order to scale this parameter optimization part to larger number of samples N in
+a competitive time, stochastic optimization techniques exploiting subsets of data have to be
+developed similarly done for the global sparse GP model (SVI [12]; REC [27]; IF [17]). We
+adapt the hybrid approach IF of [17] where we can also exploit an independent factorization
+of the log marginal likelihood which decomposes into a sum of J terms, so that it can be
+used for stochastic optimization. This constitutes a very fast and accurate alternative for our
+method as shown in the Appendix A.3 and will also be exploited in Section 4 for large data sets.
+Prior on Hyperparameters
+Alternatively to the log marginal likelihood (LML) maximization as presented above, the max-
+imum a posteriori (MAP) estimator for θ can be used. It is the log of the posterior distri-
+bution p (θ|y) ∝ p (y|θ) p (θ) where p (θ) is a suitable prior on the hyperparameters yielding
+log p (θ|y) = log p (y|θ) + log p (θ) . In the following, we assume p (θ) = ∏
+j p (θj) and a log-
+normal prior for each hyperparameter p (θj) = log N
+(
+θj|νj, λ2
+j
+)
+for means νj and variances λ2
+j.
+For the deterministic case, the MAP estimator can be straightforwardly computed by just
+adding the log prior on θ to the batch log marginal likelihood, i.e. log p (θ|y) = L(θ) + logp (θ).
+16
+
+=== PDF PAGE 17 ===
+Draft
+full GP sparse GP PoE CPoE
+time O(N 3) O(N M2
+g ) O(N B2) O(N B2α3)
+space O(N 2) O(N Mg) O(N B) O(N Bα2)
+timet O(N 2Nt) O(M 2
+g Nt) O(N BNt) O(N BNtα2)
+spacet O(N Nt) O(MgNt) O(N Nt) O(N Ntα)
+#pars |θ| M D + |θ| | θ| | θ|
+Table 1: Complexity for training, pointwise predictions forNt points and number of optimization
+parameters for diﬀerent GP algorithms.
+Similarly for the stochastic case, the stochastic MAP can be decomposed as log p (θ|y) ≈
+∑J
+j=1
+(
+lj(θ) + 1
+J log p (θ)
+)
+, where lj(θ) is the jth term in the stochastic marginal likelihood
+(deﬁned properly in the Appendix A.3), so that it can be used again for stochastic mini-batch
+optimization. An example using priors for the hyperparameters is presented in Section 4.1.
+3.6.3 Complexity
+The time complexity for computing the posterior and the marginal likelihood in our algorithm
+is dominated by J operations which are cubic in LC (inversion, matrix-matrix multiplication,
+determinants). This leads to O(N B2α3) and O(N Bα2) for time and space complexity, re-
+spectively, where we deﬁne the approximation quality parameter α = Cγ. Similarly, for Nt
+testing points the time and space complexities are O(N Bα2Nt) and O(N αNt) (an approach to
+remove the dependency of N is outlined in A.4). In Table 1, the asymptotic complexities of our
+model together with other GP algorithms are indicated. It is interesting that for α = 1, our
+algorithm has the same asymptotic complexity for training as sparse global GP with Mg = B
+global inducing points but we can have M = LJ = γBJ = γN total local inducing points!
+Thus, our approach allows much more total local inducing points M in the order of N (e.g.
+M = 0 .5N with C = 2) whereas for sparse global GP usually Mg ≪ N. This has the con-
+sequence that the local inducing points can cover the input space much better and therefore
+represent much more complicated functions. As a consequence, there is also no need to opti-
+mize the local inducing points resulting in much fewer parameters to optimize. Consider the
+following example with N = 10′000 in D = 10 dimensions. Suppose a sparse global GP model
+with Mg = 500 global inducing points. A CPoE model with the same asymptotic complexity
+has a batch size B = Mg = 500 and α = 1. Therefore, we have J = N
+B = 20 experts and we
+choose C = 2 and γ = 1
+2 such that we obtain L = γB = 250 local inducing points per experts
+and M = γN = 5′000 total local inducing points! Further, the number of hyperparameters to
+optimize with a SE kernel is for global sparse GP MgD + |θ| = 5012, whereas for CPoE there
+are only |θ| = 12. For an extended version of this section consider A.4 in the Appendix.
+17
+
+=== PDF PAGE 18 ===
+Draft
+KL time
+concrete mg space abalone kin concrete mg space abalone kin
+fullGP 0.0 0.0 0.0 0.0 0.0 7.3 25.5 114.8 237.9 161.5
+SGP(100) 352.9 9.9 108.1 15.6 603.7 36.4 14.4 46.6 58.9 42.2
+minVar 122.2 19.4 63.6 25.1 211.0 1.5 2.0 7.2 6.4 9.3
+GPoE 174.4 54.2 98.0 50.3 342.3 1.4 1.9 7.2 6.3 9.4
+GRBCM 224.6 69.1 105.6 36.4 129.8 1.7 2.3 6.5 7.6 11.9
+CPoE(1) 111.1 12.2 63.0 16.8 152.4 1.5 2.1 7.8 6.4 9.2
+CPoE(2) 89.6 8.4 36.5 8.1 79.9 2.1 2.8 10.6 7.5 12.9
+CPoE(3) 82.2 7.8 36.3 6.2 46.9 2.5 3.1 12.9 9.3 19.8
+CPoE(4) 79.5 7.6 36.0 4.7 32.8 2.8 3.3 14.9 10.4 27.8
+Table 2: Average KL to full GP (left) and time (right) for diﬀerent GP methods and 5 datasets
+with 10 repetitions. More results are provided in Appendix F.
+4 Comparison
+In this section we compare the performance with competitor methods for GP approximations
+using several synthetic and real world datasets as summarized in Table 3a. More details about
+the experiments are provided in A.5, A.6 and F in the Appendix.
+First, we examine the accuracy vs. time performance of diﬀerent GP algorithms for ﬁxed
+hyperparameters in a simulation study with synthetic GP data . We generated N = 8192 data
+samples in D = 2 with 5 repetitions from the sum of two SE kernels with a shorter and longer
+lengthscale such that both global and local patterns are present in the data (compare Fig. 15).
+In Fig. 9 the mean results are shown for the KL and RMSE to full GP, the 95%-coverage and
+the log marginal likelihood against time in seconds. The results for sparse GP with increasing
+number of global inducing points M are shown in blue, the results for minVar, GPoE and
+BCM for increasing number of experts J are depicted in red, cyan and magenta, respectively.
+For CPoE, the results for increasing correlations C are shown in green. We observe superior
+performance of our method compared to competitors in terms of accuracy compared to full GP
+vs. time. Moreover, one can observe that the conﬁdence information of our model are reliable
+already for small approximation orders since it is based on the consistent covariance intersection
+method. A precise description of the experiment is provided in Section A.6.1 in the Appendix.
+0 5 10 15 20 25 30 35
+time [s]
+0
+100
+101
+102
+103
+KL
+KL to full GP
+CPoE sparse GP minVar GPoE BCM full GP
+0 5 10 15 20 25 30 35
+time [s]
+0
+10 1
+RMSE
+RMSE to full GP
+0 5 10 15 20 25 30 35
+time [s]
+0.92
+0.93
+0.94
+0.95
+0.96
+0.97
+0.98
+0.99COV
+95%-coverage
+0 5 10 15 20 25 30 35
+time [s]
+5750
+5700
+5650
+5600
+5550
+5500
+5450
+5400
+LML
+log marginal likelihood
+Figure 9: Average accuracy vs. time performance of diﬀerent GP algorithms.
+18
+
+=== PDF PAGE 19 ===
+Draft
+Second, we benchmark our method with 10 real world datasets as summarized in Table 3a
+For the 5 smaller datasets in the ﬁrst block we use deterministic parameter optimization for
+which the average results over 10 training/testing splits are depicted in Table 2. In particular,
+the KL to full GP (left) and time (right) for diﬀerent GP methods and are shown. Similarly,
+the average accuracy and times for the 4 larger datasets in the second block where stochastic
+parameter optimization is exploited can be found in Table 7 in the Appendix.
+In general, the local methods perform better than the global sparse method. Further, the
+performance of our correlated PoEs is superior to the one of independent PoEs for all datasets. In
+particular, the KL to full GP can be continuously improved for increasing degree of correlation,
+i.e. larger C values. The time for CPoE(1) is comparable with the independent PoEs and for
+increasing C, our approximation has a moderate increase in time with a signiﬁcant decrease in
+KL. For more details about the experiments consider Section A.6 in the Appendix and more
+results including standard deviations are provided in Appendix F.
+N D N test J
+concrete 927 8 103 4
+mg 1247 6 138 8
+space 2797 6 310 8
+abalone 3760 8 417 16
+kin 5192 8 3000 16
+kin2 7373 8 819 16
+cadata 19640 8 1000 64
+sarcos 43484 21 1000 128
+casp 44730 9 1000 128
+elecdemand 2184 3 15288 13
+(a) Description of datasets.
+KL KL IN KL OUT time
+full GP 0.0 0.0 0.0 404.3
+SGP(100) 120.9 110.5 146.7 56.3
+SGP(200) 114.9 65.6 238.3 75.2
+minVar 503.0 406.5 744.5 20.7
+GPoE 328.0 336.0 307.9 20.4
+GRBCM 393.4 382.1 421.8 28.2
+CPoE(1) 289.5 255.1 375.5 20.5
+CPoE(2) 113.1 108.5 124.3 36.8
+CPoE(3) 86.4 61.9 147.6 39.7
+CPoE(4) 58.3 59.4 55.5 52.9
+(b) KL to full GP and time of diﬀerent methods.
+Table 3: Summary of used datasets and results for the elecdemand time series.
+4.1 Application
+In this Section, our method is applied on time series data with covariates using a rather com-
+plicated and non-stationary kernel together with priors on the hyperparameters as discussed
+in Section 3.6.2. In recent work [5], the authors have shown that GPs constitute a compet-
+itive method for modelling time series using a sum of several kernels including priors on the
+hyperparameters which are previously learnt from a large set of diﬀerent time series. We adapt
+their idea by using a slightly modiﬁed kernel and the same priors. In particular, for two data
+points x1 = [t1, x1,2, . . . , x1,D] and x2 = [t2, x2,2, . . . , x2,D] we model the kernel as the sum of 4
+components
+kθ(x1, x2) = kP1(t1, t2) + kP2(t1, t2) + kSM (t1, t2) + kSE(x1, x2),
+where kP1 and kP1 are standard periodic kernels with period p1 and p2, respectively, kSM a
+spectral-mixture kernel and kSE a squared-exponential kernel. Note that the former 3 kernels
+19
+
+=== PDF PAGE 20 ===
+Draft
+only depend on the ﬁrst variable which correspond to time, whereas the SE-kernel depends on
+all variables, thus models the inﬂuence of the additional variables. With our CPoE model it is
+straightforward to handle time series with covariates, as opposed to other time series methods
+[1, 5, 26, 15]. The kernel kθ depends on several hyperparameters θ for which we use the
+parametrization in [5]. We assume a log-normal prior on θ as described in Section 3.6.2 in which
+the corresponding means and variances are taken from Table 1 in [5]. We demonstrate the MAP
+estimation for θ on the elecdemand time series ([14], Table 3a) which contains the electricity
+demand as response y together with the time as the ﬁrst variable X1, the the corresponding
+temperature as X2 and the variable whether it is a working day as X3 which is depicted in
+the plots in Fig. 10 on the left, where we shifted the ﬁrst and third variable in the second
+plot for the sake of clarity. Similarly as in the previous section, we run full GP, SGP, PoEs
+and CPoE and optimized the hyperparameter deterministically using the MAP as objective
+function taking into account the priors. The results are provided in Table 3b and in Fig. 10 on
+the right, which again show very competitive performance also for a general kernel with priors
+on the hyperparameters. A complete description of the experiment is given in Section A.6.3 in
+the Appendix.
+0.0 0.2 0.4 0.6 0.8 1.0
+2
+0
+2
+4
+ytestOUT ytestIN ytrain
+0.500 0.505 0.510 0.515 0.520 0.525 0.530 0.535
+2
+1
+0
+1
+2
+3
+4
+train test CPoE CPoE - CI
+0.0 0.2 0.4 0.6 0.8 1.0
+5.0
+2.5
+0.0
+2.5
+5.0
+7.5
+10.0 X1 X2 X3
+0.500 0.505 0.510 0.515 0.520 0.525 0.530 0.535
+2
+1
+0
+1
+2
+3
+4
+train full GP full GP - CI CPoE CPoE - CI
+Figure 10: Time series data with covariates and prior on hyperparameters.
+5 Conclusion
+In this paper we introduce a novel GP approximation algorithm CPoE where the degree of
+approximation can be adjusted by a locality and a sparsity parameter so that the proposed
+method recovers independent PoEs, sparse global GP and full GP. We show that our method
+consistently approximates full GP, in particular, we proved that increasing the correlations be-
+tween the experts decreases monotonically the KL of the joint prior of full GP to them of our
+model. The presented algorithm has only a few hyperparameters which allows an eﬃcient de-
+terministic and stochastic optimization. Further, our presented algorithm works with a general
+kernel, with several variables and also priors on the hyperparameters can be included. More-
+over, the time and space complexity is linear in the number of experts and number of data
+20
+
+=== PDF PAGE 21 ===
+Draft
+samples, which makes it highly scalable. This is demonstrated with eﬃcient implementations
+so that a dataset with several ten thousands of samples can be processed in around a minute on
+a standard Laptop. In several experiments with synthetic and real world data, superior perfor-
+mance in a accuracy vs. time sense compared to state-of-the-art GP approximations methods is
+demonstrated for the deterministic and stochastic case which makes our algorithm a competitive
+method for GPs approximations.
+Our approach could be enhanced in several directions. The ﬁrst improvement would be
+more practical. While the current implementation of our algorithm works very competitively
+for moderate large datasets (on a standard Laptop), further work has been done to scale it
+up to very large datasets. The current limitations are particularly factorizing and solving
+the sparse block Cholesky matrices. We are convinced, that the theoretical properties of our
+algorithm - in particular the linearity in the number of experts and data samples - enables large
+scale implementations when exploiting more low level linear algebra tools. Another interesting
+direction would be to investigate the connection of our sparse precision matrix to state space
+systems such that sequential learning algorithm could be exploited which might be interesting for
+an online version of this algorithm which is brieﬂy outlined in E. Together with the competitive
+results in the application to time series with covariates makes this idea very promising. Further,
+it would be interesting to apply variational methods to our model so that a connection to full
+GP in a posterior sense might be established where some ideas are outlined in A.1.
+Acknowledgements This work is supported by the Swiss National Research Programme 75
+”Big Data” (NRP 75) with grant number 167199.
+References
+[1] Alessio Benavoli and Giorgio Corani. State space approximation of gaussian processes for
+time series forecasting.
+[2] Thang D Bui, Cuong Nguyen, and Richard E Turner. Streaming sparse gaussian process
+approximations. In Advances in Neural Information Processing Systems, pages 3301–3309,
+2017.
+[3] Thang D Bui and Richard E Turner. Tree-structured gaussian process approximations.
+Advances in Neural Information Processing Systems, 27:2213–2221, 2014.
+[4] Thang D Bui, Josiah Yan, and Richard E Turner. A unifying framework for sparse gaussian
+process approximation using power expectation propagation. Journal of Machine Learning
+Research, 18:1–72, 2017.
+[5] Giorgio Corani, Alessio Benavoli, and Marco Zaﬀalon. Time series forecasting with gaussian
+processes needs priors. In Joint European Conference on Machine Learning and Knowledge
+Discovery in Databases, pages 103–117. Springer, 2021.
+21
+
+=== PDF PAGE 22 ===
+Draft
+[6] Lehel Csat´ o and Manfred Opper. Sparse online gaussian processes. Neural computation,
+14(3):641–668, 2002.
+[7] Abhirup Datta, Sudipto Banerjee, Andrew O Finley, and Alan E Gelfand. Hierarchical
+nearest-neighbor gaussian process models for large geostatistical datasets. Journal of the
+American Statistical Association, 111(514):800–812, 2016.
+[8] Marc Peter Deisenroth and Jun Wei Ng. Distributed gaussian processes. arXiv preprint
+arXiv:1502.02843, 2015.
+[9] Nicolas Durrande, Vincent Adam, Lucas Bordeaux, Stefanos Eleftheriadis, and James
+Hensman. Banded matrix operators for gaussian markov models in the automatic diﬀeren-
+tiation era. In The 22nd International Conference on Artiﬁcial Intelligence and Statistics,
+pages 2780–2789. PMLR, 2019.
+[10] Yanshuai Cao David J Fleet. Generalized product of experts for automatic and principled
+fusion of gaussian process predictions. arXiv preprint arXiv:1410.7827, 2014.
+[11] Alexander Grigorievskiy, Neil Lawrence, and Simo S¨ arkk¨ a. Parallelizable sparse inverse
+formulation gaussian processes (spingp). In 2017 IEEE 27th International Workshop on
+Machine Learning for Signal Processing (MLSP), pages 1–6. IEEE, 2017.
+[12] James Hensman, Nicolo Fusi, and Neil D Lawrence. Gaussian processes for big data. In
+Conference for Uncertainty in Artiﬁcial Intelligence, 2013.
+[13] Geoﬀrey E Hinton. Training products of experts by minimizing contrastive divergence.
+Neural computation, 14(8):1771–1800, 2002.
+[14] Rob Hyndman. fpp2: Data for ”Forecasting: Principles and Practice” (2nd Edition), 2020.
+R package version 2.4.
+[15] Rob J Hyndman and George Athanasopoulos. Forecasting: principles and practice. OTexts,
+2018.
+[16] Simon J Julier and Jeﬀrey K Uhlmann. A non-divergent estimation algorithm in the
+presence of unknown correlations. In Proceedings of the 1997 American Control Conference
+(Cat. No. 97CH36041), volume 4, pages 2369–2373. IEEE, 1997.
+[17] Lucas Kania, Manuel Sch¨ urch, Dario Azzimonti, and Alessio Benavoli. Sparse information
+ﬁlter for fast gaussian process regression. European Conference on Machine Learning and
+Principles and Practice of Knowledge Discovery in Databases, 2021.
+[18] Matthias Katzfuss and Joseph Guinness. A general framework for vecchia approximations
+of gaussian processes. Statistical Science, 36(1):124–141, 2021.
+22
+
+=== PDF PAGE 23 ===
+Draft
+[19] Haitao Liu, Jianfei Cai, Yi Wang, and Yew Soon Ong. Generalized robust bayesian com-
+mittee machine for large-scale gaussian process regression. In International Conference on
+Machine Learning, pages 3131–3140. PMLR, 2018.
+[20] Haitao Liu, Yew-Soon Ong, Xiaobo Shen, and Jianfei Cai. When gaussian process meets
+big data: A review of scalable gps. IEEE transactions on neural networks and learning
+systems, 31(11):4405–4423, 2020.
+[21] Songrit Maneewongvatana and David M Mount. On the eﬃciency of nearest neigh-
+bor searching with data clustered in lower dimensions. In International Conference on
+Computational Science, pages 842–851. Springer, 2001.
+[22] Ayano Nakai-Kasai and Toshiyuki Tanaka. Nested aggregation of experts using inducing
+points for approximated gaussian process regression. Machine Learning, pages 1–24, 2021.
+[23] Joaquin Qui˜ nonero-Candela and Carl Edward Rasmussen. A unifying view of sparse
+approximate gaussian process regression. Journal of Machine Learning Research,
+6(Dec):1939–1959, 2005.
+[24] Carl Edward Rasmussen and Christopher KI Williams. Gaussian processes for machine
+learning, volume 1. MIT press, Cambridge, 2006.
+[25] Didier Rulli` ere, Nicolas Durrande, Fran¸ cois Bachoc, and Cl´ ement Chevalier. Nested kriging
+predictions for datasets with a large number of observations. Statistics and Computing,
+28(4):849–867, 2018.
+[26] Simo Sarkka, Arno Solin, and Jouni Hartikainen. Spatiotemporal learning via inﬁnite-
+dimensional bayesian ﬁltering and smoothing: A look at gaussian process regression
+through kalman ﬁltering. IEEE Signal Processing Magazine, 30(4):51–61, 2013.
+[27] Manuel Sch¨ urch, Dario Azzimonti, Alessio Benavoli, and Marco Zaﬀalon. Recursive esti-
+mation for sparse gaussian process regression. Automatica, 120:109127, 2020.
+[28] Matthias Seeger, Christopher Williams, and Neil Lawrence. Fast forward selection to speed
+up sparse gaussian process regression. In Artiﬁcial Intelligence and Statistics 9, number
+EPFL-CONF-161318, 2003.
+[29] Edward Snelson and Zoubin Ghahramani. Sparse gaussian processes using pseudo-inputs.
+In Advances in Neural Information Processing Systems, pages 1257–1264, 2006.
+[30] Michalis Titsias. Variational learning of inducing variables in sparse gaussian processes. In
+Artiﬁcial Intelligence and Statistics, pages 567–574, 2009.
+[31] Volker Tresp. A bayesian committee machine. Neural computation, 12(11):2719–2741,
+2000.
+23
+
+=== PDF PAGE 24 ===
+Draft
+[32] Ke Wang, Geoﬀ Pleiss, Jacob Gardner, Stephen Tyree, Kilian Q Weinberger, and An-
+drew Gordon Wilson. Exact gaussian processes on a million data points. Advances in
+Neural Information Processing Systems, 32:14648–14659, 2019.
+A Extensions and Details
+A.1 Generalized CPoE
+Alternatively to the graphical model deﬁned in Def. 5 (and more precisely in Prop. 4 with Proof
+21) which recovers sparse global GP model FITC [29] in the limiting case C → J (as shown in
+Prop. 11), we present in this section a generalization of our CPoE model such that it recovers
+other sparse global GP models such as VFE [30] or PEP [4]. As shown by the authors in [27]
+for the global case, these model diﬀer in the training only by the choice of the projection matrix
+V j in Def. 5 and in the hyperparameter optimization by a modiﬁcation of the log marginal
+likelihood L(θ) = log q (y|θ) in Section 3.6.2. These two changes can also be made for our local
+sparse CPoE model. In particular, using V j and λj according to the values in Table 5 in the
+projection conditional
+p
+(
+f j|aψ(j)
+)
+= N
+(
+f j|H jaψ(j), V j
+)
+and in a lower bound to the log marginal likelihood
+˜L(θ) = L(θ) −
+J∑
+j=1
+λj(θ)
+and ˜lj(θ) = lj(θ) − λj(θ) in the deterministic and stochastic case, respectively, generalizes the
+CPoE method such that for C → J we recover the mentioned method global methods in Table
+5. Thereby, we used
+Dj = KXj Xj − KXj Aψ(j)K−1
+Aψ(j)Aψ(j)
+KAψ(j)Xj
+which is the diﬀerence of the true and local approximated covariance.
+The setting in VFE [30] is particularly interesting, since it constitutes in the global case a
+direct posterior approximation derived via a variational maximization of the lower bound of the
+log marginal likelihood. Moving a bit away from the true marginal likelihood of full GP has
+the eﬀect that overﬁtting (w.r.t. full GP) can not happen when optimizing the hyperparameters
+with the lower bound. This is particularly important when all inducing inputs are optimized as
+it is usually recommended in sparse global methods which is not the case for our model since
+it allows to have a number of inducing points in the order of the number of data samples. In
+the adapted ’local VFE’ CPoE model when using V j = 0 and minimize also λj = tr{Dj} has
+the eﬀect that the model is locally variationally optimal, however, it would be interesting to
+directly derive a lower bound analogously to [30] so that the posterior of our CPoE model is
+24
+
+=== PDF PAGE 25 ===
+Draft
+variable domain explanation
+N N+ number of data samples
+D N+ number of variables/dimension of data
+J {1,...,N } number of experts/partitions
+B {1,...,N } size of expert/partition
+L {1,...,B } number of local inducing points
+M {1,...,N } number of total local inducing points
+C {1,...,J } degree of correlation
+γ (0, 1] sparsity parameter
+α (0,J ] approximation quality parameter
+yi R individual data output
+yj RB data output of expert j
+yk:j RB(j−k1+) data output of experts k up to j
+y∗ R pointwise noisy prediction output
+y RN all data output
+xi RD individual data indput
+Xj RB×D data input of expert j
+Xk:j RB(j−k+1)×D data input of experts k up to j
+X RN×D all data input
+x∗ RD query input for prediction
+fj RB latent function outputs of expert j
+fk:j RB(j−k+1) latent function outputs of experts k up to j
+f RN all latent function outputs
+f∗ R pointwise (latent) prediction output
+f(Xj) RB GP evaluation for input matrix
+aj RL local inducing outputs of expert j
+ak:j RL(j−k+1) local inducing outputs of experts k up to j
+a RM all local inducing outputs
+Aj RL×D local inducing inputs of expert j
+Ak:j RL(j−k+1)×D local inducing inputs of experts k up to j
+A RM×D all local inducing inputs
+Ij {1,...,C − 1} number of predecessors of expert j
+φi(j) {1,...,j − 1} ith predecessor of expert j
+π(j) {1,...,j − 1}Ij predecessor index set
+π+(j) {1,...,j }Ij +1 predecessor index set including j
+ψ(j) {1,...,max (j,C )}C correlation index set
+σ2
+n R+ observation noise variance
+θ R|θ| kernel hyperparameters including σ2
+n
+kθ(x, x′) R kernel evaluation for 2 query points
+K AB RMa×Mb kernel matrix of two query matrices
+p(z) R evaluation of (true) probability density
+q(z) R evaluation of approximated probability density
+S RM×M prior precision matrix
+T RM×M projection precision matrix
+Σ−1 RM×M posterior precision matrix
+Σ RM×M posterior covariance matrix
+µ RM posterior mean vector
+µψ(j) RCL local posterior mean
+Σψ(j) RCL×CL local posterior covariance
+F RM×M prior transition matrix
+Q RM×M prior noise matrix
+H RN×M projection matrix
+V RN×N projection noise matrix
+V RN×N projection noise matrix including observation noise
+P RN×N marginal likelihood covariance matrix
+J2 N+ number of prediction experts
+¯β∗j R+ unnormalized predictive weight of expert j at x∗
+β∗j R+ normalized predictive weight of expert j at x∗
+m∗j R predictive mean of expert j at x∗
+v∗j R+ predictive variance of expert j at x∗
+D[C,C2] R+ diﬀerence in KL between two approximate models
+Table 4: Overview of notation.
+25
+
+=== PDF PAGE 26 ===
+Draft
+V j λj
+DTC 0 0
+FITC Diag[Dj] 0
+PITC Dj 0
+VFE 0 1
+2σ2n
+tr[Dj]
+PEP αDiag[Dj] 1−α
+2α
+∑
+i log
+(
+1 + α
+σ2n
+D(i)
+j
+)
+PEPB αDj 1−α
+2α
+∑
+i log |I + α
+σ2n
+Dj|
+Table 5: Generalizations of CPoE model.
+rigorously connected to full GP. Since this is not a straight-forward extension, we we postpone
+this task to future work. Below, we present the connection to full GP for this adapted model
+in the joint prior sense analogously to Prop. 12 for the local FITC model.
+Proposition 13 (Local VFE). Using a deterministic projection q(f j|aψ(j)) = N
+(
+f j|H jaψ(j), V j
+)
+in the graphical model in Def. 5 and Prop. 4, that is, setting the covariance V j = 0 in the pro-
+jection step recovers global VFE for C → J. Moreover, the diﬀerence in KL to full GP of the
+joint prior is also decreasing. In particular, the diﬀerence in KL of the prior of the local VFE
+model for 1 ≤ C ≤ C2 ≤ J is
+D(C,C2)[a] = 1
+2 log |QC|
+|QC2| ≥ 0.
+Further, the diﬀerence in KL of the projection is
+D(C,C2)[y|a] = 1
+2σ2n
+tr{ ¯V C − ¯V C2} ≥ 0.
+The overall prior approximation quality is
+D(C,C2)[a, y] = 1
+2 log |QC|
+|QC2| + 1
+2σ2n
+tr{ ¯V C − ¯V C2}
+where
+tr{ ¯V C} =
+N∑
+i=1
+KXiXi − KXiAψ(ji)K−1
+Aψ(ji)Aψ(ji)
+KAψ(ji)Xi.
+Compared to the FITC model is the diﬀerence in the trace instead of the fraction of the
+log-determinants.
+A.2 Solving Linear System & Partial Inversion
+For solving the sparse linear system Σ−1µ = b in Prop. 7, sparse Cholesky decomposition is
+exploited, that is, MΣ−1M T = LLT =: Y is computed so that ν and µ can be eﬃciently ob-
+tained via solving Lν = b and LT µ = ν, respectively, where M is a so-called ﬁll-reduction per-
+mutation matrix such that the Cholesky matrix L is as sparse as possible and thus µ = M−1µ.
+26
+
+=== PDF PAGE 27 ===
+Draft
+Note that M is computed only via the structure on the block level which is only J dimensional
+instead of J L.
+Additionally to the mean µ, also some entries Σψ(j) in the covariance matrixΣ has to be explic-
+itly computed which are needed for computing local predictions (Section 3.4) and (derivatives)
+of the marginal likelihood (Section D.3), respectively. The needed entries correspond to the
+non-zeros in the precision matrix Σ−1. Computing eﬃciently these entries is not straightfor-
+ward since in the inverse the blocks are no longer independent. However, we can exploit the
+particular sparsity and block-structure of our precision matrix and obtain an eﬃcient imple-
+mentation of this part which is key to achieve a competitive performance of our algorithm.
+Computing some entries in Z = Y−1 is also known as partial inversion. We adapted the ap-
+proach in [?] where the recursive equations with J blocks for computing the full inverse Z are
+provided
+ZBj = −ZCj LBj L−1
+Aj and ZAj = L−T
+Aj L−1
+Aj − ZT
+Bj LBj L−1
+Aj
+where the recursion starts from j = J with ZAJ = L−T
+AJ L−1
+AJ .
+ZAj
+ZCj
+Z T
+Bj
+ZBj
+Z =
+LBj
+LAj
+L =
+Instead of computing the full inverse using this recursion, we exploited the block-sparsity struc-
+ture of our posterior precision matrix in order to gain signiﬁcant speed-up. We only computed
+the entries in the inverse Z which are symbolically non-zero in L. In Algorithm 1 in the
+Appendix we provide eﬃcient pseudo-code using sparse-block-matrices in the block-sparse-row
+format.
+Alternatively for computing the Cholesky factor of Σ−1 = S + HV−1H, we could directly
+exploit that the prior precision S = F T Q−1F is already decomposed into a upper/lower-
+triangular form since F lower triangular. However, when updating the Cholesky factor with
+HV−1H needs quadratic time in the number of nonzeros for each expert.
+A.3 Hyperparameter Estimation
+In Section 3, we introduced CPoE for ﬁxed hyperparameters θ where implicitly all distributions
+are conditioned on θ, however, we omitted the dependencies on θ in the most cases for the sake
+of brevity. Similar to full GP, sparse GP or PoEs, the log marginal likelihood (LML) can be
+used as an objective function for optimizing the few hyperparameters θ.
+27
+
+=== PDF PAGE 28 ===
+Draft
+Algorithm 1 Partial Sparse Block Inversion
+Require: Cholesky matrix L of size J B × J B in block-sparse-row (bsr) format with J × J
+total blocks, block-size B and N non-zero blocks. Data array d of size N × B × B, the
+column-block-indices r of size N, row-block-pointer p of length J + 1, and lookup table M of
+dimension J × J.
+Ensure: The lower part of the symmetric partial inversion is computed in bsr-format with the
+same row-block-indices r and row-block-pointer p and data array z of size N × B × B.
+for i ∈ {J, . . . ,1} do
+L−1
+A ← d[M[i, i], :, :]−1
+z[M[i, i]] ← (L−1
+A )T · L−1
+A
+for j ∈ {r[p[i + 1]], r[p[i + 1] − 1], . . . , r[p[i]]} do
+Q ← 0
+for l ∈ {r[p[i]], r[p[i] + 1], . . . , r[p[i + 1]]} do
+R ← z[M[j, l]]
+if l > j then
+R ← RT
+end if
+Q ← Q + R · d[M[l, i]] · L−1
+A
+end for
+z[M[i, j]] ← z[M[i, j]] − Q
+end for
+end for
+A.3.1 Deterministic Optimization
+The log of the marginal likelihood of our model formulated in Section 3.3 can be written as
+L(θ) = log q (y|θ) = log N (0, P ) = −1
+2
+(
+yT P−1y + log |P | + N log 2π
+)
+with P = HS−1H T + V . Since P is dense, we can apply the inversion (13) and determinant
+lemma (14) to P and exploit |F | = 1 yielding
+L(θ) = −1
+2
+(
+yT V−1y − µTΣ−1µ + log |Σ−1| | V |
+|S| + N log 2π
+)
+= −1
+2
+(
+yT V−1y − µTΣ−1µ + log |Σ−1| | V | | Q| + N log 2π
+) (8)
+so that all involved quantities Σ−1, V and Q are sparse. For eﬃcient parameter minimization,
+the derivative of the log marginal likelihood with respect to each parameter in θ is needed for
+which the derivations are provided in Appendix D.3. Thereby also some parts of the covariance
+matrix Σ are needed which is explained in Section A.2. Alternatively to the marginal likelihood,
+we can maximize a lower bound of it which is a generalization of our model so that we recover
+a range of well known sparse global GP models for C → J as discussed is Section A.1. [27, 4].
+For moderate sample size N, deterministic optimization with full batch y can be performed.
+That means, the log marginal likelihood for the whole data is computed for which the sparse
+system of equations with the sparse posterior precision as well as the partial inversion of the
+posterior covariance has to be solved. In particular, the functions for computing L(θ) and ∂L(θ)
+∂θ
+28
+
+=== PDF PAGE 29 ===
+Draft
+for each θ and full data y are repetitively called by a numerical minimizer. Fig. 11 illustrates
+the performance of this deterministic batch hyperparameter optimization where the convergence
+for the log marginal likelihood, average KL divergence, 95%-coverage (both quantities exactly
+deﬁned in Appendix F) for diﬀerent number of experts J compared to full GP are depicted.
+The N = 2048 data samples are generated with a D = 2-dimensional SE-kernel and the test
+KL and coverage mean values are reported for Ntest = 1000 samples with 5 repetitions. We
+used γ = 1 and C ∈ {1, . . . ,7}. We observe that the log marginal likelihood and KL are getting
+better for increasing C, and the deterministic parameter estimates converge to the ones of full
+GP for increasing function calls. It is interesting to observe that also for smaller C values, the
+coverage of our methods are consistent. In particular, they are slightly too big, meaning our
+conﬁdence information are conservative. This is due to the aggregation based on the covariance
+intersection method with normalized weights, which guarantees consistent second order infor-
+mation.
+1 2 3 4 5 6 7
+C
+1200
+1100
+1000
+900
+800
+700
+LML
+log marginal likelihood
+J = 32
+J = 64
+J = 128
+full GP
+1 2 3 4 5 6 7
+C
+0
+10
+20
+30
+40
+50KL
+KL to full GP
+J = 32
+J = 64
+J = 128
+full GP
+1 2 3 4 5 6 7
+C
+0.940
+0.945
+0.950
+0.955
+0.960
+0.965
+0.970
+0.975
+0.980COV
+95%-coverage
+J = 32
+J = 64
+J = 128
+full GP
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5
+# epochs
+10 2
+10 1
+100
+value
+parameters for C=2 and J=64
+2
+0
+ l1 l2 2
+n
+Figure 11: Convergence of deterministic batch hyperparameter optimization for increasing C
+and trace of the parameters (solid) compared to the optimal values of full GP (dotted).
+A.3.2 Stochastic Optimization
+The presented method in the previous section works ﬁne for small datasets, however, in order
+to scale this parameter optimization part to larger number of samples N in a competitive time,
+stochastic optimization techniques has to be exploited similarly done for the global sparse GP
+model (SVI [12]; REC [27]; IF [17]). In the approximation method REC [27], the recursive
+derivatives are exactly propagated which would also be possible for our model, however, it
+turned out that in practice the diﬀerences in accuracy are very small when using instead the
+hybrid approach IF of [17]. Thereby, the independent factorization of the log marginal likelihood
+is used for the computations of the optimization part, whereas the exact posterior is used for
+inference and prediction. Adapted to our setting, the independent factorized log marginal
+29
+
+=== PDF PAGE 30 ===
+Draft
+likelihood log q (y|θ) can be approximated by
+log q (y|θ) ≈ log
+J∏
+j=1
+∫
+q
+(
+yj|aj
+)
+q (aj) daj
+= log
+J∏
+j=1
+∫
+N (H jaj, V j) N
+(
+0, S−1
+j
+)
+daj
+=
+J∑
+j=1
+log N (0, P j) =: ˜L(θ)
+where P j = H jS−1
+j H T
+j + V j with Sj = K−1
+Aj Aj. The diﬀerence compared to the deterministic
+case in (8) and to [17] for the global sparse model is the independent prior q (aj) instead of
+q (a) and p (a), respectively. In the approximate case, we can write
+˜L(θ) = −1
+2 N log(2π) +
+J∑
+j=1
+lj(θ)
+with lj(θ) = − 1
+2
+(
+yT
+j P−1
+j yj + log |P j|
+)
+which has the advantage that it decomposes into the J
+terms lj in the sum, so that it can be used for stochastic optimization. This constitutes a very
+fast and accurate alternative for our method as shown in Figure 12 and is exploited in Section
+4 for large data sets.
+0 10 20 30
+# epochs
+17000
+16750
+16500
+16250
+16000
+15750
+15500
+15250
+15000
+LML
+log marginal likelihood
+deterministic
+stochastic
+0 10 20 30
+# epochs
+0
+100
+value [log-scale]
+parameter trace for C=2
+Figure 12: Convergence of stochastic vs. deterministic hyperparameter optimization of our
+model CPoE. This experiment compares the convergence of stochastic vs. deterministic hyper-
+parameter optimization for the log marginal likelihood and the trace of the 10 parameters θj for
+the dataset cadata with Ntot = 20640 and D = 8. We used 5 diﬀerent splits with N = 0.9Ntot
+training data and the rest for testing. The values for our algorithm are C = 2, J = 64, γ = 1
+and learning rate δ = 0.01. In the right plot, the dotted horizontal lines and the solid traces
+correspond to the ﬁnal deterministic value and the current stochastic values, respectively. We
+note that the stochastic LML and trace of hyperparameters converge faster to a very similar
+value as in the deterministic case.
+30
+
+=== PDF PAGE 31 ===
+Draft
+A.4 Complexity
+J = 5
+J 2 = J − C + 1
+C
+5
+4
+3
+2
+1
+Figure 13: Prediction Aggrega-
+tion in CPoE(C, γ) model with J
+base experts and J2 = J − C + 1
+predictive experts.
+The time complexity for computing the posterior and the
+marginal likelihood in our algorithm is dominated by J op-
+erations which are cubic in LC (inversion, matrix-matrix
+multiplication, determinants). This leads to O(J(LC)3) =
+O(J(BCγ )3) = O(N B2α3) where we deﬁne the approxi-
+mation quality parameter α = Cγ. Similarly for the needed
+space O(J(LC)2) = O(J(BCγ )2) = O(N Bα2). For Nt test-
+ing points, the time for (pointwise) predictions is dominated
+by J inversions of matrices with dimension LC and matrix
+multiplications with dimensions LC × LC × Nt leading to
+O(J(LC)3 + J(LC)2Nt) = O(J(BγC )3 + J(BγC )2Nt) =
+O(N B2α3 + N Bα2Nt) where the operations independent of
+the test points can be precomputed in the inference part
+leading to O(N Bα2Nt) for testing. Similarly for the space.
+A further reduction in complexity would be achieved if the
+product over all experts in Prop. 8 is approximated only with
+the W < J nearest experts, leading to O((LC)2NtW ) =
+O((BγC )2NtW ) = O(N W
+J Bα2Nt) time complexity for testing. This might be interesting if we
+want to make fast predictions for many points Nt. For reasonable values of W , for instance
+W = 1, W = C or W = Z = log(N)C (used in prediction aggregation), preliminary experiments
+show very comparable performance. Note that the consistency properties for covariance inter-
+section method are preserved as long as the weights are normalized over the used W experts.
+Table 1 compares the asymptotic complexities with other GP algorithms.
+It is interesting that for α = 1, our algorithm has the same asymptotic complexity for train-
+ing as sparse global GP with Mg = B global inducing points but we can have Ml = LJ =
+γBJ = γN total local inducing points! Thus, our approach allows much more total local in-
+ducing points M in the order of N (e.g. M = 0.5N with C = 2) whereas for sparse global GP
+usually Mg ≪ N. This has the consequence that the local inducing points can cover the input
+space much better and therefore represent much more complicated functions. As a consequence,
+there is also no need to optimize the local inducing points resulting in much fewer parameters
+to optimize. Consider the following example with N = 10′000 in D = 10 dimensions. Suppose
+a sparse global GP model with Mg = 500 global inducing points. A CPoE model with the
+same asymptotic complexity has a batch size B = Mg = 500 and α = 1. Therefore, we have
+J = N
+B = 20 experts and we choose C = 2 and γ = 1
+2 such that we obtain L = γB = 250 local
+inducing points per experts and M = γN = 5′000 total inducing points! Further, the number of
+hyperparameters to optimize for a SE kernel is for global sparse GP MgD + |θ| = 5012, whereas
+for CPoE there are only |θ| = 12.
+For our method, the time and space complexity is linear in the number of samples N and the
+31
+
+=== PDF PAGE 32 ===
+Draft
+KL C=1 C=2 C=3 C=4 C=5
+γ = 1/4 12.3 5.0 1.3 0.9 0.7
+γ = 1/2 12.2 4.9 1.0 0.8 0.6
+γ = 3/4 12.1 4.9 0.9 0.7 0.5
+γ = 1 12.1 4.8 0.9 0.6 0.4
+time C=1 C=2 C=3 C=4 C=5
+γ = 1/4 0.2 0.4 0.9 1.2 1.4
+γ = 1/2 0.4 0.7 1.9 2.7 3.8
+γ = 3/4 0.9 2.4 4.1 5.7 9.1
+γ = 1 1.5 3.0 6.4 12.4 15.7
+Table 6: KLs to full GP (above) and times (below) of our method CPoE for varying C and γ
+for experiment in Section 3.6.3. Compare also Fig. 14 .
+number of experts J which makes our approach highly scalable. The approximation quality
+parameter α = Cγ appears cubic/quadratic in the time/space complexity. The optimal approx-
+imation quality (and thus equivalent to full GP) is achieved for α = J which implies C = J and
+γ = 1. However, it is clear that this is not feasible for big datasets and thus some moderate
+values of C and γ have to be selected to trade oﬀ time and accuracy which is illustrated in the
+Appendix in Table 6 and Fig. 14.
+C = 1
+ = 1.0
+C = 2
+ C = 3
+ C = 4
+ C = 5
+  = 0.75
+  = 0.5
+  = 0.25
+Figure 14: Inﬂuence of the approximation order C and sparseness parameter γ to the non-zeros
+and size of the posterior precision matrix Σ−1. for an example with synthetic GP data with
+D = 2, N = 8192, J = 64 and B = 128 and a SE-kernel. Compare also Table 6.
+A.5 Implementation Details
+All experiments were run on a standard Laptop (IntelCore i7, 8 CPU 1.9GHz). Our code is
+implemented in Python and will be available on Github.
+32
+
+=== PDF PAGE 33 ===
+Draft
+For solving the sparse linear system of equations, we used Cholmod [ ?] in the Python pack-
+age scikit-sparse which relies on sparse Cholesky decomposition. It would be advantageous to
+use/implement a sparse block Cholesky decomposition and solver which exploits directly our
+structure. This was indeed needed for computing some entries in the posterior covariance, since
+with available implementation of partial matrix inversion we could not exploit the block spar-
+sity and thus did not obtain competitive performance as discussed in Section A.2. An eﬃcient
+implementation of this part is presented in Algorithm 1.
+In our current implementation the size of each partition has to be equal; which is in theory
+not necessary, but it allows more eﬃcient implementations since then the block character can
+be easily exploited in the computation of the sparse posterior precision. Using the KD-tree
+construction with J = 2K, the sizes of the partitions diﬀer at most by 1. Thus, if the partitions
+are not equal, the number of local inducing points are set to L = min(Bj)J
+j=1.
+Our implementation exploits the kernel and likelihood functions of GPy [ ?]. For the optimiza-
+tion of the hyperparameters we used the L-BFGS-B algorithm in the Python package scipy in
+the deterministic full batch case. For stochastic optimization we used the stochastic optimizer
+ADAM [?] (implemented from scratch) with appropriate learning rates which are learnt in pre-
+liminary experiments.
+For the competitor methods we used the implementation in GPy [ ?] for full and sparse global
+GP (the approach of [30]). For PoE, GPoE, BCM, RBCM and GRBCM we implemented the
+corresponding aggregation algorithms based on the GPy implementations for the independent
+experts in Python for the sake of comparisons. For the stochastic version of SGP, the hybrid
+information ﬁlter approach in [17] and their implementations are used. We also run the ap-
+proaches REC [27] and SVI [12], however the former approach shows superior accuracy vs. time
+performance in preliminary experiments.
+For the sparse global GP model there is the choice of optimized or ﬁxed inducing points. For
+the same number of inducing points the accuracy is obviously better with optimized inducing
+points, however taking into account the time for optimizing them, we found in the experiments
+with batch optimization (i.e. also smaller datasets) that the ﬁxed random subset approach was
+superior. Therefore we report here the results for ﬁxed (random subset of data) inducing points
+RBF local RBF global sum
+Figure 15: Generated data with a sum of two SE-kernels with local and global lengthscales for
+experiment in Section 4.
+33
+
+=== PDF PAGE 34 ===
+Draft
+in the deterministic case and optimized in the stochastic case. The reason for that is that the
+sparse global approximation with unknown inducing inputs has M D+ |θ| (variational) param-
+eters to optimize in the batch version. In the stochastic version REC & IF there are as well
+M D+|θ| parameters, whereas SVI has even M +0.5M 2 +M D+|θ| number of parameters since
+the posterior mean and covariance has to be optimized. On the other hand, full GP has only a
+few kernel hyperparameters |θ| to optimize. Similarly, our method CPoE (and also independent
+PoEs) inherit this property because there is no necessity to optimize the local inducing points
+since the total amount of them can be in the order of N. This is also true for the stochastic
+version of our algorithm. Assume for instance D = 8 and M = 100, the number of parameters
+with a SE kernel for full GP and CPoE are only |θ| = 10 parameters to optimize, whereas for
+batch SGP, REC & IF 810 and even 5910 for SVI. For ﬁxed inducing points, SGP and IF also
+only have |θ| = 10 hyperparameters which allows to have more inducing points but speed-up
+the optimization a lot and makes the accuracy vs. time comparison more competitive.
+We used the KD-partition for our method as discussed in 3.1 while in the PoE-literature
+[10, 8, 13, 25, 31], often K-Means is used for partitioning. However, for large J and N this
+is quite ineﬃcient and often the partition sizes for each expert diﬀers signiﬁcantly which intro-
+duces an imbalance among the experts in the prediction aggregation as well as in the stochastic
+optimization. Therefore we also used the KD-tree partition for these algorithms for the sake of
+comparisons.
+For assessing the quality of the diﬀerent algorithms in the next sections, we report the two
+quantities the Kullback-Leibler-(KL)-divergence to full GP and the Continuous Ranked Prob-
+ability Score (CRPS) both depending on the pointwise predictive distributions p (f∗|y). The
+reported values correspond always to an average of Ntest prediction points which are not con-
+tained in the training data.
+A.6 Experiments
+A.6.1 Synthetic Data
+In this section we provide more details about the experiment in Section 4. In this simulation
+study with synthetic GP data we examine the accuracy vs. time performance of diﬀerent GP
+algorithms for ﬁxed hyperparameters. We generated N = 8192 data samples in D = 2 with 5
+repetitions from the sum of two SE kernels with a shorter and longer lengthscale (ls = 0.125, vs =
+0.2 and ll = 0.5, vl = 1.1; see Fig. 15) such that both global and local patterns are present in the
+data. In Fig. 9 the mean results are shown for the KL and RMSE to full GP, the 95%-coverage
+and the log marginal likelihood against time in seconds.
+For the sparse GP, we use diﬀerent number of ﬁxed global inducing points M = {50, . . . ,1000}
+34
+
+=== PDF PAGE 35 ===
+Draft
+CRPS time
+kin2 cadata sarcos casp kin2 cadata sarcos casp
+SGP(500) 0.183 0.253 0.069 0.329 112.1 346.9 730.1 632.9
+SGP(1000) 0.166 0.252 0.063 0.325 244.1 727.6 1718.5 1362.5
+minVar 0.173 0.257 0.052 0.294 14.4 28.2 71.3 45.8
+GPoE 0.193 0.289 0.086 0.302 14.4 28.3 71.4 45.6
+GRBCM 0.164 0.262 0.060 0.310 16.5 33.5 84.6 59.4
+CPoE(1) 0.163 0.259 0.052 0.289 13.8 24.5 45.4 45.1
+CPoE(2) 0.155 0.251 0.051 0.287 18.9 33.4 67.3 70.3
+CPoE(3) 0.151 0.249 0.051 0.282 31.7 52.0 134.3 123.8
+Table 7: Average CRPS (left) and time (right) for diﬀerent GP methods and 4 datasets with 5
+repetitions. More details and results are provided in Sections A.6.2 and F in the Appendix.
+for which the results are shown in blue. 1 From the PoE-family, the results for minVar, GPoE
+and BCM are depicted for diﬀerent number of experts J = {1, 2, 4, . . . ,64} in red, cyan and
+magenta, respectively. For our correlated PoEs, the results for the correlations C = {1, . . . ,13}
+are shown in green for J = 32 and γ = 0.5.
+In the ﬁrst two plots, the superior performance of our method compared to competitors in
+accuracy to full GP vs. time can be observed. Our method constitutes a fast and accurate
+method for a range of diﬀerent approximation qualities. Moreover, in the third plot, one can
+observe that the conﬁdence informations are reliable already for small approximation orders
+since it is based on the consistent covariance intersection method.
+A.6.2 Real World Data
+Here we provide more details about the experiments with real world data as summarized in
+Section 4. We downloaded all datasets form UCI repository [ ?] except the elecedemand dataset
+is taken from [14]. We standardized all variables to mean zero and standard deviation of one
+(for elecdemand see details below). We use N = min(0.9Ntot, 1000) data sample for training,
+the rest for testing; except for kin and elecdemand we run experiments with Ntest = 3000 and
+Ntest = 15288 such that we could also run full GP a standard Laptop. For each dataset we
+ﬁxed the number J of experts (given in Table 3a) such that the partitions/mini-batches have a
+reasonable size ( ≈ 500).
+For the deterministic SGP we used M = 100 and for the stochastic SGP M ∈ { 500, 1000}
+inducing points (more results are provided in Appendix F). For our method CPoE we run the
+algorithm for C ∈ {1, 2, 3, 4} for the small and C ∈ {1, 2, 3} for the large datasets with always
+γ = 1. For the stochastic versions we used learning rates δ = 0 .03 for the dataset kin2 and
+δ = 0.01 for the remaining for all methods. The maximum number of epochs is set to 15 together
+with a relative stopping criteria of 1 e−2. We use a SE-kernel with a diﬀerent lengthscale per
+dimension and initialized all hyperparameters to 1, and the global inducing point to a random
+subset of the data.
+1We also run sparse GP with optimized inducing points, however the performance compared to time was
+worse.
+35
+
+=== PDF PAGE 36 ===
+Draft
+A.6.3 Application
+This section contains additional details to the application described in Section 4 where our
+method is applied to the elecdemand time series [14] which contains the half-hourly measured
+electricity demand together with the corresponding temperature and the variable whether it
+is a working day for 1 year. In particular, the preprocessed dataset contains the standardized
+electricity demand (mean=0, sd=1) as the response variable y, the normalized time as the ﬁrst
+variable X1 ∈ [0, 1], the standardized temperature and indicators as X2 and X3, respectively.
+The data is depicted in the ﬁrst two plots in Fig. 10, where we shifted the ﬁrst and third variable
+in the second plot for the sake of clarity. We removed the last day resulting in 364 days = 52
+weeks = 13 ”months” consisting of 4 weeks. In each of the 13 ”months”, we used the ﬁrst
+3 weeks for training and the last week for testing the out-of-sample accuracy. In order that
+it is possible to run full GP as comparison, we only used every 6th sample (corresponding to
+a measurement every 3h) of the training weeks for the actual training and the remaining for
+testing the in-sample accuracy. This gives N = 2184, NIN = 10920 and NOU T = 4368 samples
+as depicted in the ﬁrst plot in Fig. 10. Similarly as in the previous section, we run full GP,
+SGP and PoEs and CPoE and optimized the hyperparameter deterministically using the MAP
+as objective function taking into account the priors. For SGP we used M ∈ { 100, 200} ﬁxed
+inducing points, for PoEs and CPoE we used J = 13 partitions which are obtained by splitting
+the ﬁrst variable into J blocks. For CPoE we used C ∈ {1, 2, 3, 4} and γ = 1. The results are
+provided in Table 3b which again shows very competitive performance also for a general kernel
+with priors on the hyperparameters.
+B More Details about GPR
+In this section we provide more details for Section 2.
+Suppose we are given a training set D = {yi, xi}N
+i=1 of N pairs of inputs xi ∈ RD and
+noisy scalar outputs yi generated by adding independent Gaussian noise to a latent function
+f(x), that is yi = f(xi) + εi, where εi ∼ N
+(
+0, σ2
+n
+)
+. We denote y = [y1, . . . , yN]T the vector of
+observations and with X = [xT
+1 , . . . ,xT
+N]T ∈ RN×D.
+We can model f with a Gaussian Process (GP), which deﬁnes a prior over functions and can be
+converted into a posterior over functions once we have observed some data (consider e.g. [24]).
+To describe a GP, we only need to specify a mean m(x) and a covariance function kθ(x, x′)
+where θ is a set of a few hyperparemeters. Thereby, kθ is a positive deﬁnite kernel function
+(see [24]), for instance the squared exponential (SE) kernel with individual lengthscales for each
+dimension, that is kθ(x, x′) = σ2
+0 exp
+(
+− 1
+2 (x − x′)T L−1 (x − x′)
+)
+with L = Diag
+[
+l2
+1, . . . , l2
+D
+]
+and {σ0, l1, . . . , lD} ∈ θ. For the sake of simplicity, we assume m(x) ≡ 0, however it could be
+any function. Given the training values f = f (X) = [ f(x1), . . . , f(xN)]T and a test latent
+function value f∗ = f(x∗) at a test point x∗ ∈ RD, then the joint distribution p(f , f∗) is Gaus-
+sian N
+(
+0, K[X;x∗][X;x∗]
+)
+. Thereby, we use the notation [ A1; A2] for the resulting matrix after
+36
+
+=== PDF PAGE 37 ===
+Draft
+stacking A1 ∈ RN1×D and A2 ∈ RN1×D above each other and K ∈ RM1×M2 denotes the kernel
+covariance matrix with entries [ KAB]ij corresponding to the kernel evaluation kθ(ai, bj) with
+the corresponding rows ai, bj for any A ∈ RM1×D and B ∈ RM2×D.
+Typically, in GP regression, the likelihood is Gaussian, that is, p (y|f) = N
+(
+y|f , σ2
+nI
+)
+, and
+with Bayes theorem (19) we obtain analytically the predictive posterior distribution p (f∗|y) =
+N (f∗|µ∗, Σ∗) with µ∗ = Kx∗X
+(
+KXX + σ2
+nI
+)−1 y and Σ∗ = Kx∗x∗−Kx∗X
+(
+KXX + σ2
+nI
+)−1 KXx∗.
+Alternatively to the standard derivation shown above, the posterior distribution over the latent
+variables f given the data y can be explicitly formulated as
+p (f |y) ∝ p (f , y) = p (y|f) p (f) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f 1:j−1
+)
+, (9)
+where the data is split into J mini-batches of size B, i.e. D =
+{
+yj, X j
+}J
+j=1 with inputs
+X j ∈ RB×D, outputs yj ∈ RB and the corresponding latent function values f j = f(X j) ∈ RB.
+In (1) we used the notation f k:j indicating [f k, . . . ,f j] and the conditionals p
+(
+f j|f 1:j−1
+)
+can
+be derived from the joint Gaussian p
+(
+f j, f 1:j−1
+)
+= N
+(
+0, K[Xj ;X 1:j−1][Xj ;X 1:j−1]
+)
+via Gaussian
+conditioning (17). The corresponding graphical model of (1) is depicted in Figure 1(a)i). Given
+the posterior over f |y, the predictive posterior distribution from above is equivalently obtained
+as p (f∗|y) =
+∫
+p (f∗|f) p (f |y) df via Gaussian integration (18) where p (f∗|f) is derivable from
+the joint via (17). The graphical model of the prediction procedure is depicted in Figure 1(b)i).
+We present this alternative two stage procedure to highlight later connections to our model with
+full GP.
+B.1 Global Sparse GPs
+Sparse GP regression approximations based on global inducing points reduce the computational
+complexity by introducing M ≪ N inducing points a ∈ RM that optimally summarize the
+dependency of the whole training data globally, compare the graphical model in Figure 1b).
+Thereby the inducing inputs A ∈ RM×D are in the D-dimensional input data space and the
+inducing outputs a = f(A) ∈ RM are the corresponding GP-function values. In the following,
+this model is denoted by SGP( M). Similarly to full GP in Eq. (1), the posterior over the
+inducing points p(a|y) ∝
+∫
+p (a, f , y) df can be derived from the joint distribution
+p (a, f , y) = p (y|f) p (f |a) p(a) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|a
+)
+p(aj|a1:j−1), (10)
+where the usual Gaussian likelihood p
+(
+yj|f j
+)
+= N
+(
+f j, σ2
+nI
+)
+is used and p
+(
+f j|a
+)
+can be derived
+from the joint Gaussian p
+(
+f j, a
+)
+= N
+(
+0, K[Xj ;A][Xj ;A]
+)
+with (17). Using the posterior com-
+puted via (2) together with the predictive conditional p (f∗|a) derived by (17) from the assumed
+joint p (f∗, a) = N
+(
+0, K[x∗,A][x∗,A]
+)
+and integrating
+∫
+p (f∗|a) p
+(
+f j, a
+)
+da via (18) provides an
+approximation to the predictive posterior of full GP. Batch inference in these sparse global
+37
+
+=== PDF PAGE 38 ===
+Draft
+models can be done in O(M 2N) time and O(M N) space (e.g. [23]).
+In order to ﬁnd optimal inducing inputs A and hyperparameters θ, a sparse variation of the log
+marginal likelihood similar can be used e.g. [4, 29, 30]. In particular, the authors in [30] proposed
+to maximize a variational lower bound to the true GP marginal likelihood which has the eﬀect
+that the sparse GP predictive distribution converges to the full GP predictive distribution as
+the number of inducing points increases. For larger datasets, stochastic optimization has been
+applied e.g. [2, 12, 17, 27] to obtain faster and more data eﬃcient optimization procedures. For
+recent reviews on the subject consider e.g. [20, 23, 24].
+B.2 Local Independent GPs
+An alternative to the global sparse inducing point methods as presented in the previous section
+constitute local approaches which exploit multiple local GPs combined with averaging tech-
+niques to boost predictions. Beside other averaging techniques (e.g. mixture of experts) the
+Product of Expert (PoE) scheme was proposed by [13] where individual predictions p
+(
+f∗j|yj
+)
+from J experts based on the local data yj are aggregated to the ﬁnal predictive distribution
+p (f∗|y) =
+J∏
+j=1
+gj
+(
+p
+(
+f∗j|yj
+))
+(11)
+where gj is a function depending on the particular PoE method discussed below and is in the orig-
+inal work of [13] just the identity. Note that we present here the version of PoEs where the noise-
+less predictions f∗j are aggregated instead of noisy aggregation with y∗j as described in some
+work of PoEs. The individual predictions p
+(
+f∗j|yj
+)
+are local GP ﬁts
+∫
+p
+(
+f∗j|f j
+)
+p
+(
+f j|yj
+)
+df j
+involving the predictive conditionalsp
+(
+f∗j|f j
+)
+derived by (17) from the assumed jointp
+(
+f∗j, f j
+)
+=
+N
+(
+0, K[x∗,Xj ][x∗,Xj ]
+)
+and the local posteriors p
+(
+f j|yj
+)
+∝ p
+(
+yj|f j
+)
+p
+(
+f j
+)
+, where the individ-
+ual prior p
+(
+f j
+)
+= N
+(
+0, KXj Xj
+)
+. Together with the usual Gaussian likelihood p
+(
+yj|f j
+)
+=
+N
+(
+f j, σ2
+nI
+)
+, the ﬁnal noisy predictive distributionp (y∗|y) can be obtained via
+∫
+p (y∗|f∗) p (f∗|y) df∗.
+Similarly to Eqs. (1) and (2), the implicit posterior in all PoE method is
+p (f |y) ∝ p (f , y) = p (y|f)
+J∏
+j=1
+p
+(
+f j
+)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j
+)
+, (12)
+where the corresponding graphical model is depicted in Figure 1c) and ??c).
+The function gj in (11) takes as argument the predictive distribution p∗j := p
+(
+f∗j|yj
+)
+which depends implicitly also on x∗. In the original work [13] the authors used the identity
+gj(p∗j) = p∗j which produce underconﬁdent prediction variances [20]. In order to mitigate
+this issue, the aggregation weights gj(p∗j) = p1/J
+∗j were proposed [10] but still resulting in
+too large predictive uncertainty estimates [20]. The reason is that the experts are all equally
+weighted, however, the predictions at a particular point x∗ are not equally reliable, therefore
+in the generalized PoE (GPoE) [10] some varying weights βj(x∗) were introduced to quantify
+38
+
+=== PDF PAGE 39 ===
+Draft
+the contribution of the expert j at x∗. Thus, gj(p∗j) = pβj (x∗)
+∗j with weights set to the diﬀer-
+ence in entropy between the expert’s prior and posterior, that is, ¯β∗j = 1
+2 log
+(
+v∗0
+v∗j
+)
+. This has
+the eﬀect of increase or decreasing the importance of the experts based on the corresponding
+prediction uncertainty v∗0 and v∗j. However, these general weights can produce overconﬁdent
+uncertainty estimates, therefore the authors in [10] proposed also an version with normalized
+weights such that ∑J
+j ¯βj(x∗) = 1. In the following, PoE and GPoE refer to the version with
+normalized weights. Other important contributions in this ﬁeld are BCM [31] and its robustiﬁed
+version RBCM [10], GRBCM [19], distributed local GPs [8] and local experts with consistent
+aggregations [25, 22]. We refer to [20] for a recent overview.
+Simple baseline methods are the minimal variance (minVar) and the nearest expert (NE)
+aggregation, where only the prediction from the expert with minimal variance or nearest expert
+is used, respectively. Although both these method show often surprisingly good performance,
+they suﬀer from an huge disadvantage, namely that there are serious discontinuities at the
+boundaries between the experts (see for instance Fig. 2) and thus often not useful in practice.
+This is also the main limitation of all local methods based only on the prediction of one expert
+(e.g. [3, 7, ?, 18]) and it was one of the reason for introducing smooth PoEs with combined
+experts. Since in basically all cases minVar is better than NE (which is also consistent with the
+ﬁndings in [25]), we only compare our method to minVar and not NE for the sake of simplicity.
+C Useful properties
+C.0.1 Inversion Lemma
+Given invertible matrices A ∈ RB×B , C ∈ RM×M and matrices U ∈ RB×M, V ∈ RM×B, it
+holds
+(A + U CV )−1 = A−1 − A−1U
+(
+C−1 + V A−1U
+)−1
+V A−1. (13)
+C.0.2 Determinant Lemma
+Given invertible matrices A ∈ RB×B , C ∈ RM×M and matrices U ∈ RB×M, V ∈ RM×B, it
+holds
+|A + U CV | = |C−1 + V A−1U ||C||A|. (14)
+C.0.3 Block Inversion
+Given an invertible, symmetric block matrix
+M =
+[
+A B
+BT D
+]
+,
+39
+
+=== PDF PAGE 40 ===
+Draft
+the inverse can be computed as
+M−1 =
+[
+A−1 + A−1BZ−1BT A−1 −A−1BZ−1
+−Z−1BT A−1 Z−1
+]
+(15)
+with Z = D − BT A−1B.
+C.0.4 Block Determinant
+Given an invertible, symmetric block matrix
+M =
+[
+A B
+BT D
+]
+,
+the determinant can be computed as
+|M | = |A| | D − BT A−1B| = |D| | A − BD−1BT |. (16)
+C.0.5 Conditional Gaussians
+From the joint Gaussian [ a, b]T ∼ N
+(
+0, K[A,B][A,B]
+)
+, the conditional can be computed as
+follows
+a|b ∼ N
+(
+KABK−1
+BB b, KAA − KABK−1
+BB KBA
+)
+= N
+(
+H ABb, V B
+AA
+) (17)
+C.0.6 Marginalization/Integration
+Given the densities p (a) = N (µ, Σ) and p (b|a) = N (F a + v, Q), then
+p (b) =
+∫
+p (a, b) da =
+∫
+p (b|a) p (a) da = N
+(
+F µ + v, F ΣF T + Q
+)
+(18)
+C.0.7 Gaussian & Bayes
+Given the densities p (a) = N (µ, Σ) and p (b|a) = N (F a + v, Q), applying Bayes’ formula
+yields
+p (a|b) = N
+(
+P
+(
+F T Q−1(b − v) + Σ−1µ
+)
+, P
+)
+, (19)
+with P =
+(
+Σ−1 + F T Q−1F
+)−1
+.
+C.0.8 Product of Gaussians
+Assume J Gaussians pJ(x) = N
+(
+x|µj, Σj
+)
+and aj ∈ R. Then the product can be written as
+J∏
+j=1
+pj(x)aj = N (x|µ, Σ) (20)
+40
+
+=== PDF PAGE 41 ===
+Draft
+with
+Σ =
+
+
+J∑
+j=1
+ajΣ−1
+j
+
+
+−1
+and µ = Σ
+
+
+J∑
+j=1
+ajΣ−1
+j µj
+
+
+as long as Σ positive-semi-deﬁnite (if aj ≡ 1 then always the case).
+C.0.9 Entropy of Gaussian
+The Entropy H of p(x) = N (x|µ, Σ) with |x| = B is deﬁned as
+H[x] = H[p(x)] = 1
+2 (log |Σ| + B(1 + log 2π)) , (21)
+where we use log as the natural logarithm and thus the entropy is measured in nats (natural
+units).
+C.0.10 Kullback-Leibler-Divergence (KL)
+The KL between p0(x) and p1(x) is deﬁned as
+KL[p0(x) | p1(x)] =
+∫
+p0(x) log p0(x)
+p1(x) dx. (22)
+C.0.11 KL between 2 Gaussians
+The Kullback-Leibler-Divergence (KL) between p0(x) = N (µ0, Σ0) and p1(x) = N (µ1, Σ1)
+with |x| = B can be computed by
+KL[p0(x) | p1(x)] = 1
+2
+(
+tr(Σ−1
+1 Σ0) − B
++(µ1 − µ0)TΣ−1
+1 (µ1 − µ0) + log |Σ1|
+|Σ0|
+)
+.
+(23)
+C.0.12 Diﬀerence in KL of Gaussian with Zero Mean
+The diﬀerence in KL between p1(x) = N (0, Σ1) and p2(x) = N (0, Σ2) with same base distri-
+bution p0(x) = N (0, Σ0) can be computed by
+KL[p0(x) | p1(x)] − KL[p0(x) | p2(x)] = 1
+2
+(
+tr((Σ−1
+1 − Σ−1
+2 )Σ0) + log |Σ1|
+|Σ2|
+)
+. (24)
+C.0.13 General Diﬀerence in KL
+Let 1 ≤ C < J and 0 < γ ≤ 1 be ﬁxed. For any C2 ∈ { C, . . . , J} we deﬁne the diﬀerence in
+KL, denoted as D(C,C2)[x], between the true distribution of x and two diﬀerent approximate
+41
+
+=== PDF PAGE 42 ===
+Draft
+distributions, i.e.
+D(C,C2)[x] = KL[p (x) || qc,γ(x)] − KL[p (x) || qc2,γ(x)] = Ep(x)
+[
+log qc2,γ(x)
+qc,γ(x)
+]
+(25)
+using the deﬁnition of KL (22). Similarly, we deﬁne the the diﬀerence in KL, denotes as
+D(C,C2)[x|y], of a conditional distribution x|y to be
+KL[p (x|y) || qc,γ(x|y)] − KL[p (x|y) || qc2,γ(x|y)]
+=Ep(y)
+[
+Ep(x|y)
+[
+log qc2,γ(x|y)
+qc,γ(x|y)
+]]
+.
+(26)
+which follows from the the deﬁnition of KL (22).
+D Proofs and Additional Results
+D.1 Additional Results
+HS −1HT + ¯V
+HS −1HT + ¯V
+HS −1HT + ¯V
+HS −1HT + V
+HS −1
+HS −1
+S−1HT
+S−1
+S−1HT
+a
+f
+y
+0
+0
+1
+σ2n
+I
+− 1
+σ2n
+I
+− 1
+σ2n
+I
+¯V −1
++ 1
+σ2n
+I
+−HT ¯V −1
+S + ¯T
+− ¯V −1H
+W
+Z
+a
+f
+y
+a
+f
+y
+Figure 16: Covariance W and precision Z = W−1 of joint prior approximation qc,γ(a, f , y =
+N (0, W ) of CPoE model. Compare Proof 39.
+Proposition 14 (Marginal Likelihood; Proof 33) . The marginal likelihood is
+qC,γ(y|θ) = qC,γ(y) =
+∫
+qC,γ(y, a) da = N (0, P )
+with P = HS−1H T + V ∈ RN×N where all dependencies on θ of the matrices are omitted.
+Proposition 15 (Prior Approximation II; Proof 35) . Alternatively to Proposition 6, the prior
+approximation q (a) = N
+(
+a|0, S−1)
+can be equivalently written as
+q (a) =
+J∏
+j=1
+p
+(
+aj|aπ(j)
+)
+=
+J∏
+j=1
+N
+(
+aπ+(j)|0, S−1
+(j)
+)
+42
+
+=== PDF PAGE 43 ===
+Draft
+KXA
+KAA
+KAX
+a
+f
+y
+a
+f
+y
+KXAK −1
+AAKAX
++ ¯V
+KAX
+KXA
+KXAK −1
+AAKAX
++ ¯V
+KXAK −1
+AAKAX
++ ¯V
+KXAK −1
+AAKAX
++V
+0
+0
+1
+σ2n
+I
+− 1
+σ2n
+I
+− 1
+σ2n
+I
+¯V −1
++ 1
+σ2n
+I
+a
+f
+y
+−HT ¯V −1
+− ¯V −1H
+K −1
+AA+
+H T ¯V −1H
+y
+f
+a
+y
+y
+f
+y
+f
+− 1
+σ2n
+I
+y
+f
++ 1
+σ2n
+I
+− 1
+σ2n
+I
+K −1
+XX + 1
+σ2n
+I
+KXX
+f
+KXX +σ2
+nI
+KXX
+KXX
+y
+y
+f
+f
+KXjXj
+KXjXj
+KXjXj
+KXjXj
++σ2
+nI
+y
+y
+f
+f
+K −1
+XjXj
++ 1
+σ2n
+I
+K −1
+XjXj
+K −1
+XjXj
+K −1
+XjXj
+W
+Z
+i) full GP
+iii) independent PoE
+ii) sparse global GP
+CPoE(J,1)
+=
+=
+s
+CPoE(J,γ)
+CPoE(1,1)
+=
+Figure 17: Covariance W and precision Z = W−1 of joint prior of diﬀerent GP models.
+Compare Figure 16 for the corresponding covariance and precision matrices for CPoE model.
+Note that we used H = KXA K−1
+AA and ¯V the same as in the local CPoE.
+−HT ¯V −1
+a
+f
+¯V −1
+Za,f
+− ¯V −1H
+a
+f
+−HT V −1
+a
+y
+V −1
+Za,y
+−V −1H
+a
+y
+S + ¯T
+S + T
+y
+f
+− 1
+σ2n
+I
+y
+f
+Zf,y
++ 1
+σ2n
+I
+− 1
+σ2n
+I
+HS −1HT + ¯V
++ 1
+σ2n
+I
+Figure 18: Marginalized precision corresponding to qc,γ(a, f) = N
+(
+0, Z−1
+a,f
+)
+, qc,γ(a, y) =
+N
+(
+0, Z−1
+a,y
+)
+and qc,γ(f , a) = N
+(
+0, Z−1
+f ,y
+)
+, respectively. Thereby we used the notation
+V = ¯V + σ2
+nI, ¯T = H T ¯V−1H and T = H T V−1H. Note that the corresponding dense
+covariance matrices are directly obtained from W in Fig. 16 by selecting the corresponding
+entries.
+43
+
+=== PDF PAGE 44 ===
+Draft
+with S(j) = ˜F
+T
+j Q−1
+j ˜F j , ˜F j =
+[
+−F j I
+]
+and π+(j) = π(j) ∪ j. Further, the prior precision
+matrix can also be written as
+S =
+J∑
+j=1
+S(j)
+where S(j) ∈ RM×M is the augmented matrix consisting of S(j) ∈ RLC×LC at the entries
+[π+(j), π+(j)] and 0 otherwise.
+Proposition 16 (Prior Approximation III; Proof 36) . Alternatively to Prop. 6 and Prop. 15
+the prior approximation q (a) can be equivalently written as
+q (a) =
+J∏
+j=1
+p
+(
+aj, aπ(j)
+)
+p
+(
+aπ(j)
+) =
+J∏
+j=C
+p
+(
+aπ+(j)
+)
+p
+(
+aπ(j)
+)
+which is a Gaussian N
+(
+a|0, S−1)
+with prior precision
+S =
+J∑
+j=1
+K
+−1
+Aπ+(j)Aπ+(j)
+− K
+−1
+Aπ(j)Aπ(j)
+where K
+−1
+AφAφ ∈ RM×M is the augmented matrix consisting of K−1
+AφAφ
+∈ RT×T at the entries
+[φ, φ] and 0 otherwise with T = |φ|.
+Proposition 17 (Exact Diagonal of Prior; Proof 34) . The precision matrix SC of the prior
+approximation qC(a) is exact on the diagonal, that is,
+tr(SCKAA) = J L
+where J L is the dimension of the matrices.
+Proposition 18 (Band-Diagonal Approximation). In the consecutive case, i.e. ψ (j) = {j −
+C + 1, . . . , j}, the block-entries
+S−1
+[ψ(j),ψ(j)] = KAA[ψ(j),ψ(j)],
+are equal which means that the block-band-diagonals −C +1, . . . ,0, . . . , C−1 of the both matrices
+are the same. For the case C = J it holds S−1 = KAA.
+Proposition 19 (Decreasing Prior Entropy; Proof 30) . For any predecessor structure πC as
+in Def. 2, the entropy H of the approximate prior qC(a) is decreasing for C → J, in particular
+H [q1(a)] ≥ · · · ≥ H [qj(a)] ≥ · · · ≥ H [qJ(a)]
+where it holds H [qJ(a)] = H [p(a)] and
+H[qj(a)] = 1
+2 log |QC| + M
+2 (1 + log 2π).
+44
+
+=== PDF PAGE 45 ===
+Draft
+Similar results can be obtained for the joint prior qC(a, f , y).
+From the last proposition we know that increasing the degree of correlation C add always
+more information to the prior. In particular, the prior of complete independent PoEs (i.e.C = 1)
+encodes the least of information since all correlations between the experts are missing, whereas
+the prior of full GP incorporates the most information since all correlations are modeled.
+Proposition 20 (Prior Quality II). The prior approximation quality improvement D(C,T )[a] in
+Prop. 12 can be equivalently written as
+D(C,T ) = 1
+2 log |SC+T |
+|SC| = 1
+2
+J∑
+j=1
+log
+|Qj|πj | | Qφj|πj |
+|Qj∪φj|πj |
+= 1
+2
+J∑
+j=1
+log
+|KAj∪πj Aj∪πj
+| | KAφj∪πj Aφj∪πj
+|
+|KAj∪φj∪πj Aj∪φj∪πj
+| | KAπj Aπj |
+where πj = πC(j), φj = ∪C+T
+i=C+1φi(j) and Qϕ1|ϕ2 = KAϕ1 Aϕ1 − KAϕ1 Aϕ2 K−1
+Aϕ2 Aϕ2
+KAϕ2 Aϕ1 .
+D.2 Proofs
+Proof 21 (Proof of Prop. 4; Joint Distribution). . The matrices in the conditional distributions
+(6) and (7) in Prop. 4 can be obtained via Gaussian conditioning (17) from the assumed joint
+densities
+p
+(
+f i
+j, aψ(j)
+)
+= N
+(
+0, K[Xi
+j ;Aψ(j)][Xi
+j ;Aψ(j)]
+)
+;
+p
+(
+aj, aπ(j)
+)
+= N
+(
+0, K[Aj ,Aπ(j)][Aj ,Aπ(j)]
+)
+,
+resulting in
+H j = KXj Aψ(j)K−1
+Aψ(j)Aψ(j)
+;
+V j = Diag[KXj Xj − KXj Aψ(j)K−1
+Aψ(j)Aψ(j)
+KAψ(j)Xj];
+F j = KAj Aπ(j)K−1
+Aπ(j)Aπ(j)
+;
+Qj = KAj Aj − KAj Aπ(j)K−1
+Aπ(j)Aπ(j)
+KAπ(j)Aj
+with F 1 = 0 and Q1 = KA1A1.
+Proof 22 (Proof used in Def. 5; Joint Distribution II) . In the case γ = 1, thus aj = f j and
+45
+
+=== PDF PAGE 46 ===
+Draft
+a = f, the joint distribution can be written as q (f , a, y) = q (f , f , y) = q (f , y) is
+q (f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|aψ(j)
+)
+p
+(
+aj|aπ(j)
+)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f ψ(j)
+)
+p
+(
+f j|f π(j)
+)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)p
+(
+f jf ψ(j)
+)
+p
+(
+f ψ(j)
+) p
+(
+f j|f π(j)
+)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f π(j)
+)
+since
+p
+(
+f j, f ψ(j)
+)
+p
+(
+f ψ(j)
+) =
+p
+(
+f j, f j, f ψ(j)\j
+)
+p
+(
+f j, f ψ(j)\j
+) = 1.
+Proof 23 (Proof of Prop. 11; Equality to Full GP ). Full GP: For γ = 1, the joint distribution
+of our model is formulated in Def. 5 and Proof 22. For C = J, we have
+qJ(f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f πJ (j)
+)
+,
+where the predecessor set πJ(j) correspond to {1, . . . , j − 1} and thus the conditional variables
+f π(j) = f 1:j−1. The posterior qJ(f |y) is proportional to the joint distribution qJ(f , y) (see
+Proof 32), thus we have
+qJ(f |y) ∝
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f 1:j−1
+)
+which is equal to the posterior distribution of full GP (1). Also the hyperparameter optimization
+is the same since the marginal likelihood qJ(y) can be derived from the joint qC(f , y) (see Proof
+33). Further, in the prediction step, for C = J we have J2 = C − J + 1 = 1 predictive expert
+which is based on the full region ψ(J) = {1, . . . , J}. Therefore we conclude that the two models
+in considerations are the same.
+46
+
+=== PDF PAGE 47 ===
+Draft
+Sparse global GP: Similarly, for C = J but γ < 1, we have
+qJ(f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|aψ(j)
+)
+p
+(
+aj|aπ(j)
+)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|a1:J
+)
+p (aj|a1:−j−1)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|a
+)
+p (a)
+= p (y|f) p (f |a) p (a)
+so that the posterior correspond to that of sparse GP in (2.1). The prediction simpliﬁes also to
+1 predictive expert based on the full region. Also the marginal likelihood is the same for C = J
+and could be adapted as illustrated in Section A.1.
+Independent local GP: For C = γ = 1 we have
+q1(f , y) =
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j|f⊘
+)
+=
+J∏
+j=1
+p
+(
+yj|f j
+)
+p
+(
+f j
+)
+which is equal to (4). Prediction and hyperparameters similar as above.
+Proof 24 (Proof of Prop. 6; Prior Approximation) . Here we prove the ﬁrst part for the prior
+over a, the second part is proved in Proof 25.
+Using Prop. 15 (with Proof 35), the prior q (a) can be equivalently written as
+J∏
+j=1
+N
+(
+aπ+(j)|0, S−1
+(j)
+)
+∝ − 1
+2 aT
+π+(j) ˜F
+T
+j Q−1
+j ˜F jaπ+(j)
+with S(j) = ˜F
+T
+j Q−1
+j ˜F j ∈ RLC×LC and ˜F j =
+[
+−F j I
+]
+∈ RL×LC. This LC-dimensional
+Gaussian for aπ+(j) can be augmented to a M-dimensional Gaussian for a proportional to
+− 1
+2 aT ¯F T
+j ¯Q−1
+j ¯F ja ∝ N
+(
+a|0,
+(
+¯F T
+j ¯Q−1
+j ¯F j
+)−1)
+where ¯Q−1
+j ∈ RM×M a zero matrix except Q−1
+j ∈ RL×L at the entries [π+(j), π+(j)]. Further,
+the matrix ¯F j ∈ RM×M has one sparse row at j, that is,
+
+
+0 0 0 0 0 0 0 0 0 0
+... ... ... ... ... ... ... ... ... ...
+0 · · · − F 1
+j 0 −F i
+j · · · − F Ij
+j I · · · 0
+... ... ... ... ... ... ... ... ... ...
+0 0 0 0 0 0 0 0 0 0
+
+
+47
+
+=== PDF PAGE 48 ===
+Draft
+where F i
+j ∈ RL×L is the ith part of F j ∈ RL×L(C−1) which correspond to the contribution of the
+ith predecessor πi(j).
+By using the property in (20), the original product q(a) is then
+J∏
+j=1
+N
+(
+a|0,
+(
+¯F T
+j ¯Q−1
+j ¯F j
+)−1)
+= N
+
+a|0,
+
+
+J∑
+j=1
+¯F T
+j ¯Q−1
+j ¯F j
+
+
+−1
+
+= N
+(
+a|0,
+(
+F T Q−1F
+)−1)
+= N
+(
+a|0, S−1)
+with Q−1 = Diag[Q−1
+1 , . . . ,Q−1
+J ] and F correspond then to the matrix depicted in Fig. 5. Note
+that S is positive deﬁnite since Q−1 positive deﬁnite because each Q−1
+j is positive deﬁnite which
+concludes the proof.
+Proof 25 ((Sub)proof of Prop. 6 (Projection Approximation) ) . The projection q (f |a) =
+qC(f |a) is
+qC(f |a) =
+J∏
+j=1
+p
+(
+f j|aψ(j)
+)
+=
+J∏
+j=1
+N
+(
+f j|H jaψ(j), V j
+)
+,
+where H j ∈ RB×LC and V j ∈ RB×B. The log of this density in f j ∈ RB is proportional to
+∝ − 1
+2(f j − H jaψ(j))T V
+−1
+j (f j − H jaψ(j))
+which can be equivalently written as
+−1
+2(Ijf − ¯H ja)T ¯V
+−1
+j (Ijf − ¯H ja)
+with ¯V j ∈ RM×M with V j at [ψ(j), ψ(j)] and ¯H j ∈ RBJ×M the following matrix
+
+
+0 0 0 0 0 0 0 0 0 0
+... ... ... ... ... ... ... ... ... ...
+0 · · · H 1
+j 0 H i
+j · · · H C−1
+j H C
+j · · · 0
+... ... ... ... ... ... ... ... ... ...
+0 0 0 0 0 0 0 0 0 0
+
+
+where jth row not empty with H i
+j ∈ RB×L the ith entry in H j which correspond to to ψi(j).
+Further, Ij ∈ RBJ×BJ a zero matrix with I ∈ RB×B at [j, j]. For the original product of the
+projections
+qC(f |a) =
+J∏
+j=1
+N
+(
+0|IT
+j f − ¯H ja, ¯V j
+)
+,
+48
+
+=== PDF PAGE 49 ===
+Draft
+using the product rule of Gaussians in (20), we obtain
+N
+
+0|V
+J∑
+j
+¯V
+−1
+j
+(
+Ijf − ¯H ja
+)
+,
+
+
+J∑
+j
+¯V
+−1
+j
+
+
+−1
+
+= N
+
+0|V V
+−1
+J∑
+j
+(
+Ijf − ¯H ja
+)
+, V
+
+ = N
+
+0|
+J∑
+j
+(Ij) f −
+J∑
+j
+(¯H j
+)
+a, V
+
+
+= N
+(
+0|If − Ha, V
+)
+= N
+(
+f |Ha, V
+)
+.
+Since V positive deﬁnite this concludes the statement.
+Proof 26 (Proof of Prop. 12; Decreasing Prior KL) . We ﬁrst show the decomposition which
+states
+D(C,T )[f , a, y]
+= D(C,T )[a] + D(C,T )[f |a] + D(C,T )[y|f].
+Starting with the deﬁnition in Def. 25 we get
+D(C,T )[f , a, y]
+= Ep(f ,a,y)
+[
+log qC+T (f , a, y)
+qC(f , a, y)
+]
+= Ep(y|f )p(f|a)p(a)
+[
+log qC+T (y|f)qC+T (f |a)qC+T (a)
+qC(y|f)qC(f |a)qC(a)
+]
+=
+∫
+p(y|f)p(f |a)p(a) log qC+T (y|f)qC+T (f |a)qC+T (a)
+qC(y|f)qC(f |a)qC(a) da df dy
+=
+∫
+p(a)
+( ∫
+p(f |a)
+[ ∫
+p(y|f) log qC+T (y|f)
+qC(y|f) dy · · ·
++ log qC+T (f |a)
+qC(f |a)
+]
+df + log qC+T (a)
+qC(a)
+)
+da
+=
+∫
+p(a) log qC+T (a)
+qC(a) da +
+∫
+p(a)
+∫
+p(f |a) log qC+T (f |a)
+qC(f |a) df
++
+∫
+p(f)
+∫
+p(y|f) log qC+T (y|f)
+qC(y|f) dy df
+= Ep(a)
+[
+log qC+T (a)
+qC(a)
+]
++ Ep(a)
+[
+Ep(f|a)
+[
+log qC+T (f |a)
+qC(f |a)
+]]
++ Ep(f )
+[
+Ep(y|f )
+[
+log qC+T (y|f)
+qC(y|f)
+]]
+= D(C,T )[a] + D(C,T )[f |a] + D(C,T )[y|f],
+where we used the deﬁnitions in Def. 25. We also immediately see that
+D(C,T )[y|f] = 0
+49
+
+=== PDF PAGE 50 ===
+Draft
+since qC(y|f) = qC+T (y|f) = p(y|f) is exact. The proofs for D(C,T )[a] ≥ 0 and D(C,T )[f |a] ≥ 0
+are given in Proof 27, 28 and 28, respectively.
+Proof 27 (Proof of Subproof I of Proof 26) . We prove
+D(C,T )[a] = Ep(a)
+[
+log qC+T (a)
+qC(a)
+]
+≥ 0.
+We abbreviate q1(a) = qC(a) and q2(a) = qC+T (a). The diﬀerence D(C,T )[a] is
+∫
+p(a) log q2(a)
+q1(a) da =
+∫
+p(a) log
+∏J
+j=1 p
+(
+aj|aπ2(j)
+)
+∏J
+j=1 p
+(
+aj|aπ1(j)
+)da
+=
+∫
+p(a)
+J∑
+j=1
+log p
+(
+aj|aπ2(j)
+)
+p
+(
+aj|aπ1(j)
+)da =
+J∑
+j=1
+∫
+p(a) log p
+(
+aj|aπ2(j)
+)
+p
+(
+aj|aπ1(j)
+)da
+We recall property (iii) in Def. 2, thus we have π2(j) = π1(j)∪φ(j) where φ(j) is the additional
+predecessor of expert j in the model 2 compared to model 1. In the following, we abbreviate
+π1(j) = π(j) yielding
+J∑
+j=1
+∫
+p(a) log p
+(
+aj|aπ(j), aφ(j)
+)
+p
+(
+aj|aπ(j)
+) da
+=
+J∑
+j=1
+∫
+p(a) log p
+(
+aj|aπ(j), aφ(j)
+)
+p
+(
+aφ(j)|aπ(j)
+)
+p
+(
+aj|aπ(j)
+)
+p
+(
+aφ(j)|aπ(j)
+) da
+=
+J∑
+j=1
+∫
+p(a) log p
+(
+aj, aφ(j)|aπ(j)
+)
+p
+(
+aj|aπ(j)
+)
+p
+(
+aφ(j)|aπ(j)
+)da
+=
+J∑
+j=1
+∫
+p(˜aj) log p
+(
+aj, aφ(j)|aπ(j)
+)
+p
+(
+aj|aπ(j)
+)
+p
+(
+aφ(j)|aπ(j)
+)d˜aj
+=
+J∑
+j=1
+I
+(
+aj, aφ(j)|aπ(j)
+)
+≥ 0
+where ˜aj = aj ∪ aφ(j) ∪ aπ(j) and I
+(
+aj, aφ(j)|aπ(j)
+)
+the conditional mutual information which
+is always positive [ ?, p. 30] and therefore concludes the ﬁrst part of the proof.
+Proof 28 (Subproof II of Proof 26) . We prove
+D(C,T )[f |a] = Ep(a)
+[
+Ep(f|a)
+[
+log qC+T (f |a)
+qC(f |a)
+]]
+≥ 0.
+50
+
+=== PDF PAGE 51 ===
+Draft
+We abbreviate q1(f |a) = qC(f |a) and q2(f |a) = qC+T (f |a). The diﬀerence D(C,T )[f |a] is
+∫
+p(a)
+∫
+p(f |a) log q2(f |a)
+q1(f |a) df da =
+∫
+p(a, f) log
+∏J
+j=1 p
+(
+f j|aψ2(j)
+)
+∏J
+j=1 p
+(
+f j|aψ1(j)
+)df da
+=
+∫
+p(a, f)
+J∑
+j=1
+log p
+(
+f j|aψ2(j)
+)
+p
+(
+f j|aψ1(j)
+)df da =
+J∑
+j=1
+∫
+p(a, f) log p
+(
+f j|aψ2(j)
+)
+p
+(
+f j|aψ1(j)
+)df da
+We recall the deﬁnition of ψC(j) in Def. ?? where we have ψC(j) = πC(j) ∪ { j, . . . , C} if
+j < C and ψC(j) = πC(j) ∪ j otherwise. Further, we have π2(j) = π1(j) ∪ φ(j) where φ(j) is
+the additional predecessor of expert j in the model 2 compared to model 1. Therefore, we have
+ψ2(j) = ψ1(j) ∪ φ(j) for all j.
+[Proof: If j < C , we have π1(j) = π2(j) since φ(j) empty. Therefore, we have ψ1(j) =
+π1(j) ∪ { j, . . . , C} = π2(j) ∪ { j, . . . , C} = ψ2(j) for all j = 1, . . . , C − 1.
+If j ≥ C, we have ψ1(j) = π1(j) ∪ j and ψ2(j) = π2(j) ∪ j = π1(j) ∪ φ(j) ∪ j = ψ1(j) ∪ φ(j)
+for all j = C, . . . , J. ]
+We abbreviate ψ1(j) = ψ(j) and substitute ψ2(j) = ψ(j) ∪ φ(j) yielding
+J∑
+j=1
+∫
+p(a, f) log p
+(
+f j|aψ(j), aφ(j)
+)
+p
+(
+f j|aψ(j)
+) df da
+=
+J∑
+j=1
+∫
+p(a, f) log p
+(
+f j|aψ(j), aφ(j)
+)
+p
+(
+aφ(j)|aψ(j)
+)
+p
+(
+f j|aψ(j)
+)
+p
+(
+aφ(j)|aψ(j)
+) da
+=
+J∑
+j=1
+∫
+p(a, f) log p
+(
+f j, aφ(j)|aψ(j)
+)
+p
+(
+f j|aψ(j)
+)
+p
+(
+aφ(j)|aψ(j)
+)da
+=
+J∑
+j=1
+∫
+p(˜aj, f j) log p
+(
+f j, aφ(j)|aψ(j)
+)
+p
+(
+f j|aψ(j)
+)
+p
+(
+aφ(j)|aψ(j)
+)d˜aj
+=
+J∑
+j=1
+I
+(
+f j, aφ(j)|aψ(j)
+)
+≥ 0
+where ˜aj = aφ(j) ∪ aψ(j) and I
+(
+f j, aφ(j)|aψ(j)
+)
+the conditional mutual information which is
+always positive [ ?, p. 30] and therefore concludes the ﬁrst part of the proof.
+Moreover, the diﬀerence in the joint prior is
+D(C,T )[f , a, y] = D(C,T )[f , a] = D(C,T )[a] + D(C,T )[f |a]
+= 1
+2 log | ¯V C||S−1
+C |
+| ¯V C+T |S−1
+C+T || = 1
+2 log | ¯V C||QC+T |
+| ¯V C+T |QC|| ≥ 0.
+Proof 29 (Subproof III of Proof 26; Prior KL) . For the second part, we use (24) where the
+diﬀerence in KL of 2 Gaussians with zero mean and same base distribution is formulated. In
+51
+
+=== PDF PAGE 52 ===
+Draft
+our case we have
+1
+2
+(
+tr((SC − SC+T )KAA) + log |SC+T |
+|SC|
+)
+where the trace is 0 by Prop. 17 and thus D(C,T ) = 1
+2 log|SC+T|
+|SC| . Since SC = F T Q−1F and
+|F | = 1, we have D(C,T ) = 1
+2 log |QC|
+|QC+T| which concludes the proof.
+Proof 30 (Proof of Prop. 19; Decreasing Prior Entropy) . For the third part of the statement,
+the entropy H of qC(a) is
+H[qC(a)] = 1
+2 (− log |SC| + J L(1 + log 2π)) = 1
+2 (log |QC| + J L(1 + log 2π))
+where we used Eq. (21) and |F | = 1. The second part follows from Prop. 11. Using Proof 29
+which states
+D(C,T ) = 1
+2 log |QC|
+|QC+T | ≥ 0,
+it follows
+log |QC| ≥ log |QC+T |
+for any T ∈ {1, . . . , C − 1} and therefore
+H[qC+T (a)] ≤ H[qC(a)]
+which concludes the proof.
+Proof 31 ((Sub)Proof of Prop. 7; Marginalized Joint Distribution). From the joint distribution
+in Def. 5 over all variables, the latent function values f can be integrated out resulting in
+q (a, y) =
+∫
+q (f , a, y) df =
+∫
+p (y|f) q (f |a) df q (a) ,
+where the integral can be computed via (18) yielding
+q (a, y) =
+∫
+p (y|f) q (f |a) df =
+∫
+N
+(
+y|f , σ2
+nI
+)
+N
+(
+f |Hf , V
+)
+df = N (y|Ha, V )
+with V = V + σ2
+nI and thus
+q (a, y) = q (y|a) q (a) = N (y|Ha, V ) N
+(
+a|0, S−1)
+which concludes the proof.
+52
+
+=== PDF PAGE 53 ===
+Draft
+Proof 32 (Proof of Prop.7; Posterior Approximation) . The posterior approximation is
+q (a|y) = q (a, y)
+q (y) ∝ q (a, y) = q (y|a) qC(a)
+where the ﬁrst equality comes from the deﬁnition of conditional probabilities, the proportionality
+because the marginal likelihood q(y) is independent of a and the last equality exploits Proof 31.
+Since
+q (y|a) qC(a) = N (y|Ha, V ) N
+(
+a|0, S−1)
+,
+the desired posterior distribution can be analytically computed via (19) yielding
+q (a|y) = N (a|µ, Σ) ,
+with Σ =
+(
+H T V−1H + S
+)−1
+, µ = Σb and b = H T V−1y.
+Proof 33 (Proof of Prop. 14; Marginal Likelihood ) . The marginal likelihood q(y) is obtained
+by integrating (18) over the joint distribution q (y, a) in Prop. ?? leading to
+q (y) =
+∫
+q (y, a) da =
+∫
+q (y|a) q (a) da =
+∫
+N (Ha, V ) N
+(
+0, S−1)
+da = N (0, P )
+where P = HS−1H T + V .
+Proof 34 (Proof of Prop. 17; Exact Diagonal of Prior ) . Using Prop. 16, the trace can be
+written as
+tr (SK AA) = tr
+
+
+
+
+J∑
+j=1
+K
+−1
+Aπ+(j)Aπ+(j)
+− K
+−1
+Aπ(j)Aπ(j)
+
+ KAA
+
+
+=
+J∑
+j=1
+tr
+(
+K
+−1
+Aπ+(j)Aπ+(j)
+KAA
+)
+− tr
+(
+K
+−1
+Aπ(j)Aπ(j)KAA
+)
+.
+By construction of the matrices K
+−1
+Aφ,Aφ, they contain the matrix K−1
+Aφ,Aφ
+at the entries [φ, φ].
+Therefore, the resulting product when multiplying with KAA is a matrix with identity IT at the
+position [φ, φ] with T = |φ| and 0 at the diagonal where not φ. The quantity above is then
+J∑
+j=1
+L|π+(j)| − L|π (j) | =
+J∑
+j=1
+L (min(j, C) − min(j − 1, C − 1)) = J L.
+Proof 35 (Proof of Prop. 15; Prior Approximation II) . The prior approximation is
+q(a) =
+J∏
+j=1
+p
+(
+aj|aπ(j)
+)
+=
+J∏
+j=1
+N
+(
+aj|F jaπ(j), Qj
+)
+53
+
+=== PDF PAGE 54 ===
+Draft
+for which the quadratic term inside the exponential of the individual Gaussian can be written as
+− 1
+2(aj − F jaπ(j))T Q−1
+j (aj − F jaπ(j))
+− 1
+2
+[
+aT
+π(j) aT
+j
+] [
+−F T
+j
+I
+]
+Q−1
+j
+[
+−F j I
+] [
+aπ(j)
+aj
+]
+which correspond to a Gaussian
+N
+(
+aπ+(j)|0, S−1
+(j)
+)
+with S(j) = ˜F
+T
+j Q−1
+j ˜F j ∈ RLC×LC and ˜F j =
+[
+−F j I
+]
+∈ RL×LC which proves the ﬁrst part.
+We can augment this Gaussian for aπ+(j) ∈ RLC to
+− 1
+2 aT ¯S−1
+(j)a ∝ N
+(
+a|0, ¯S−1
+(j)
+)
+over a ∈ RM where ¯S(j) ∈ RM×M is the augmented matrix consisting of S(j)at the entries
+[π+(j), π+(j)] and 0 otherwise. Using (20), the original product q(a) is then
+J∏
+j=1
+N
+(
+a|0, ¯S−1
+(j)
+)
+= N
+
+a|0,
+
+
+J∑
+j=1
+¯S(j)
+
+
+−1
+
+and thus S = ∑J
+j=1 ¯S(j) positive deﬁnite which concludes the proof.
+Proof 36 (Proof of Prop. 16; Prior Approximation III) . The prior q(a) can be written as
+q(a) =
+J∏
+j=1
+p
+(
+aj|aπ(j)
+)
+=
+J∏
+j=1
+p
+(
+aj, aπ(j)
+)
+p
+(
+aπ(j)
+) =
+J∏
+j=1
+p
+(
+aπ+(j)
+)
+p
+(
+aπ(j)
+)
+=
+J∏
+j=1
+N
+(
+aπ+(j)|0, KAπ+(j)Aπ+(j)
+)
+N
+(
+aπ(j)|0, KAπ(j)Aπ(j)
+)
+Similarly to the Proof 35, we can augment the CL-dimensional and the (C − 1)L-dimensional
+Gaussian in the nominator and denominator, respectively, to M-dimensional Gaussians with
+covariance K
+−1
+AφAφ consisting of K−1
+AφAφ
+at the entries [φ, φ] and 0 otherwise. This gives with
+(20)
+J∏
+j=1
+N
+(
+a|0, KAπ+(j)Aπ+(j)
+)
+N
+(
+a|0, KAπ(j)Aπ(j)
+)
+=N
+
+a|0,
+
+
+J∑
+j=1
+K
+−1
+Aπ+(j)Aπ+(j)
+− K
+−1
+Aπ(j)Aπ(j)
+
+
+−1
+ ,
+which concludes the proof with S = ∑J
+j=1 K
+−1
+Aπ+(j)Aπ+(j)
+−K
+−1
+Aπ(j)Aπ(j) which is positive deﬁnite.
+54
+
+=== PDF PAGE 55 ===
+Draft
+Proof 37 (Proof of Prop. 8; Prediction Aggregation) . The predictive posterior distribution is
+deﬁned as
+p (f∗|y) =
+J∏
+j=C
+p (f∗j|y)β∗j .
+Since the local predictions p (f∗j|y) = N (m∗j, v∗j) are all univariate Gaussians, we obtain via
+the product rule of Gaussians in (20) directly
+m∗ = v∗j
+J∑
+j=C
+β∗j
+m∗j
+v∗j
+and 1
+v∗
+=
+J∑
+j=C
+β∗j
+v∗j
+.
+Using the usual likelihood p (y∗|f∗) = N
+(
+f∗, σ2
+n
+)
+yields with (18) the ﬁnal noisy prediction
+p (y∗|y) =
+∫
+p (y∗|f∗) p (f∗|y) df∗ = N
+(
+m∗, v∗ + σ2
+n
+)
+.
+Proof 38 (Proof of Prop. 9; Local Predictions) . The predictive conditional p
+(
+f∗j|aψ(j)
+)
+can be
+again derived via (17) from the assumed joint
+p
+(
+f∗j, aψ(j)
+)
+= N
+(
+0, K[x∗,Aψ(j)][x∗,Aψ(j)]
+)
+leading to N
+(
+h∗aψ(j), v∗
+)
+with
+h∗ = Kx∗Aψ(j)K−1
+Aψ(j)Aψ(j)
+and
+v∗ = Kx∗x∗ − Kx∗Aψ(j)K−1
+Aψ(j)Aψ(j)
+KAψ(j)x∗.
+Moreover, the local posteriors q
+(
+aψ(j)|y
+)
+= N
+(
+µψ(j), Σψ(j)
+)
+are obtained from the correspond-
+ing entries ψ(j) of the mean µ and covariance Σ (via partial inversion A.2) in Prop, 7. Finally,
+the local predictions p (f∗j|y) in Prop. (9) can then be computed with Gaussian integration (18)
+yielding
+q (f∗j|y) =
+∫
+p
+(
+f∗j|aψ(j)
+)
+p
+(
+aψ(j)|y
+)
+daψ(j)
+which correspond to the desired quantities
+N (m∗j, v∗j) = N
+(
+h∗µψ(j), hT
+∗ Σψ(j)h∗ + v∗
+)
+.
+Proof 39 (Proof for Figure 16; Joint Prior Covariance) . For the joint prior
+qC(a, f , y) = N ([a; f; y] | 0, W γ)
+55
+
+=== PDF PAGE 56 ===
+Draft
+with covariance
+W γ =
+
+
+Σaa Σaf Σay
+Σf a Σf f Σf y
+Σya Σyf Σyy
+
+
+corresponding to Fig. 16, we show that we recover the marginal and conditional distributions
+qC(a), qC(f |a) and p(y|f). For qC(a), the marginalization correspond to selecting the corre-
+sponding mean and covariance, i.e. N (a|0, Σaa) = N
+(
+a|0, S−1)
+. For qC(f |a), we use Eq.
+(17) yielding
+N
+(
+f |Σf aΣ−1
+aaa, Σf f − Σf aΣ−1
+aaΣaf
+)
+= N
+(
+f |Ha, (HS−1H T + V ) − H(S−1H T )
+= N
+(
+f |Ha, V
+)
+since Σf aΣ−1
+aa = (HS−1)S = H. Similarly for p(y|f), with Eq. (17) we get
+N
+(
+y|ΣyfΣ−1
+f ff , Σyy − ΣyfΣ−1
+f fΣf y
+)
+= N
+(
+y|If , (HS−1H T + V ) − I(HS−1H T + V )
+)
+= N
+(
+y|f , σ2
+nI
+)
+since ΣyfΣ−1
+f f = I.
+D.3 Derivative of LML
+The log marginal likelihood in Section 3.6.2 in Eq. (8) is proportional to
+−1
+2 yT V−1y + 1
+2 µTΣ−1µ − 1
+2 log |Σ−1| − 1
+2 log |V | − 1
+2 log |Q|.
+In the following, we provide the partial derivative with respect to θ for each additive term.
+∂
+∂θ
+[
+−1
+2 yT V−1y
+]
+= 1
+2 yT V−1 ∂V
+∂θ V−1y
+∂
+∂θ
+[ 1
+2 µTΣ−1µ
+]
+= ∂bT
+∂θ µ − 1
+2 µT ∂Σ−1
+∂θ µ
+∂
+∂θ
+[
+−1
+2 log |Σ−1|
+]
+= −1
+2 tr
+{
+Σ ∂Σ−1
+∂θ
+}
+In the last expression the whole posterior covariance is needed, however, it turns out that only
+the entries which are non-zero in the precision are needed. The right term in the last expression
+equals sum
+{
+Σ ⊙ ∂Σ−1
+∂θ
+}
+, where ⊙ denotes the pointwise multiplication. Therefore it is enough
+56
+
+=== PDF PAGE 57 ===
+Draft
+to only compute sum
+{
+Σ ⊙ ∂Σ−1
+∂θ
+}
+, where Σ is the partial inversion (for more derails A.2) which
+is sparse as well and already computed for the local predictions in Prop. 9.
+∂
+∂θ
+[
+−1
+2 log |V |
+]
+= −1
+2 sum
+{
+V−1 ⊙ ∂V
+∂θ
+}
+∂
+∂θ
+[
+−1
+2 log |Q|
+]
+= −1
+2 sum
+{
+Q−1 ⊙ ∂Q
+∂θ
+}
+The derivatives ∂Σ−1
+∂θ , ∂V
+∂θ and ∂Q
+∂θ can be computed via chain rule of derivatives.
+E Sequential Algorithm
+The probabilistic equations in Section 3 can be equivalently formulated as
+aj = F jaπ(j) + γj;
+f j = H jaψ(j) + νj;
+yj = f j + εj,
+with γj ∼ N
+(
+0, Qj
+)
+, νj ∼ N
+(
+0, V j
+)
+and εj ∼ N
+(
+0, σ2
+nI
+)
+. Instead to the inference procedure
+described in Prop. 7, the posterior could be alternatively computed with sequential algorithms.
+Assuming C = 2 and π (j) = {j − 1}, the Kalman Filter and Smoother (e.g. [ ?]) provide an
+equivalent solution to the posterior distribution in Prop. 7. For C > 2 and general neighbour-
+hood set, the Gaussian loopy belief propagation algorithm or Gaussian expectation propagation
+(e.g. [?]) might constitute an interesting approach for sequential/online and distributed learning
+procedures exploited in future work.
+F Tables
+Here we provide more results for the experiments in Section 4 and the datasets in Table 3a. In
+the following, we report diﬀerent average quantities for several test points x∗, y∗ corresponding
+to the predictive distributions p (y∗|y) = N (m∗, v∗). The considered quantities are Kullback-
+Leibler-(KL)-divergence (KL) to full GP, Continuous Ranked Probability Score (CRPS) and
+95%-coverage (COV), root mean squared error (RMSE) , absolut error (ABSE) , negative log
+probability (NLP) , root mean squared error to full GP (ERR) and log marginal likelihood
+(LML).
+We use the KL to compare the closeness of predictive distributions of diﬀerent GP approx-
+imation models to the one of full GP N (m, v). Since both are univariate Gaussians, the
+KL (N (m, v) ∥ N (m∗, v∗)) can be computed as 1
+2
+(
+log v∗
+v + v
+v∗ + (m−m∗)2
+v∗ − 1
+)
+.
+The CRPS can be used to assess the respective accuracy of two probabilistic forecasting models.
+In particular, it is a measure between the forecast CDF F∗ of N (m∗, v∗) and the empirical CDF
+57
+
+=== PDF PAGE 58 ===
+Draft
+of the observation y∗ and is deﬁned as CRP S(F∗, y∗)
+∫
+(F (z) − 1z≥y∗)2 dz.
+The 95%-conﬁdence interval can be computed as c1,2 = m∗ ± 1.96√v∗. The 95%-coverage is
+then deﬁned as COV = 1c1≤y∗≤c2.
+The negative log probability is −p (y∗|y) = 1
+2 log (2πv∗) + (y∗−m∗)2
+2v∗ .
+For all quantities except LML (large values are better) and COV (should be close to 0.95), small
+values mean better predictions.
+58
+
+=== PDF PAGE 59 ===
+Draft
+time LML KL ERR CRPS RMSE ABSE NLP COV
+fullGP 7.3 ± 0.6 -314.2 ± 5.1 0.0 ± 0.0 0.0 ± 0.0 0.162 ± 0.004 0.311 ± 0.011 0.218 ± 0.005 0.47 ± 0.12 0.92 ± 0.01
+SGP(25) 6.4 ± 0.6 -595.4 ± 10.7 440.3 ± 19.6 0.314 ± 0.008 0.234 ± 0.005 0.422 ± 0.01 0.324 ± 0.005 1.11 ± 0.04 0.96 ± 0.01
+SGP(50) 14.5 ± 2.6 -539.6 ± 10.2 405.0 ± 31.3 0.291 ± 0.012 0.222 ± 0.004 0.402 ± 0.008 0.308 ± 0.005 1.01 ± 0.03 0.95 ± 0.01
+SGP(100) 36.4 ± 2.9 -494.6 ± 7.8 352.9 ± 29.5 0.264 ± 0.011 0.211 ± 0.004 0.384 ± 0.007 0.292 ± 0.006 0.92 ± 0.03 0.95 ± 0.01
+minVar 1.5 ± 0.1 -389.8 ± 2.9 122.2 ± 13.1 0.156 ± 0.012 0.175 ± 0.004 0.335 ± 0.011 0.236 ± 0.005 0.61 ± 0.09 0.92 ± 0.01
+GPoE 1.4 ± 0.1 -389.8 ± 2.9 174.4 ± 9.4 0.166 ± 0.01 0.186 ± 0.004 0.342 ± 0.01 0.255 ± 0.007 0.68 ± 0.05 0.96 ± 0.01
+BCM 1.4 ± 0.1 -389.8 ± 2.9 338.1 ± 32.7 0.185 ± 0.012 0.195 ± 0.005 0.354 ± 0.01 0.265 ± 0.007 1.16 ± 0.12 0.82 ± 0.01
+RBCM 1.4 ± 0.1 -389.8 ± 2.9 427.9 ± 35.0 0.166 ± 0.013 0.187 ± 0.005 0.342 ± 0.011 0.249 ± 0.006 1.43 ± 0.21 0.79 ± 0.01
+GRBCM 1.7 ± 0.1 -465.0 ± 3.1 224.6 ± 30.3 0.202 ± 0.011 0.19 ± 0.004 0.352 ± 0.01 0.262 ± 0.006 0.71 ± 0.05 0.92 ± 0.01
+CPoE(1) 1.5 ± 0.0 -397.0 ± 2.8 111.1 ± 12.5 0.146 ± 0.011 0.175 ± 0.004 0.333 ± 0.011 0.237 ± 0.006 0.59 ± 0.09 0.93 ± 0.01
+CPoE(2) 2.1 ± 0.1 -345.1 ± 5.6 89.6 ± 14.3 0.124 ± 0.013 0.172 ± 0.004 0.326 ± 0.011 0.232 ± 0.006 0.6 ± 0.1 0.91 ± 0.01
+CPoE(3) 2.5 ± 0.1 -337.0 ± 5.5 82.2 ± 14.3 0.116 ± 0.013 0.17 ± 0.004 0.323 ± 0.01 0.231 ± 0.005 0.59 ± 0.1 0.91 ± 0.01
+CPoE(4) 2.8 ± 0.1 -339.4 ± 5.0 79.5 ± 13.9 0.111 ± 0.012 0.171 ± 0.004 0.324 ± 0.011 0.232 ± 0.005 0.6 ± 0.1 0.91 ± 0.01
+Table 8: Results for dataset concrete.
+time LML KL ERR CRPS RMSE ABSE NLP COV
+fullGP 25.5 ± 1.1 -994.2 ± 1.1 0.0 ± 0.0 0.0 ± 0.0 0.283 ± 0.002 0.511 ± 0.004 0.39 ± 0.005 1.49 ± 0.02 0.94 ± 0.0
+SGP(25) 7.5 ± 0.7 -1082.8 ± 0.9 93.49 ± 3.86 0.232 ± 0.005 0.316 ± 0.003 0.561 ± 0.004 0.445 ± 0.005 1.68 ± 0.02 0.94 ± 0.0
+SGP(50) 9.7 ± 1.4 -1042.7 ± 5.2 41.4 ± 5.59 0.146 ± 0.012 0.299 ± 0.003 0.537 ± 0.003 0.416 ± 0.006 1.59 ± 0.01 0.94 ± 0.0
+SGP(100) 14.4 ± 0.8 -1009.6 ± 1.2 9.86 ± 1.73 0.069 ± 0.006 0.285 ± 0.002 0.514 ± 0.004 0.395 ± 0.005 1.51 ± 0.02 0.94 ± 0.0
+minVar 2.0 ± 0.2 -1025.8 ± 1.1 19.39 ± 1.78 0.101 ± 0.005 0.282 ± 0.002 0.508 ± 0.005 0.39 ± 0.003 1.48 ± 0.02 0.93 ± 0.0
+GPoE 1.9 ± 0.1 -1025.8 ± 1.1 54.22 ± 1.64 0.162 ± 0.003 0.301 ± 0.002 0.535 ± 0.004 0.424 ± 0.006 1.6 ± 0.01 0.96 ± 0.0
+BCM 1.9 ± 0.1 -1025.8 ± 1.1 257.61 ± 8.81 0.209 ± 0.005 0.313 ± 0.003 0.555 ± 0.006 0.422 ± 0.004 2.02 ± 0.04 0.82 ± 0.0
+RBCM 1.9 ± 0.1 -1025.8 ± 1.1 38.35 ± 1.56 0.132 ± 0.003 0.295 ± 0.003 0.528 ± 0.005 0.408 ± 0.005 1.56 ± 0.02 0.92 ± 0.0
+GRBCM 2.3 ± 0.2 -1048.9 ± 1.7 69.12 ± 6.48 0.196 ± 0.01 0.307 ± 0.004 0.551 ± 0.007 0.431 ± 0.006 1.64 ± 0.02 0.94 ± 0.0
+CPoE(1) 2.1 ± 0.1 -1025.8 ± 1.1 12.18 ± 0.92 0.079 ± 0.003 0.284 ± 0.002 0.51 ± 0.004 0.393 ± 0.003 1.49 ± 0.02 0.94 ± 0.0
+CPoE(2) 2.8 ± 0.1 -1010.1 ± 1.5 8.44 ± 0.66 0.066 ± 0.003 0.285 ± 0.002 0.512 ± 0.004 0.394 ± 0.004 1.5 ± 0.02 0.93 ± 0.0
+CPoE(3) 3.1 ± 0.1 -1007.0 ± 1.5 7.83 ± 0.58 0.064 ± 0.002 0.285 ± 0.002 0.513 ± 0.004 0.394 ± 0.004 1.5 ± 0.02 0.93 ± 0.0
+CPoE(4) 3.3 ± 0.1 -1004.8 ± 1.5 7.59 ± 0.63 0.062 ± 0.003 0.285 ± 0.002 0.513 ± 0.004 0.393 ± 0.004 1.5 ± 0.02 0.93 ± 0.0
+Table 9: Results for dataset mg.
+59
+
+=== PDF PAGE 60 ===
+Draft
+time LML KL ERR CRPS RMSE ABSE NLP COV
+fullGP 114.8 ± 4.3 -2113.6 ± 5.6 0.0 ± 0.0 0.0 ± 0.0 0.255 ± 0.005 0.471 ± 0.01 0.348 ± 0.007 1.3 ± 0.04 0.95 ± 0.0
+SGP(50) 34.8 ± 4.8 -2319.6 ± 7.4 137.62 ± 7.41 0.259 ± 0.009 0.288 ± 0.005 0.531 ± 0.012 0.395 ± 0.007 1.57 ± 0.04 0.95 ± 0.0
+SGP(100) 46.6 ± 6.1 -2242.4 ± 7.5 108.14 ± 6.24 0.229 ± 0.008 0.279 ± 0.005 0.514 ± 0.012 0.382 ± 0.007 1.5 ± 0.04 0.95 ± 0.0
+SGP(150) 56.6 ± 6.8 -2205.9 ± 6.6 90.94 ± 6.01 0.21 ± 0.009 0.275 ± 0.005 0.508 ± 0.012 0.376 ± 0.007 1.47 ± 0.04 0.94 ± 0.0
+minVar 7.2 ± 0.2 -2312.6 ± 6.8 63.58 ± 2.93 0.19 ± 0.01 0.272 ± 0.006 0.508 ± 0.016 0.374 ± 0.008 1.41 ± 0.04 0.95 ± 0.0
+GPoE 7.2 ± 0.2 -2312.6 ± 6.8 98.01 ± 3.06 0.2 ± 0.013 0.279 ± 0.006 0.515 ± 0.02 0.378 ± 0.008 1.49 ± 0.03 0.97 ± 0.0
+BCM 7.2 ± 0.2 -2312.6 ± 6.8 222.78 ± 4.12 0.2 ± 0.008 0.28 ± 0.007 0.511 ± 0.016 0.38 ± 0.008 1.75 ± 0.1 0.87 ± 0.01
+RBCM 7.2 ± 0.2 -2312.6 ± 6.8 635.61 ± 21.61 0.194 ± 0.011 0.285 ± 0.007 0.513 ± 0.018 0.378 ± 0.008 2.54 ± 0.18 0.77 ± 0.01
+GRBCM 6.5 ± 0.2 -2397.3 ± 6.2 105.64 ± 5.13 0.24 ± 0.008 0.284 ± 0.005 0.525 ± 0.012 0.391 ± 0.007 1.5 ± 0.04 0.95 ± 0.01
+CPoE(1) 7.8 ± 0.2 -2316.1 ± 6.8 62.99 ± 2.94 0.186 ± 0.011 0.272 ± 0.006 0.507 ± 0.018 0.372 ± 0.008 1.41 ± 0.04 0.96 ± 0.0
+CPoE(2) 10.6 ± 0.2 -2164.9 ± 6.7 36.45 ± 3.02 0.142 ± 0.011 0.264 ± 0.005 0.491 ± 0.015 0.361 ± 0.008 1.36 ± 0.04 0.95 ± 0.0
+CPoE(3) 12.9 ± 0.2 -2165.9 ± 6.7 36.27 ± 2.99 0.141 ± 0.01 0.263 ± 0.005 0.49 ± 0.014 0.361 ± 0.008 1.36 ± 0.04 0.95 ± 0.0
+CPoE(4) 14.9 ± 0.2 -2166.2 ± 6.7 36.03 ± 3.0 0.14 ± 0.01 0.263 ± 0.005 0.489 ± 0.014 0.361 ± 0.008 1.36 ± 0.04 0.95 ± 0.0
+Table 10: Results for dataset space.
+time LML KL ERR CRPS RMSE ABSE NLP COV
+fullGP 237.9 ± 12.2 -3722.3 ± 7.4 0.0 ± 0.0 0.0 ± 0.0 0.34 ± 0.005 0.635 ± 0.012 0.459 ± 0.006 1.92 ± 0.04 0.94 ± 0.0
+SGP(20) 21.9 ± 2.5 -3785.3 ± 5.8 27.8 ± 4.1 0.15 ± 0.01 0.343 ± 0.004 0.635 ± 0.011 0.463 ± 0.005 1.93 ± 0.03 0.95 ± 0.0
+SGP(50) 26.4 ± 3.6 -3758.7 ± 7.6 22.4 ± 3.9 0.14 ± 0.01 0.342 ± 0.004 0.633 ± 0.011 0.461 ± 0.006 1.93 ± 0.03 0.94 ± 0.0
+SGP(100) 58.9 ± 7.0 -3746.9 ± 7.4 15.6 ± 3.5 0.11 ± 0.01 0.34 ± 0.005 0.631 ± 0.012 0.457 ± 0.006 1.92 ± 0.04 0.94 ± 0.0
+minVar 6.4 ± 0.4 -3847.3 ± 7.2 25.1 ± 1.5 0.15 ± 0.0 0.346 ± 0.005 0.647 ± 0.013 0.466 ± 0.006 1.94 ± 0.04 0.94 ± 0.0
+GPoE 6.3 ± 0.4 -3847.3 ± 7.2 50.3 ± 1.0 0.19 ± 0.0 0.353 ± 0.004 0.652 ± 0.011 0.478 ± 0.006 1.99 ± 0.02 0.96 ± 0.0
+BCM 6.3 ± 0.3 -3847.3 ± 7.2 1838.2 ± 46.8 0.16 ± 0.0 0.373 ± 0.006 0.642 ± 0.011 0.473 ± 0.006 5.33 ± 0.24 0.67 ± 0.01
+RBCM 6.3 ± 0.3 -3847.3 ± 7.2 1147.4 ± 64.8 0.12 ± 0.0 0.362 ± 0.006 0.638 ± 0.012 0.466 ± 0.006 4.01 ± 0.21 0.73 ± 0.01
+GRBCM 7.6 ± 0.4 -3864.0 ± 7.6 36.4 ± 1.9 0.18 ± 0.0 0.353 ± 0.004 0.661 ± 0.011 0.477 ± 0.005 1.98 ± 0.03 0.94 ± 0.0
+CPoE(1) 6.4 ± 0.4 -3848.6 ± 7.3 16.8 ± 0.6 0.12 ± 0.0 0.342 ± 0.004 0.638 ± 0.012 0.463 ± 0.005 1.92 ± 0.03 0.95 ± 0.0
+CPoE(2) 7.5 ± 0.3 -3737.3 ± 7.0 8.1 ± 0.5 0.08 ± 0.0 0.341 ± 0.005 0.636 ± 0.012 0.463 ± 0.006 1.92 ± 0.04 0.94 ± 0.0
+CPoE(3) 9.3 ± 0.5 -3736.5 ± 7.2 6.2 ± 0.6 0.07 ± 0.0 0.341 ± 0.005 0.636 ± 0.012 0.461 ± 0.006 1.92 ± 0.04 0.94 ± 0.0
+CPoE(4) 10.4 ± 0.3 -3733.7 ± 7.0 4.7 ± 0.5 0.06 ± 0.0 0.34 ± 0.005 0.635 ± 0.012 0.46 ± 0.006 1.91 ± 0.04 0.94 ± 0.0
+Table 11: Results for dataset abalone.
+60
+
+=== PDF PAGE 61 ===
+Draft
+time LML KL ERR CRPS RMSE ABSE NLP COV
+fullGP 161.5 ± 3.6 -1232.1 ± 7.4 0.0 ± 0.0 0.0 ± 0.0 0.148 ± 0.001 0.267 ± 0.001 0.207 ± 0.001 0.17 ± 0.01 0.94 ± 0.0
+SGP(100) 42.2 ± 6.5 -4033.6 ± 27.1 603.7 ± 9.4 0.4 ± 0.01 0.265 ± 0.003 0.476 ± 0.005 0.369 ± 0.004 1.35 ± 0.02 0.96 ± 0.0
+SGP(200) 49.8 ± 3.3 -3141.3 ± 17.8 408.4 ± 3.7 0.29 ± 0.0 0.218 ± 0.001 0.392 ± 0.001 0.303 ± 0.001 0.96 ± 0.0 0.96 ± 0.0
+SGP(300) 54.8 ± 2.2 -2732.8 ± 13.5 323.1 ± 5.0 0.25 ± 0.0 0.201 ± 0.001 0.363 ± 0.001 0.281 ± 0.001 0.8 ± 0.01 0.96 ± 0.0
+minVar 9.3 ± 0.2 -2820.5 ± 9.0 211.0 ± 2.3 0.2 ± 0.0 0.183 ± 0.001 0.333 ± 0.001 0.256 ± 0.001 0.59 ± 0.01 0.94 ± 0.0
+GPoE 9.4 ± 0.1 -2820.5 ± 9.0 342.3 ± 2.6 0.23 ± 0.0 0.202 ± 0.001 0.354 ± 0.002 0.278 ± 0.002 0.84 ± 0.01 0.99 ± 0.0
+BCM 9.4 ± 0.1 -2820.5 ± 9.0 1629.2 ± 24.7 0.25 ± 0.0 0.218 ± 0.002 0.367 ± 0.002 0.278 ± 0.002 3.45 ± 0.07 0.64 ± 0.0
+RBCM 9.4 ± 0.2 -2820.5 ± 9.0 939.3 ± 17.4 0.2 ± 0.0 0.193 ± 0.001 0.331 ± 0.002 0.253 ± 0.001 2.06 ± 0.05 0.71 ± 0.0
+GRBCM 11.9 ± 0.2 -2981.3 ± 9.6 129.8 ± 3.0 0.14 ± 0.0 0.168 ± 0.001 0.303 ± 0.001 0.235 ± 0.001 0.43 ± 0.01 0.94 ± 0.0
+CPoE(1) 9.2 ± 0.1 -2822.7 ± 8.9 152.4 ± 1.7 0.15 ± 0.0 0.17 ± 0.001 0.307 ± 0.001 0.237 ± 0.001 0.46 ± 0.0 0.97 ± 0.0
+CPoE(2) 12.9 ± 0.1 -1811.2 ± 11.1 79.9 ± 1.3 0.11 ± 0.0 0.161 ± 0.001 0.29 ± 0.001 0.225 ± 0.001 0.33 ± 0.01 0.95 ± 0.0
+CPoE(3) 19.8 ± 0.3 -1466.0 ± 9.9 46.9 ± 1.0 0.09 ± 0.0 0.155 ± 0.001 0.279 ± 0.001 0.217 ± 0.001 0.26 ± 0.01 0.95 ± 0.0
+CPoE(4) 27.8 ± 0.2 -1363.8 ± 9.2 32.8 ± 1.0 0.07 ± 0.0 0.153 ± 0.001 0.276 ± 0.001 0.215 ± 0.001 0.24 ± 0.01 0.94 ± 0.0
+Table 12: Results for dataset kin.
+time LML CRPS RMSE ABSE NLP COV
+SGP(250) 77.7 ± 0.4 -4163.9 ± 23.7 0.207 ± 0.002 0.366 ± 0.004 0.282 ± 0.002 0.93 ± 0.01 0.98 ± 0.0
+SGP(500) 112.1 ± 1.2 -3242.2 ± 12.6 0.183 ± 0.001 0.324 ± 0.002 0.252 ± 0.001 0.67 ± 0.01 0.98 ± 0.0
+SGP(1000) 244.1 ± 2.9 -2534.7 ± 9.0 0.166 ± 0.001 0.294 ± 0.002 0.23 ± 0.001 0.46 ± 0.01 0.98 ± 0.0
+minVar 14.4 ± 0.5 -3388.8 ± 7.9 0.173 ± 0.002 0.314 ± 0.004 0.242 ± 0.002 0.48 ± 0.02 0.94 ± 0.0
+GPoE 14.4 ± 0.5 -3388.8 ± 7.9 0.193 ± 0.001 0.34 ± 0.003 0.267 ± 0.002 0.76 ± 0.01 0.99 ± 0.0
+BCM 14.4 ± 0.5 -3388.8 ± 7.9 0.21 ± 0.001 0.35 ± 0.003 0.266 ± 0.002 3.6 ± 0.1 0.63 ± 0.0
+RBCM 14.4 ± 0.5 -3388.8 ± 7.9 0.188 ± 0.001 0.318 ± 0.003 0.244 ± 0.002 2.39 ± 0.09 0.69 ± 0.0
+GRBCM 16.5 ± 0.4 -3388.8 ± 7.9 0.164 ± 0.001 0.294 ± 0.003 0.229 ± 0.002 0.37 ± 0.02 0.94 ± 0.0
+CPoE(1) 13.8 ± 0.2 -3393.9 ± 8.0 0.163 ± 0.001 0.292 ± 0.003 0.226 ± 0.002 0.38 ± 0.01 0.97 ± 0.0
+CPoE(2) 18.9 ± 0.3 -2076.6 ± 12.9 0.155 ± 0.001 0.278 ± 0.002 0.217 ± 0.001 0.27 ± 0.01 0.95 ± 0.0
+CPoE(3) 31.7 ± 0.6 -1655.2 ± 8.7 0.151 ± 0.001 0.27 ± 0.002 0.211 ± 0.001 0.21 ± 0.01 0.95 ± 0.0
+Table 13: Results for dataset kin2 for the stochastic versions.
+61
+
+=== PDF PAGE 62 ===
+Draft
+time LML CRPS RMSE ABSE NLP COV
+SGP(250) 70.9 ± 3.7 -3905.6 ± 23.3 0.207 ± 0.002 0.373 ± 0.004 0.287 ± 0.002 0.85 ± 0.02 0.96 ± 0.0
+SGP(500) 86.1 ± 1.8 -2968.6 ± 11.7 0.181 ± 0.001 0.325 ± 0.003 0.252 ± 0.001 0.57 ± 0.01 0.96 ± 0.0
+SGP(1000) 143.6 ± 3.6 -2277.2 ± 8.6 0.162 ± 0.001 0.292 ± 0.002 0.225 ± 0.001 0.36 ± 0.01 0.96 ± 0.0
+minVar 13.8 ± 0.2 -3384.5 ± 7.8 0.173 ± 0.002 0.314 ± 0.004 0.241 ± 0.002 0.48 ± 0.02 0.94 ± 0.0
+GPoE 13.8 ± 0.2 -3384.5 ± 7.8 0.193 ± 0.001 0.34 ± 0.002 0.267 ± 0.002 0.75 ± 0.01 0.99 ± 0.0
+BCM 13.8 ± 0.2 -3384.5 ± 7.8 0.209 ± 0.001 0.35 ± 0.003 0.266 ± 0.002 3.63 ± 0.07 0.63 ± 0.0
+RBCM 13.8 ± 0.2 -3384.5 ± 7.8 0.187 ± 0.001 0.317 ± 0.003 0.243 ± 0.001 2.38 ± 0.06 0.69 ± 0.0
+GRBCM 18.8 ± 0.4 -3608.7 ± 8.4 0.164 ± 0.001 0.294 ± 0.002 0.229 ± 0.002 0.38 ± 0.02 0.94 ± 0.0
+CPoE(1) 16.2 ± 0.8 -3389.8 ± 8.0 0.162 ± 0.001 0.292 ± 0.003 0.225 ± 0.002 0.37 ± 0.01 0.97 ± 0.0
+CPoE(2) 21.5 ± 0.7 -2071.4 ± 13.0 0.155 ± 0.001 0.278 ± 0.002 0.217 ± 0.001 0.26 ± 0.01 0.95 ± 0.0
+CPoE(3) 34.3 ± 0.9 -1650.7 ± 8.3 0.15 ± 0.001 0.27 ± 0.002 0.211 ± 0.001 0.21 ± 0.01 0.94 ± 0.0
+Table 14: Results for dataset kin2 for the deterministic batch version.
+time LML CRPS RMSE ABSE NLP COV
+SGP(250) 248.6 ± 0.6 -15182.0 ± 35.7 0.254 ± 0.003 0.48 ± 0.009 0.335 ± 0.004 1.42 ± 0.03 0.95 ± 0.0
+SGP(500) 346.9 ± 3.4 -15074.6 ± 37.2 0.253 ± 0.003 0.478 ± 0.009 0.333 ± 0.004 1.41 ± 0.03 0.95 ± 0.0
+SGP(1000) 727.6 ± 3.5 -14961.2 ± 31.4 0.252 ± 0.003 0.476 ± 0.009 0.332 ± 0.004 1.4 ± 0.03 0.95 ± 0.0
+minVar 28.2 ± 1.0 -15387.4 ± 17.5 0.257 ± 0.003 0.491 ± 0.009 0.337 ± 0.005 1.42 ± 0.04 0.94 ± 0.0
+GPoE 28.3 ± 1.0 -15387.4 ± 17.5 0.289 ± 0.003 0.534 ± 0.009 0.371 ± 0.004 1.64 ± 0.02 0.96 ± 0.0
+BCM 28.5 ± 0.9 -15387.4 ± 17.5 0.321 ± 0.004 0.536 ± 0.01 0.373 ± 0.004 20.72 ± 1.0 0.45 ± 0.0
+RBCM 28.5 ± 0.9 -15387.4 ± 17.5 0.303 ± 0.005 0.515 ± 0.01 0.358 ± 0.004 15.98 ± 0.9 0.51 ± 0.01
+GRBCM 33.5 ± 1.2 -15387.4 ± 17.5 0.262 ± 0.003 0.499 ± 0.009 0.346 ± 0.004 1.44 ± 0.03 0.94 ± 0.0
+CPoE(1) 24.5 ± 0.1 -15404.2 ± 17.8 0.259 ± 0.004 0.492 ± 0.01 0.335 ± 0.005 1.43 ± 0.04 0.95 ± 0.0
+CPoE(2) 33.4 ± 0.2 -13645.5 ± 19.8 0.251 ± 0.003 0.479 ± 0.009 0.328 ± 0.004 1.36 ± 0.04 0.94 ± 0.0
+CPoE(3) 52.0 ± 0.5 -13483.2 ± 15.6 0.249 ± 0.004 0.476 ± 0.01 0.324 ± 0.004 1.34 ± 0.04 0.94 ± 0.0
+Table 15: Results for dataset cadata.
+62
+
+=== PDF PAGE 63 ===
+Draft
+time LML CRPS RMSE ABSE NLP COV
+SGP(250) 473.4 ± 1.0 9370.3 ± 60.7 0.0746 ± 0.0005 0.1407 ± 0.0008 0.097 ± 0.001 -0.39 ± 0.01 0.95 ± 0.0
+SGP(500) 730.1 ± 1.1 12112.0 ± 68.2 0.0695 ± 0.0003 0.1304 ± 0.001 0.09 ± 0.001 -0.49 ± 0.01 0.95 ± 0.0
+SGP(1000) 1718.5 ± 1.8 16034.0 ± 91.6 0.0628 ± 0.0003 0.1172 ± 0.0009 0.081 ± 0.0 -0.64 ± 0.01 0.96 ± 0.0
+minVar 71.3 ± 23.1 27128.2 ± 20.2 0.0516 ± 0.0008 0.1024 ± 0.0034 0.067 ± 0.001 -1.88 ± 0.04 0.93 ± 0.0
+GPoE 71.4 ± 23.2 27128.2 ± 20.2 0.0862 ± 0.0004 0.1322 ± 0.0013 0.096 ± 0.001 -0.57 ± 0.01 1.0 ± 0.0
+BCM 71.5 ± 23.2 27128.2 ± 20.2 0.095 ± 0.001 0.1544 ± 0.001 0.115 ± 0.001 7.86 ± 0.3 0.48 ± 0.01
+RBCM 71.6 ± 23.2 27128.2 ± 20.2 0.0726 ± 0.0009 0.1196 ± 0.0013 0.086 ± 0.001 11.45 ± 0.47 0.5 ± 0.01
+GRBCM 84.6 ± 23.0 27128.2 ± 20.2 0.06 ± 0.0007 0.1102 ± 0.001 0.079 ± 0.001 -0.52 ± 0.08 0.79 ± 0.01
+CPoE(1) 45.4 ± 0.2 -41213.2 ± 883.2 0.0516 ± 0.0005 0.0998 ± 0.0019 0.067 ± 0.001 -1.86 ± 0.02 0.96 ± 0.0
+CPoE(2) 67.3 ± 0.4 -37867.5 ± 911.8 0.0509 ± 0.0006 0.0977 ± 0.0015 0.067 ± 0.001 -1.8 ± 0.02 0.93 ± 0.0
+CPoE(3) 134.3 ± 1.2 -37204.6 ± 949.1 0.0507 ± 0.0005 0.0975 ± 0.0011 0.067 ± 0.001 -1.78 ± 0.02 0.92 ± 0.0
+Table 16: Results for dataset sarcos.
+time LML CRPS RMSE ABSE NLP COV
+SGP(250) 443.2 ± 2.1 -53395.2 ± 80.2 0.334 ± 0.004 0.59 ± 0.008 0.475 ± 0.007 1.77 ± 0.02 0.96 ± 0.0
+SGP(500) 632.9 ± 2.7 -52988.7 ± 58.9 0.329 ± 0.005 0.582 ± 0.008 0.467 ± 0.007 1.75 ± 0.02 0.96 ± 0.0
+SGP(1000) 1362.5 ± 4.8 -52592.1 ± 46.9 0.325 ± 0.005 0.575 ± 0.008 0.459 ± 0.007 1.74 ± 0.02 0.96 ± 0.0
+minVar 45.8 ± 1.0 -39976.0 ± 22.6 0.294 ± 0.003 0.607 ± 0.006 0.387 ± 0.003 1.4 ± 0.03 0.93 ± 0.0
+GPoE 45.6 ± 0.8 -39976.0 ± 22.6 0.302 ± 0.003 0.6 ± 0.006 0.409 ± 0.005 1.43 ± 0.02 0.97 ± 0.0
+BCM 45.7 ± 0.9 -39976.0 ± 22.6 0.316 ± 0.005 0.615 ± 0.009 0.416 ± 0.007 2.47 ± 0.1 0.82 ± 0.01
+RBCM 45.7 ± 0.9 -39976.0 ± 22.6 0.312 ± 0.004 0.647 ± 0.008 0.425 ± 0.006 1.61 ± 0.05 0.91 ± 0.01
+GRBCM 59.4 ± 1.1 -39976.0 ± 22.6 0.31 ± 0.004 0.642 ± 0.008 0.421 ± 0.005 1.5 ± 0.04 0.92 ± 0.01
+CPoE(1) 45.1 ± 0.3 -40075.2 ± 22.1 0.289 ± 0.003 0.596 ± 0.006 0.38 ± 0.004 1.35 ± 0.03 0.94 ± 0.0
+CPoE(2) 70.3 ± 0.6 -39571.2 ± 65.5 0.287 ± 0.004 0.589 ± 0.007 0.38 ± 0.005 1.36 ± 0.03 0.93 ± 0.0
+CPoE(3) 123.8 ± 1.4 -39439.5 ± 98.8 0.282 ± 0.004 0.575 ± 0.008 0.372 ± 0.006 1.37 ± 0.04 0.92 ± 0.01
+Table 17: Results for dataset casp.
+63

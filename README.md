@@ -8,11 +8,19 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+Heaton and UKHousing runs record failures and re-raise the original exception.
+Colab notebooks stop downstream cells after a failed stage; restart the runtime
+before retrying. Installation/test commands check exit codes. Requested patch
+neighbor counts are validated, never capped; one patch requires zero neighbors.
+
 The current foundation provides:
 
 - a full-covariance stochastic variational Gaussian process (SVGP);
+- ProSpar-GP with independent full-covariance sparse experts and local ARD RBF;
+- standalone two-layer Nested Kriging with correlated exact submodels and shared
+  RBF or Matern-5/2 kernels;
 - a generalized Patchwork GP with local ARD kernels, trainable supports,
-  trainable stitching locations, exact Nested-Kriging agreement weights, and a
+  trainable stitching locations, posterior-adaptive agreement weights, and a
   block-plus-low-rank variational precision;
 - shared minibatch ELBO training and batched prediction;
 - hierarchical support and patch-graph initialization;
@@ -38,19 +46,61 @@ the PyTorch website when CUDA support is required.
 
 ## Model API
 
-Both models expose `elbo_batch`, `latent`, and `predict` with the same input
+The variational models expose `elbo_batch`, `latent`, and `predict` with the same input
 convention. Inputs and targets should be normalized before fitting.
+
+### ProSpar-GP
+
+`ProSparGP` uses the same `fit` and `predict_batched` APIs as SVGP. Supports can
+be `[experts, points, dimensions]` or a sequence of `[points_j, dimensions]`
+tensors with different expert sizes. Initialize from real training locations.
+Temperatures, exponent and inducing nuggets are learned positive parameters;
+their initial values and the extra fixed `prior_jitter` are required explicitly.
+No experiment values are chosen here:
+
+```python
+from pwgp import ProSparGP
+
+def make_prospar(supports, *, temperatures, exponent, inducing_nuggets,
+                 prior_jitter, **svgp_options):
+    return ProSparGP(
+        supports, temperatures=temperatures, exponent=exponent,
+        inducing_nuggets=inducing_nuggets, prior_jitter=prior_jitter,
+        **svgp_options,
+    )
+```
+
+`prior_jitter=0.0` means `R_j=K_j+diag(d_j)`; an explicitly positive value adds
+that fixed diagonal term. There is no retry/escalation, and this argument, not
+`NumericalConfig.prior_jitter`, controls the ProSpar prior. Kernel/noise bounds
+and minimum variational Cholesky diagonal reuse SVGP's constraints.
+
+This implementation follows the generative model (6)-(13) in the supplied
+[ProSpar preprint](https://arxiv.org/abs/2311.08752v1), with the approved derived
+ELBO/prediction rather than the inconsistent printed (14)/(16). The likelihood
+integrates the conditional residual before taking its expectation over q(U).
+Predictive latent variance is `lambda + sum_j b_j^2 A_j S_j A_j^T`; observation
+noise is added once. No author source implementation has been verified.
+
+Heaton and UKHousing runners accept `model="prospar"` with
+`prospar=ProSparConfig(temperatures=..., exponent=..., inducing_nuggets=...,
+prior_jitter=...)`, imported from `pwgp.config`. Runner budgets divide equally
+across experts; the model class itself also supports unequal budgets. Existing
+Colab run lists are unchanged. Records include explicit configuration, learned
+parameters, checkpoints, metrics, visuals and model/paper provenance.
+
+### SVGP Example
 
 ```python
 import torch
 
 from pwgp import SVGP, fit
 from pwgp.config import OptimizerConfig
-from pwgp.initialization import kmeans_supports
+from pwgp.initialization import observed_supports
 
 X = torch.rand(500, 2, dtype=torch.float64)
 y = torch.sin(8 * X[:, 0]) + 0.1 * torch.randn(500, dtype=torch.float64)
-Z = kmeans_supports(X, count=32, seed=7)
+Z = observed_supports(X, count=32, seed=7)
 
 model = SVGP(
     Z,
@@ -87,7 +137,125 @@ model = build_patchwork(
 history = fit(model, X, y, epochs=50, batch_size=128)
 ```
 
+### Standalone Nested Kriging
+
+`NestedKriging` implements the two-layer shared-prior construction in
+[Rulliere et al., equations (3)-(4), (17)-(18)](https://arxiv.org/html/1607.05432v3).
+Provide explicit disjoint group labels `0,...,P-1`; inputs can have any dimension.
+It uses observed targets directly, with no inducing points, stitches or GPW weights.
+Cross-expert covariances are retained and NK coefficients need not sum to one.
+
+```python
+from pwgp import NestedKriging, predict_batched
+
+X = torch.linspace(0.01, 0.99, 30, dtype=torch.float64)[:, None]
+y = torch.sin(8 * X[:, 0])
+model = NestedKriging(
+    X, y, groups=torch.arange(30) // 2,
+    kernel="matern52", lengthscale=0.05, outputscale=1.0,
+    noise_std=0.0, jitter=0.0, train_hyperparameters=False,
+)
+query = torch.linspace(0, 1, 101, dtype=torch.float64)[:, None]
+mean, variance = predict_batched(model, query, batch_size=32, observation_noise=False)
+```
+
+For fitting, construct with `train_hyperparameters=True`, then call
+`model.fit(epochs=100, learning_rate=0.01, loo_batch_size=10, seed=31)`.
+This minimizes the paper's leave-one-out MSE with Adam/autograd, not its SPSA
+optimizer, and then applies noiseless variance calibration. Each expert must
+retain at least one observation after exclusion. Default calibration requires
+`noise_std=jitter=0`; for an explicitly noisy model, set `calibrate_variance=False`
+to fit lengthscales with fixed outputscale/noise instead. Outputscale calibration
+outside the configured bounds raises rather than clipping. `on_epoch` callbacks
+and tqdm report training progress; `model.configuration()` exposes model settings.
+
+This is a correctness-first baseline with pointwise variance, not arbitrary
+multi-layer aggregation or the authors' optimized R/C++ implementation. Prediction
+uses covariance blocks without storing the full training covariance, but still
+accounts for all cross-group covariances. LOO currently recomputes local factors;
+large-data performance and CUDA are not verified. Existing Colab notebooks embed
+the class but their default comparison lists are unchanged.
+
 ## Dataset manager
+
+`pip install -e ".[heat]"` installs the pinned FEM solver for the corrected setup.
+`python -m experiments.stitch_line_preview` previews fixed horizontal/vertical
+periodic heat, disjoint uniform support regions and four initial stitch lines.
+It saves arrays and a figure only; no training is performed.
+`python -m experiments.stitch_line_heat` trains the same four initial layouts
+with independently moving stitches, two ARD models and free support motion.
+Lines initialize stitches only; no collinearity is imposed. Defaults: 28 supports/model, 500 observations, 350 epochs and
+40 kernel warm-up epochs. Full configurations, motion, checkpoints and scores
+are saved under `results/stitch_line_heat/`.
+
+`notebooks/GPW_Periodic_Heat_Colab.ipynb` embeds the complete experiment. Select
+a GPU runtime and Run all; no GitHub checkout or extra source uploads are needed.
+Change `STITCH_LEARNING_RATES = [0.003]` to one or several values in the settings
+cell. Every value repeats the four approved starts with matched seeds/data.
+Live figures, per-layout downloads and memory cleanup are included; CPU FEM
+generation and float64 CUDA GP training are explicit, without a CPU fallback.
+Live figures also track every kernel's x/y ARD lengthscales and output variance,
+plus shared noise SD. Each layout saves epoch-0/per-epoch transformed values in
+`kernel_history.json` and plots in `kernel_evolution.png`; dashed markers denote
+kernel warm-up. Output variance and noise SD are in standardized target units.
+
+`python -m experiments.anisotropic_heat` runs the original two-metal heat experiment locally:
+two orthogonal diffusivity tensors, two trainable ARD GPW support clouds, four
+matched starting orientations, 350 epochs with 40 kernel warm-up epochs. Results
+under `results/anisotropic_heat/` include initial/final points, fitted fields,
+held-out scores, checkpoints and complete provenance. Override values through
+`run(HeatConfig(...))`; the GP uses temperature observations, not a PDE loss.
+
+`notebooks/UKHousing_Colab.ipynb` compares SVGP 1,024, GPW 8 x 128, direct-observation
+standard Patchwork Kriging, and GPyTorch VNNGP (all training locations, K=32).
+Select a Colab GPU and Run all; source is embedded and data downloads automatically.
+All use ARD RBF/Gaussian models and one seeded 64/16/20 split. The 185,254-row
+2018-flats reconstruction follows the HIP-GP authors' documented filters using
+checksum-pinned Land Registry and postcode sources, but is NOT the verified
+VNNGP paper snapshot. Paper scores are not directly comparable. Target is natural
+log GBP, standardized on training targets only; original log-GBP scores also save.
+Exact Patchwork has fixed rectangular regions (max 512 training points/region),
+conditions on every training target and boundary stitches, and uses conditional
+Gaussian marginal likelihood, not inducing variables or a variational substitute.
+Its finer partition differs from GPW's eight patches. VNNGP uses exact CPU FAISS
+neighbor search explicitly and GPU GP computations, with no backend fallback.
+VNNGP prediction and stochastic KL both use Cholesky plus two triangular solves
+to avoid incompatible batched CUDA solve kernels. Its preflight tests the first-K
+and stochastic-KL batches, including the default K=32 / batch=512 workload.
+The notebook saves metrics, checkpoints, source/data provenance, train/validation/
+test indices, progress visuals and final maps. After every completed run it frees
+the model and CUDA cache, then archives and downloads that run with shared
+provenance. The final combined archive is also available.
+Local verification of these optional baselines requires `pip install -e ".[dev,ukhousing]"`.
+
+`notebooks/GPW_Heaton_Colab.ipynb` is a self-contained GPU Colab notebook:
+upload it, select a GPU runtime, and Run all. It embeds the current source and
+runs GPW 8 x 60, SVGP 480, and GPW 4 x 120 with 100 epochs / 20 warm-up.
+No GitHub access or separate source upload is needed.
+The notebook registers its embedded `src/` package in the active kernel, so
+setup does not require a runtime restart after installation.
+Cholesky solves use two explicit triangular solves. The notebook validates
+representative batched solves and gradients on the selected GPU before training.
+Restart the runtime when replacing an older notebook with updated model source.
+
+GPW now computes agreement weights from the full local posterior covariance
+`C = A S A^T + R`, retaining stitching-induced cross-covariances. Its latent
+variance is `w^T S w + alpha^T R alpha`; observation noise is added once for
+measurement predictions and NLPD. Both terms enter training, with gradients
+through the weights. Since weights depend on `S`, the Gaussian expected-likelihood
+minus KL training objective is posterior-adaptive, not a justified fixed-model
+ELBO. SVGP is unchanged. Historical results using residual-only weights and
+omitting residual predictive variance describe a different implementation.
+
+For a compact synthetic check of that decomposition, run
+`python -m experiments.two_phase_sine`. It fits two sine frequencies separated
+at a fixed stitch `x = 0`, saves regional fit and calibration metrics, and plots
+the inducing-state and residual `R` variance contributions separately.
+
+The local Heaton MODIS comparison is available through
+`python -m experiments.heaton_benchmark --help` after installing the
+`benchmark` and `visual` extras. See `experiments/README.md` for the official-split
+GPW/SVGP calls and saved visual diagnostics.
 
 The default cache is `data/`, which is ignored by Git.
 
@@ -101,7 +269,16 @@ pwgp-data import icethick C:\path\to\icethk.txt
 pwgp-data inspect icethick
 ```
 
-OISST is downloaded from NOAA NCEI. FLIGHT uses the 2009 Data Expo files.
+OISST is downloaded from NOAA NCEI. FLIGHT now uses Hensman's author-prepared
+`airline.pickle`, as referenced by the VFF airline SVGP experiment, rather than
+reconstructing it from Data Expo files. Its published Dropbox link was disabled
+when checked on 2026-11-11. Download fails explicitly; no raw-data fallback exists.
+A trusted local copy can be used with `pwgp-data import flight C:\path\to\airline.pickle`
+followed by `pwgp-data prepare flight`. Only load trusted pickles: the format can
+execute code. Preparation keeps all usable rows, applies the author's explicit
+HHMM-to-minutes conversion, and records features/removal counts; no filling,
+subsampling, split or target scaling occurs. The original 2013 split is not verified.
+Nonfinite model parameters and predictions raise errors rather than being replaced.
 TCO.L2 uses the data bundle published by the Patchwork Kriging authors.
 The ICETHICK archive is hosted behind an interactive CAPTCHA, so it is imported
 locally and verified against the official MD5 checksum.
@@ -120,6 +297,13 @@ python -m pytest
 The tests compare the structured Patchwork prior, variational covariance, KL,
 and fusion algebra against small dense reference calculations. They also check
 SVGP gradients and dataset checksum behavior.
+
+For the smallest end-to-end visual check, open
+`notebooks/colab_minimal_smoke.ipynb` in Colab. Its cells install the project,
+run the algebra tests, and fit both models to a synthetic curve. The final
+figure shows training loss, predictive uncertainty, support movement, and the
+learned Patchwork stitch. Set the notebook's single `REPOSITORY_URL` value
+after this repository is published on GitHub.
 
 ## References
 

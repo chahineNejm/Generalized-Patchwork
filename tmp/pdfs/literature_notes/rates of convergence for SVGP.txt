@@ -1,0 +1,1934 @@
+=== PDF PAGE 1 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+David R. Burt 1 Carl Edward Rasmussen 1 2 Mark van der Wilk 2
+Abstract
+Excellent variational approximations to Gaussian
+process posteriors have been developed which
+avoid theO
+(
+N 3)
+scaling with dataset size N.
+They reduce the computational cost toO
+(
+NM 2)
+,
+withM≪N the number of inducing variables,
+which summarise the process. While the com-
+putational cost seems to be linear in N, the true
+complexity of the algorithm depends on howM
+must increase to ensure a certain quality of ap-
+proximation. We show that with high probability
+the KL divergence can be made arbitrarily small
+by growingM more slowly than N. A particu-
+lar case is that for regression with normally dis-
+tributed inputs in D-dimensions with the Squared
+Exponential kernel, M =O(logDN) sufﬁces.
+Our results show that as datasets grow, Gaussian
+process posteriors can be approximated cheaply,
+and provide a concrete rule for how to increase
+M in continual learning scenarios.
+1. Introduction
+Gaussian processes (GPs) [Rasmussen & Williams, 2006]
+are distributions over functions that are convenient priors
+in Bayesian models. They can be seen as inﬁnitely wide
+neural networks [Neal, 1996], and are particularly popular
+in regression models, as they produce good uncertainty esti-
+mates, and have closed-form expressions for the posterior
+and marginal likelihood. The most well known drawback
+of GP regression is the computational cost of the exact
+calculation of these quantities, which scales asO
+(
+N 3)
+in
+time andO
+(
+N 2)
+in memory where N is the number of
+training examples. Low-rank approximations [Qui ˜nonero
+Candela & Rasmussen, 2005] chooseM inducing variables
+which summarise the entire posterior, reducing the cost to
+O
+(
+NM 2 +M 3)
+time andO
+(
+NM +M 2)
+memory.
+1University of Cambridge, Cambridge, UK 2PROWLER.io,
+Cambridge, UK. Correspondence to: David R. Burt
+<drb62@cam.ac.uk>.
+Proceedings of the 36th International Conference on Machine
+Learning, Long Beach, California, PMLR 97, 2019. Copyright
+2019 by the author(s).
+While the computational cost of adding inducing variables is
+well understood, results on how many are needed to achieve
+a good approximation are lacking. As the dataset size in-
+creases, we cannot expect to keep the capacity of the approx-
+imation constant without the quality deteriorating. Taking
+into account the rate at whichM must increase withN to
+achieve a particular approximation accuracy, as well as the
+cost of initializing or optimizing the inducing points, deter-
+mines a more realistic sense of the costs of scaling Gaussian
+processes.
+Approximate GPs are often trained using variational infer-
+ence [Titsias, 2009], which minimizes the KL divergence
+from an approximate posterior to the full posterior process
+[Matthews et al., 2016]. We use this KL divergence as our
+metric for the approximate posterior’s quality. We show
+that under intuitive assumptions the number of inducing
+variables only needs to grow at a sublinear rate for the KL
+between the approximation and the posterior to go to zero.
+This shows that very sparse approximations can be used for
+large datasets, without introducing much bias into hyperpa-
+rameter selection through evidence lower bound (ELBO)
+maximisation, and with approximate posteriors that are ac-
+curate in terms of their prediction and uncertainty.
+The core idea of our proof is to use upper bounds on the
+KL divergence that depend on the quality of a Nystr ¨om
+approximation to the data covariance matrix. Using existing
+results, we show this error can be understood in terms of
+the spectrum of an inﬁnite-dimensional integral operator. In
+the case of stationary kernels, our main result proves that
+priors with smoother sample functions, and datasets with
+more concentrated inputs admit sparser approximations.
+Main results We assume that training inputs are drawn
+i.i.d. from a ﬁxed distribution, and prove bounds of the form
+KL
+(
+Q∥ ˆP
+)
+≤O
+(g(M,N )
+σ2nδ
+(
+1 +c∥y∥2
+2
+σ2n
+)
++Nϵ
+)
+with probability at least 1−δ, where ˆP is the posterior
+Gaussian process,Q is a variational approximation, and y
+are the training targets. The functiong(M,N ) depends on
+both the kernel and input distribution, and grows linearly in
+N and generally decays rapidly in M. The quality of the
+initialization determines ϵ, which can be made arbitrarily
+small (e.g. an inverse power ofN) at some additional com-
+arXiv:1903.03571v3  [stat.ML]  3 Sep 2019
+
+=== PDF PAGE 2 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+putational cost. Theorems 1 and 2 give results of this form
+for a collection of inducing variables deﬁned using spectral
+information, theorems 3 and 4 hold for inducing points.
+2. Background and notation
+2.1. Gaussian process regression
+We consider Gaussian process regression, where we observe
+training data,D ={xi,yi}N
+i=1 with xi∈X andyi∈ R.
+Our goal is to predict outputs y∗ for new inputs x∗ while
+taking into account the uncertainty we have aboutf(·) due
+to the limited size of the training set. We follow a Bayesian
+approach by placing a prior overf, and a likelihood to relate
+f to the observed data through some noise. Our model is
+f∼GP (ν(·),k (·,·)), y i =f(xi) +ϵi, ϵ i∼N (0,σ 2
+n),
+where ν : X → R is the mean function and k : X×
+X →R is the covariance function. We take ν≡ 0; the
+general case can be derived similarly after ﬁrst centering
+the process. We use the posterior for making predictions,
+and the marginal likelihood for selecting hyperparameters,
+both of which have closed-form expressions [Rasmussen &
+Williams, 2006]. The log marginal likelihood is of particular
+interest to us, as the quality of its approximation and our
+posterior approximation is linked. Its form is
+L =−1
+2yTK−1
+n y− 1
+2 log|Kn|− N
+2 log(2π), (1)
+where Kn = Kﬀ +σ2
+nI, and [Kﬀ]i,j =k(xi, xj).
+2.2. Sparse variational Gaussian process regression
+While all quantities of interest have analytic expressions,
+their computation is infeasible for large datasets due to
+theO
+(
+N 3)
+time complexity of the determinant and in-
+verse. Many approaches have been proposed that rely on
+a low-rank approximation to Kﬀ [Qui˜nonero Candela &
+Rasmussen, 2005; Rahimi & Recht, 2008], which allow
+the determinant and inverse to be computed inO
+(
+NM 2)
+,
+whereM is the rank of the approximating matrix.
+We consider the variational framework developed by Tit-
+sias [2009], which minimizes the KL divergence from the
+posterior process to an approximate GP
+GP
+(
+k·uK−1
+uuµ,k·· + k·uK−1
+uu(Σ− Kuu)K−1
+uuku·
+)
+, (2)
+where [ku·]i = k(·, zi), [Kuf]m,i := k(zm, xi) and
+[Kuu]m,n := k(zm, zn). This variational distribution is
+determined through deﬁning the density of the function
+values u∈ RM at inducing inputs Z ={zm}M
+m=1 to be
+q(u) =N (µ, Σ).Z, µ, and Σ are variational parameters.
+Titsias [2009] solved the convex optimization problem for
+µ and Σ explicitly, resulting in the evidence lower bound
+(ELBO):
+Llower =−1
+2yTQ−1
+n y− 1
+2log|Qn|−N
+2 log(2π)− t
+2σ2n
+(3)
+where Qn = Qﬀ +σ2
+nI, Qﬀ = KT
+ufK−1
+uuKuf and t =
+Tr(Kﬀ− Qﬀ). Hensman et al. [2013] proposed optimising
+over{µ, Σ} numerically, which allows minibatch optimiza-
+tion. In both cases, L =Llower + KL(Q|| ˆP ) [Matthews
+et al., 2016], so any bounds on the KL-divergence we prove
+hold for Hensman et al. [2013] as well, as long as{µ, Σ}
+is at the optimum value.
+Titsias [2009] suggests jointly maximizing the ELBO (eq.3)
+w.r.t. the variational and hyperparameters. This comes at
+the cost of introducing bias in hyperparameter estimation
+[Turner & Sahani, 2011], notably the overestimation of the
+σ2
+n [Bauer et al., 2016]. Adding inducing points reduces the
+KL gap [Titsias, 2009], and the bias is practically eliminated
+when enough inducing variables are used.
+2.3. Interdomain inducing features
+L´azaro-Gredilla & Figueiras-Vidal [2009] showed that one
+can specify the distribution q(u), on integral transforma-
+tions off(·). Using these interdomain inducing variables
+can lead to sparser representations, or computational bene-
+ﬁts [Hensman et al.,2018]. Interdomain inducing variables
+are deﬁned by
+um =
+∫
+X
+f(x)g(x; zm)dx.
+Wheng(x; zm) = δ(x− zm) theum are inducing points.
+Interdomain features require replacingku· and Kuu in eq. 2
+with integral transforms of the kernel. In later sections,
+we investigate particular interdomain transformations with
+interesting convergence properties.
+2.4. Upper bounds on the marginal likelihood
+Combined with eq. 3, an upper bound on eq. 1 can show
+when the KL divergence is small, which indicates inference
+has been successful and hyperparameter estimates are likely
+to have little bias. Titsias [2014] introduced an upper bound
+that can be computed inO
+(
+NM 2)
+:
+Lupper :=−1
+2yT(Qn+tI)−1y−1
+2log(|Qn|)−N
+2 log 2π. (4)
+This gives a data-dependent upper bound, that can be com-
+puted after seeing the data, and for given inducing inputs.
+2.5. Spectral properties of the covariance matrix
+While for small datasets spectral properties of the covariance
+matrix can be analyzed numerically, we need a different
+must read
+
+=== PDF PAGE 3 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+approach for understanding these properties for a typical
+large dataset. The covariance operator,K, captures the
+limiting properties of Kﬀ for largeN. It is deﬁned by
+Kg(x′) =
+∫
+X
+g(x)k(x, x′)p(x)dx, (5)
+wherep(x) is a probability density from which the inputs are
+assumed to be drawn. We assume thatK is compact, which
+is the case if k(x, x′) is bounded. Under this assumption,
+the spectral theorem tells us thatK has a discrete spectrum.
+The (ﬁnite) sequence of eigenvalues of 1
+N Kﬀ converges to
+the (inﬁnite) sequence of eigenvalues ofK [Koltchinskii &
+Gin´e, 2000]. Mercer’s Theorem [Mercer, 1909] tells us that
+for continuous kernel functions,
+k(x, x′) =
+∞∑
+m=1
+λmφm(x)φm(x′), (6)
+where the (λm,φm)∞
+i=1 are eigenvalue-eigenfunction pairs
+of the operatorK, with the eigenfunctions orthonormal in
+L2(X )p. Additionally, ∑∞
+m=1λm <∞.
+2.6. Selecting the number of inducing variables
+Ideally, the number of inducing variables should be selected
+to make theKL(Q|| ˆP ) small. Currently, the most common
+advice is to increase the number of inducing variables M
+until the lower bound (eq. 3) no longer improves. This is a
+necessary, but not a sufﬁcient condition for the ELBO to be
+tight and the KL to be small. Taking the upper bound (eq.4)
+into consideration, we can guarantee a good approxima-
+tion when difference between the upper and lower bounds
+converges to zero, as this upper bounds the KL.
+Both these procedures rely on bounds computed for a given
+dataset, and a speciﬁc setting of variational parameters.
+While practically useful, they do not tell us how many in-
+ducing variables we should expect to use before observing
+any data. In this work, we focus on a priori bounds, and
+asymptotic behavior asN→∞ andM grows as a function
+ofN. These bounds guarantee how the variational method
+scales computationally for any dataset satisfying intuitive
+conditions. This is particularly important for continual learn-
+ing scenarios, where we incrementally observe more data.
+With our a priori results we can guarantee that the growth in
+required computation will not exceed a certain rate.
+3. Bounds on the KL divergence for
+eigenfunction inducing features
+In this section, we prove a priori bounds on the KL diver-
+gence using inducing features that rely on spectral informa-
+tion about the covariance matrix or the associated operator.
+The results in this section form the basis for bounds on the
+KL divergence for inducing points (section 4).
+0 500 1000 1500 2000 2500 3000 3500 4000
+Number of Data Points
+0
+20
+40KL divergence
+Actual KL divergence
+t/(2σ2)
+Figure 1. IncreasingN with ﬁxedM increases the expected KL
+divergence.t/2σ2
+n is a lower bound for the expected value over the
+KL divergence when y is generated according to our prior model.
+3.1. A Posteriori Bounds on the KL Divergence
+We ﬁrst considera posteriori bounds on the KL divergence
+that hold for any y, derived by looking at the difference
+betweenLupper andLlower. We will use these bounds in later
+sections to analyze asymptotic convergence properties.
+Lemma 1. Let ˜Kﬀ = Kﬀ− Qﬀ,t = Tr( ˜Kﬀ) and ˜λmax
+denote the largest eigenvalue of ˜Kﬀ . Then,
+KL
+(
+Q∥ ˆP
+)
+≤ 1
+2σ2n
+(
+t+
+˜λmax∥y∥2
+2
+σ2n+˜λmax
+)
+≤ t
+2σ2n
+(
+1+∥y∥2
+2
+σ2n+t
+)
+.
+The proof bounds the difference between a reﬁnement of
+Lupper also proven by Titsias [2014] andLlower through an
+algebraic manipulation and is given in appendix A. The
+second inequality is a consequence of t≥ ˜λmax. We typ-
+ically expect∥y∥2
+2 =O(N)
+, which is the case when the
+variance of the observedys is bounded, so ift≪ 1/N the
+KL divergence will be small.
+3.2. A priori bounds: averaging over y
+Lemma 1 is typically overly pessimistic, as it assumesy can
+be parallel to the largest eigenvector of ˜Kﬀ. In this section,
+we consider a bound that holds a priori over the training
+outputs, when they are drawn from the model. This allows
+us to bound the KL divergence for a ‘typical’ dataset.
+Lemma 2. For any set of{xi}N
+i=1, if the outputs{yi}N
+i=1
+are generated according to our generative model, then
+t
+2σ2n
+≤ Ey
+[
+KL
+(
+Q∥ ˆP
+)]
+≤ t
+σ2n
+(7)
+The lower bound tells us that even if the training data is
+contained in an interval of ﬁxed length, we need to use
+more inducing points for problems with largeN if we want
+to ensure the sparse approximation has converged. This
+is shown in Figure 1 for data uniformly sampled on the
+interval [0, 5] with 15 inducing points.
+this is a good idea
+norm de y non null w en moyenne kima sigma donc...
+
+=== PDF PAGE 4 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+Sketch of Proof.
+Ey
+[
+KL
+(
+Q∥ ˆP
+)]
+= t
+2σ2n
++
+∫
+N (y; 0, Kn)
+× log
+(N (y; 0, Kn)
+N (y; 0, Qn)
+)
+dy
+The second term on the right is a KL divergence between
+centered Gaussian distributions. The lower bound follows
+from Jensen’s inequality. The proof of the upper bound
+(appendix B) bounds this KL divergence above byt/(2σ2
+n).
+3.3. Minimizing the upper bound: an idealized case
+We now consider the set of M interdomain inducing fea-
+tures that minimize the upper bounds in Lemmas 1 and 2.
+Taking into account the lower bound in Lemma 2, they must
+be within a factor of two of the optimal features deﬁned
+without reference to training outputs under the assumption
+of Lemma 2. Consider
+um :=
+N∑
+i=1
+w(m)
+i f(xi)
+wherew(m)
+i is theith entry in themth eigenvector of Kﬀ.
+That is,um is a linear combination of inducing points placed
+at each data point, with weights coming from the entries of
+themth eigenvector of Kﬀ. We show in appendix C that
+cov(um,uk) = w(m)TKﬀw(k) =λk(Kﬀ)δm,k, (8)
+cov(um,f (xi)) =
+[
+Kﬀw(m)
+]
+i
+=λm(Kﬀ)w(m)
+i . (9)
+Inference with these features can be seen as the variational
+equivalent of the optimal parametric projection of the model
+derived by Ferrari-Trecate et al. [1999].
+Computation with these features requires computing the ma-
+trices Kuf and Kuu. Kuu contains the ﬁrstM eigenvalues
+of Kﬀ, Kuf contains the corresponding eigenvectors. Com-
+puting the ﬁrstM eigenvalues and vectors (i.e. performing
+atruncated SVD of Kﬀ ) can be done inO(N 2M) using, for
+example, Lanczos iteration [Lanczos, 1950]. With these fea-
+tures Qﬀ is the optimal rank-M approximation to Kﬀ and
+leads to ˜λmax =λM +1(Kﬀ) andt = ∑N
+m=M +1λm(Kﬀ).
+3.4. Eigenfunction inducing features
+We now modify the construction given in section 3.3 to
+no longer depend on Kﬀ explicitly (which depends on the
+speciﬁc training inputs) and instead depend on assumptions
+about the training data. This construction is the a priori
+counterpart of the eigenvector inducing features, as it is
+deﬁned prior to observing a speciﬁc set of training inputs.
+Consider the limit as we have observed a large amount
+of data, so that 1
+N Kﬀ →K . This leads us to replace the
+eigenvalues,{λm(Kﬀ)}M
+m=1, with the operator eigenval-
+ues,{λm}M
+m=1, and the eigenvectors, {w(m)}M
+m=1, with
+the eigenfunctions,{φm}M
+m=1, yielding
+um =
+∫
+X
+f(x)φm(x)p(x)dx. (10)
+Note thatp(x) inﬂuences um. In appendix C, we show
+cov(um,uk)=λmδm,k and cov (um,f (xi))=λmφm(xi).
+These features can be seen as the variational equivalent of
+methods utilizing truncated priors proposed in Zhu et al.
+[1997], which are the optimal linearM dimensional para-
+metric GP approximation deﬁneda priori, in terms of mini-
+mizing expected mean square error.
+In the case of the SE kernel and Gaussian inputs, closed
+form expressions for eigenfunctions and values are known
+[Zhu et al., 1997]. For Mat´ern kernels with inputs uniform
+on [a,b ], expressions for the eigenfunctions and eigenvalues
+needed in order to compute Kuf and Kuu can be found
+in Youla [1957]. However, the formulas involve solving
+systems of transcendental equations limiting the practical
+applicability of these features for Mat´ern kernels.
+3.5. A priori bounds on the KL divergence for
+eigenfunction features
+Having developed the necessary preliminary results, we now
+prove the ﬁrst a priori bounds on the KL divergence. We
+start with eigenfunction features, which can be implemented
+practically in certain instances discussed above.
+Theorem 1. SupposeN training inputs are drawn i.i.d. ac-
+cording to input densityp(x). For inference withM eigen-
+function inducing variables deﬁned with respect to the prior
+kernel andp(x), with probability at least 1−δ,
+KL
+(
+Q∥ ˆP
+)
+≤ C
+2σ2nδ
+(
+1 +∥y∥2
+2
+σ2n
+)
+(11)
+where we have deﬁnedC =N ∑∞
+m=M +1λm, and theλm
+are the eigenvalues of the integral operatorK associated to
+the prior kernel andp(x).
+Theorem 2. With the assumptions and notation of Theo-
+rem 1 if y is distributed according to a sample from the
+prior generative model, with probability at least 1−δ,
+KL
+(
+Q∥ ˆP
+)
+≤ C
+δσ 2n
+, (12)
+Sketch of Proof of Theorems 1 and 2. We ﬁrst prove a
+bound on t that holds in expectation over input data
+matrices of size N with entries drawn i.i.d. from p(x).
+
+=== PDF PAGE 5 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+A direct computation of Qﬀ shows that [Qﬀ]i,j =∑M
+m=1λmφm(xi)φm(xj). Using the Mercer expansion of
+the kernel matrix and subtracting,
+[
+˜Kﬀ
+]
+i,i
+=
+∞∑
+m=M +1
+λmφ2
+m(xi).
+Summing this and taking the expectation,
+EX[t] =N
+∞∑
+m=M +1
+λmExi
+[
+φ2
+m(xi)
+]
+=N
+∞∑
+m=M +1
+λm.
+The second equality follows from the eigenfunctions having
+norm 1. Applying Markov’s inequality and Lemmas 1 and 2
+yields Theorems 1 and 2 respectively.
+3.6. Squared exponential kernel and Gaussian inputs
+For the SE kernel in one-dimension with hyperparameters
+(v,ℓ 2) andp(x)∼N (0,σ 2),
+λm =v
+√
+2a/ABm−1
+wherea = 1/(4σ2), b= 1/(2ℓ2), c=
+√
+a2 + 2ab, A=
+a+b+c andB =b/A [Zhu et al., 1997]. In this case, using
+the geometric series formula,
+∞∑
+m=M +1
+λm = v
+√
+2a
+(1−B)
+√
+A
+BM.
+Using this bound with Theorems 1 and 2, we see that by
+choosingM =O(logN), under the assumptions of either
+theorem, we can obtain a bound on the KL divergence that
+tends to 0 asN tends to inﬁnity.
+3.7. Mat ´ern kernels and uniform measure
+For the Mat ´ernk + 1/2 kernel in one dimension, λm≍
+m−2k−2 [Ritter et al., 1995; Seeger et al., 2008], so∑∞
+m=M +1λm =O(M−2k−1). In order for the bound in
+Theorem 2 to converge to 0, we need lim
+N→∞
+N
+M 2k+1 → 0.
+This holds if M = Nα for α > 1
+2k+1. For k > 0, this
+bound indicates the number of inducing features can grow
+sublinearly with the amount of data.
+4. Bounds for inducing points
+We have shown that using spectral knowledge of eitherKﬀ
+orK we obtain bounds on the KL divergence indicating that
+the number of inducing features can be much smaller than
+the number of data points. While mathematically conve-
+nient, the practical applicability of the interdomain features
+used is limited by computational considerations in the case
+Figure 2. Determinant based sampling, with a SE kernel withℓ = 2
+(top) and withℓ =.5 (middle) leads to more dispersed inducing
+points than uniform sampling (bottom).
+of the eigenvector features and by the lack of analytic expres-
+sions for Kuf in most cases for the eigenfunction features,
+as well not knowing the true input density,p(x).
+In contrast, inducing points can be efﬁciently applied to any
+kernel. In this section, we show that with a good initializa-
+tion based on the empirical input data distribution, inducing
+points lead to bounds that are only slightly weaker than the
+interdomain approaches suggested so far.
+Proving this amounts to obtaining bounds on the trace of
+the error of a Nystr¨om approximation to Kﬀ. The Nystr¨om
+approximation, popularized for kernel methods by Williams
+& Seeger [2001], approximates a positive semi-deﬁnite sym-
+metric matrix by subsampling columns. If M columns,
+{ci}M
+i=1, are selected from Kﬀ, the approximation used is
+Kﬀ ≈ CC
+−1
+CT, where C = [c1, c2,..., cM] and C is
+theM×M principal submatrix associated to the{ci}M
+i=1.
+Note that if inducing points are placed at the points associ-
+ated to each column in the data matrix, then Kuu = C and
+KT
+uf = C, so Qﬀ = CC
+−1
+CT.
+Lemma 3. [Belabbas & Wolfe, 2009] Given a symmetric
+positive semideﬁnite matrix, Kﬀ, ifM columns are selected
+to form a Nystr¨om approximation such that the probability
+of selecting a subset of columns, Z, is proportional to the
+determinant of the principal submatrix formed by these
+columns and the matching rows, then,
+EZ[Tr(Kﬀ− Qﬀ)]≤ (M + 1)
+N∑
+m=M +1
+λm(Kﬀ). (13)
+This means that on average well-initialized inducing points
+lead to bounds within a factor of M + 1 of eigenvector
+inducing features.
+The selection scheme described introduces negative correla-
+tions between inducing points locations, leading the zi to be
+
+=== PDF PAGE 6 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+well-dispersed amongst the training data, as shown in ﬁg. 2.
+The strength of these negative correlations is determined by
+the particular kernel.
+The proposed initialization scheme is equivalent to sam-
+plingZ according to a discrete k-Determinantal Point Pro-
+cess (k-DPP), deﬁned overKﬀ . Belabbas & Wolfe [2009]
+suggested that sampling from this distribution, which has
+support over
+(N
+M
+)
+subsets of columns, may be computation-
+ally infeasible. Kulesza & Taskar [2011] provided an exact
+algorithm for sampling from k-DPPs given an eigendecom-
+position of the kernel matrix. In our setting, we require
+our initialisation scheme to have similar computational cost
+to computing the sparse GP bounds, which prohibits us
+from performing eigendecomposition. Instead, we rely on
+cheaper “ϵ close” sampling methods. We therefore provide
+the following corollary of lemma 3, proven in appendix D.
+Corollary 1. Suppose the inducing points,Z, are sampled
+from anϵ k-DPP ,ν, i.e a distribution over subsets of X of
+sizeM satisfying,d(µ,ν )TV ≤ϵ whered(·,·)TV denotes
+total variation distance andµ is a k-DPP on Kﬀ . Suppose
+thek(x, x)<v for all x∈X . Then
+EZ∼ν[t]≤ (M + 1)
+N∑
+m=M +1
+λm(Kﬀ) + 2Nvϵ. (14)
+4.1. A priori bounds for inducing points
+We show analogues of theorems 1 and 2 for inducing points.
+Theorem 3. Suppose N training inputs are drawn i.i.d
+according to input density p(x), andk(x, x) < vfor all
+x∈X . SampleM inducing points from the training data
+with the probability assigned to any set of sizeM equal to
+the probability assigned to the corresponding subset by an
+ϵ k-DPP withk =M. With probability at least 1−δ,
+KL
+(
+Q∥ ˆP
+)
+≤ C(M + 1) + 2Nvϵ
+2σ2nδ
+(
+1 +∥y∥2
+2
+σ2n
+)
+(15)
+whereC =N ∑∞
+m=M +1λm, andλm are the eigenvalues
+of the integral operatorK associated to kernel,k, andp(x).
+Theorem 4. With the assumptions and notation of theorem 3
+and if y is distributed according to a sample from the prior
+generative model, with probability at least 1−δ,
+KL
+(
+Q∥ ˆP
+)
+≤ C(M + 1) + 2Nvϵ
+δσ 2n
+. (16)
+Proof. We prove theorem 4. Theorem 3 follows the same
+argument, replacing the expectation over y with the bound
+given by lemma 1.
+EX
+[
+EZ|X
+[
+Ey
+[
+KL
+(
+Q∥ ˆP
+)]]]
+≤σ−2
+n EX
+[
+EZ|X[t]
+]
+≤σ−2
+n (M + 1)EX
+[ N∑
+m=M +1
+λm(Kﬀ)
+]
++ 2Nvϵ
+≤σ−2
+n (M + 1)N
+∞∑
+m=M +1
+λm + 2Nvϵ.
+The ﬁrst two inequalities use lemma 2 and corollary 1. The
+third follows from noting that the sum inside the expectation
+is the error in trace norm of the optimal rank M approx-
+imation to the covariance matrix for any given X, and is
+bounded above by the error from the rankM approximation
+due to eigenfunction features. We showed that this error is
+in expectation equal toN ∑∞
+m=M +1λm so this must be an
+upper bound on the expectation in the second to last line.1
+We apply Markov’s inequality, yielding for anyδ∈ (0, 1)
+with probability at least 1−δ,
+KL
+(
+Q∥ ˆP
+)
+≤ (M + 1)N ∑∞
+m=M +1λm + 2NVϵ
+δσ 2n
+.
+Figure 3 compares the actual KL divergence, thea posteriori
+bound derived byLupper−L lower, and the bounds proven
+in theorems 3 and 4 on a dataset with normally distributed
+training inputs and y drawn from the generative model.
+5. Consequences of theorem 3 and theorem 4
+We now investigate implications of our main results for
+sparse GP regression. Our ﬁrst two corollaries consider
+Gaussian inputs and the squared exponential (SE) ker-
+nel, and show that in D dimensions, choosing M =
+O(logD(N)) is sufﬁcient in order for the KL divergence to
+converge with high probability. We then brieﬂy summarize
+convergence rates for other stationary kernels. Finally we
+point out consequences of our deﬁnition of convergence for
+the quality of the pointwise posterior mean and uncertainty.
+5.1. Comparison of consequences of theorems
+Using the explicit formula for the eigenvalues given in sec-
+tion 3.6, we arrive at the following corollary:
+Corollary 2. Suppose that∥y∥2
+2≤ RN. Fixγ > 0, and
+take ϵ = δσ 2
+n
+vNγ+2. Assume the input data is normally dis-
+tributed and regression in performed with a SE kernel. Un-
+der the assumptions of theorem 3, with probability 1−δ,
+KL
+(
+Q∥ ˆP
+)
+≤N−γ(
+2R/σ2
+n + 2/N
+)
+. (17)
+1 Shawe-Taylor et al. [2005, Proposition 4] gives a different
+proof of the ﬁnal inequality.
+
+=== PDF PAGE 7 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+10 15 20 25 30 35 40 45 50
+Number of Inducing points
+0
+2
+4
+6
+8
+10KL Divergence
+Actual KL Divergence
+Lupper − L Lower
+Theorem 4, p=.5
+Theorem 4, p=.99
+Theorem 3, p=.5
+Theorem 3, p=.99
+Figure 3. Rates of convergence asM increases on ﬁxed dataset of
+sizeN = 1000, with a SE-kernel withℓ =.6,v = 1,σn = 1 and
+x∼N (0, 1) and y sampled from the prior.
+when inference is performed withM = (3+γ) log(N )+logD
+log(B−1) ,
+whereD = v
+√
+2a
+2
+√
+Aσ2nδ(1−B).
+The proof is given in appendix E. If the lengthscale is much
+shorter than the standard deviation of the data thenB will
+be near 1, implying thatM will need to be large in order for
+the bound to converge.
+Remark 1. The assumption∥y∥2
+2≤RN for someR is very
+weak. For example, if y is a realization of an integrable
+function with constant noise,
+N∑
+i=1
+y2
+i≤
+N∑
+i=1
+f(xi)2 +
+N∑
+i=1
+ϵ2
+i +o(N)
+The ﬁrst sum is asymptotically N
+∫
+f(x)p(x)dx, and the
+second is asymptoticallyNσ 2
+n.
+The consequence of corollary 2 is shown in ﬁg. 4, in which
+we gradually increaseN, choosingM =C log(N) +C0,
+and see the KL divergence converges as an inverse power of
+N. The training outputs are generated from a sample from
+the prior generative model. Note that as theorem 4 assumes
+y is sampled from the prior and is not derived using the
+upper bound (eq. 4); it may be tighter than the a posteriori
+bound in cases when this upper bound is not tight.
+For the SE kernel and Gaussian inputs, the rate that we prove
+M must increase for inducing points and eigenfunction
+features differs by a constant factor. For the Mat´ernk + 1/2
+kernel in one dimension, we need to chooseM =Nα with
+α > 1/(2k) instead of α > 1/(2k + 1). This difference
+is particularly stark in the case of the Mat ´ern 3/2 kernel,
+for which our bounds tell us that inference with inducing
+points requires α > 1/2 as opposed to α > 1/3 for the
+eigenfunction features. Whether this is an artifact of the
+proof, the initialization scheme, or an inherent limitation for
+inducing points is an interesting area for future work.
+5.2. Multidimensional data, effect of input density and
+other kernels
+IfX = RD, it is common to choose aseparable kernel, i.e a
+kernel that can be written as a product of kernels along each
+0 500 1000 1500 2000 2500 3000 35000
+20
+40KL Divergence
+Actual KL Divergence
+Lupper − L lower
+Theorem 4, p=.5
+0 500 1000 1500 2000 2500 3000 3500
+Number of Data Points
+10
+20
+30M
+Figure 4. We increase N and take M = C log(N ) for a one-
+dimensional SE-kernel and normally distributed inputs. The KL
+divergence decays rapidly, as predicted by Corollary 2.
+dimension. If this choice is made, and input densities factor
+over the dimensions, the eigenvalues ofK are the product
+of the eigenvalues along each dimension. In the case of the
+SE-ARD kernel and Gaussian input distribution, we obtain
+an analogous statement to corollary 2 in D-dimensions.
+Corollary 3. For any ﬁxedϵ′,δ >0 under the assumptions
+of corollary 2, with a SE-ARD kernel inD dimensions,p(x)
+a multivariate Gaussian,M =O(logDN) inducing points
+andϵ =O(N−γ) for some ﬁxedγ >2, with probability at
+least 1−δ, KL
+(
+Q∥ ˆP
+)
+≤δ−1ϵ′.
+The proof uses ideas from Seeger et al. [2008] and is given
+in appendix E. While for the SE kernel and Gaussian input
+densityM can grow polylogarithmically inN, and the KL
+divergence still converges, this is not the case for regression
+with other kernels or input distribution.
+Closed form expressions for the eigenvalues of operators
+associated to many kernels and input distributions are not
+known. For stationary kernels and compactly supported
+input distributions, the asymptotic rate of decay of the eigen-
+values ofK is well-understood [Widom, 1963; 1964; Ritter
+et al., 1995]. The intuitive summary of these results is
+that smooth kernels, with concentrated input distributions
+have rapidly decaying eigenvalues. In contrast, kernels
+such as the Mat ´ern-1/2 that deﬁne processes that are not
+smooth have slowly decaying eigenvalues. For Lebesgue
+measure on [a,b ] the Sacks-Ylivasker conditions of orderr
+(appendix F), which can be roughly thought of as meaning
+that realizations of the process are r times differentiable
+with probability 1 [Ritter et al., 1995], implies an eigen-
+decay ofλm≍m−2r−2. Table 1 summarizes the spectral
+decay of several stationary kernels, as well as the implica-
+tions for the number of inducing points needed for inference
+to provably converge with our bounds.
+5.3. Computational complexity
+We now have all the components necessary for analyz-
+ing the overall computational complexity of ﬁnding an
+arbitrarily good GP approximation. To understand the
+
+=== PDF PAGE 8 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+Table 1. The number of features needed for our bounds to converge inD−dimensions. These hold for some ﬁxedα> 0 and anyϵ′ > 0.
+KERNEL INPUT DISTRIBUTION DECAY OF λm M, T HEOREM 3 M, T HEOREM 4
+SE-K ERNEL COMPACT SUPPORT O
+(
+exp(−αm
+d log m
+d )
+)
+O(logD(N )) O(logD(N ))
+SE-K ERNEL GAUSSIAN O
+(
+exp(−αm
+d
+)
+) O(logD(N )) O(logD(N ))
+MAT´ERN k+1/2 2 UNIFORM ON INTERVAL O
+(
+M−2k−2 log(M )2(d−1)(k+1)
+)
+O
+(
+N 1/k+ϵ′ )
+O
+(
+N 1/(2k)+ϵ′ )
+full computational complexity, we must consider the cost
+of initializing the inducing points using an exact or ap-
+proximate k-DPP, as well as theO(NM 2) time complex-
+ity of variational inference. Recent work of Derezi `nski
+et al. [2019] indicate that an exact algorithm for sampling
+a k-DPP can be implemented in O(N log(N)poly(M)).
+We base our method on Anari et al. [2016], who show
+that an ϵ k-DPP can be sampled via MCMC methods
+inO(NM 4 log(N) +NM 3 log( 1
+ϵ )) time with memory
+O(N +M 2) (see appendix D). 3 We can choose ϵ to be
+any inverse power ofN which only adds a constant factor to
+the complexity. For the SE kernel, takingM =O(logDN)
+inducing points leads to a complexity ofO(N log4D+1N),
+a large computational saving compared to theO(N 3) cost
+of exact inference. For the Mat ´ern k + 1
+2 kernel in one-
+dimension and the average case analysis of theorem 4 we
+need to takeM =O(N 1/(2k)+ϵ′
+) implying a computational
+complexity ofO(N 1+2/k+4ϵ′
+log(N)) which is an improve-
+ment over the cost of full inference fork> 1. Improvements
+in methods for sampling exact or approximate k-DPPs (e.g.
+recent bounds on mixing time [Hermon & Salez, 2019]) or
+bounds on other selection schemes for Nystr¨om approxima-
+tions directly translate to improved bounds on the computa-
+tional cost of convergent sparse Gaussian process approxi-
+mations through this framework.
+5.4. Pointwise approximate posterior
+In many applications, pointwise estimates of the posterior
+mean and variance are of interest. It is therefore desirable
+that the approximate variational posterior gives similar es-
+timates of these quantities as the true posterior. Huggins
+et al. [2019] derived an approximation method for sparse GP
+inference with provable guarantees about pointwise mean
+and variance estimates of the posterior process and showed
+that approximations with moderate KL divergences can still
+have large deviations in mean and variance estimates. How-
+ever, if the KL divergence converges to zero, estimates of
+mean and variance converge to the posterior values. By the
+2The kernel discussed here is the product of 1-dimensional
+Mat´ern kernels with the same smoothness parameter, which differs
+from the standard deﬁnition ifD> 1. Bounds on the eigenvalues
+of the standard multidimensional Mat´ern kernel appear in Seeger
+et al. [2008].
+3Open source implementations of approximate k-DPPs are
+available (e.g. [Gautier et al., 2018]).
+chain rule of KL divergence [Matthews et al., 2016],
+KL(µX∥νX ) = KL(µx∗∥νx∗)
++ Eµx∗
+[
+KL
+(
+µX\x∗|x∗∥νX\x∗|x∗
+)]
+≥ KL(µx∗∥νx∗).
+Therefore, bounds on the mean and variance of a one-
+dimensional Gaussian with a small KL divergence imply
+pointwise guarantees about posterior inference when the KL
+divergence between processes is small.
+Proposition 1. Supposeq andp are one dimensional Gaus-
+sian distributions with meansµ1 andµ2 and variancesσ1
+andσ2, such that 2KL(q∥p) =ε≤ 1
+5, then
+|µ1−µ2|≤ σ2
+√ε≤ σ1
+√ε√
+1−
+√
+3ε
+and|1−σ2
+1/σ2
+2|<
+√
+3ε.
+The proof is in appendix B. Ifϵ→ 0, proposition 1 implies
+µ1→ µ2 andσ1→ σ2. Using this and theorems 3 and 4,
+the posterior mean and variance converge pointwise to those
+of the full model usingM≪N inducing features.
+6. Related work
+Statistical guarantees for convergence of parametric GP ap-
+proximations [Zhu et al., 1997; Ferrari-Trecate et al., 1999],
+lead to similar conclusions about the choice of approximat-
+ing rank. Ferrari-Trecate et al. [1999] showed that given
+N data points, using a rankM truncated SVD of the prior
+covariance matrix, such thatλM≪σ2
+n/N results in almost
+no change in the model, in terms of expected mean squared
+error. Our results can be considered the equivalent for varia-
+tional inference, showing that theoretical guarantees can be
+established for non-parametric approximate inference.
+Guarantees on the quality Nystr ¨om approximations have
+been used to bound the error of approximate kernel meth-
+ods, notably for kernel ridge regression [Alaoui & Mahoney,
+2015; Li et al., 2016]. The speciﬁc method for selecting
+columns in the Nystr¨om approximation plays a large role in
+these analyses. Li et al. [2016] use an approximate k-DPP,
+nearly identical to the initialization we analyze; Alaoui &
+Mahoney [2015] sample columns according to ridge lever-
+age scores. The substantial literature on bounds for Nystr¨om
+approximations [e.g. Gittens & Mahoney, 2013] motivates
+considering other initialization schemes for inducing points
+in the context of Gaussian process regression.
+
+=== PDF PAGE 9 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+7. Conclusion
+We proved bounds on the KL divergence between the vari-
+ational approximation of sparse GP regression to the pos-
+terior, that depend only on the decay of the eigenvalues of
+the covariance operator. These bounds prove the intuitive
+result that smooth kernels with training data concentrated
+in a small region admit high quality, very sparse approxima-
+tions. These bounds prove that truly sparse non-parametric
+inference, withM≪N, can provide reliable estimates of
+the marginal likelihood and pointwise posterior.
+Extensions to models with non-conjugate likelihoods, espe-
+cially within the framework of Hensman et al. [2015], pose
+a promising direction for future research.
+Acknowledgements
+We would like to thank James Hensman for providing an
+excellent research environment, and the reviewers for their
+helpful feedback and suggestions. We would also particu-
+larly like to thank Guillaume Gautier, for pointing out an
+error in the exact k-DPP sampling algorithm cited in an ear-
+lier version of this work, and for guiding us through recent
+work on sampling k-DPPs.
+References
+Alaoui, A. and Mahoney, M. W. Fast Randomized Ker-
+nel Ridge Regression with Statistical Guarantees. In
+Advances in Neural Information Processing Systems 28
+(NIPS), pp. 775–783. 2015.
+Anari, N., Gharan, S. O., and Rezaei, A. Monte
+Carlo Markov Chain Algorithms for Sampling Strongly
+Rayleigh Distributions and Determinantal Point Pro-
+cesses. In 29th Annual Conference on Learning Theory
+(COLT), pp. 103–115, 2016.
+Bauer, M., van der Wilk, M., and Rasmussen, C. E. Under-
+standing probabilistic sparse Gaussian process approxi-
+mations. In Advances in Neural Information Processing
+Systems (NIPS), pp. 1533–1541, 2016.
+Belabbas, M.-A. and Wolfe, P. J. Spectral Methods in
+Machine Learning and new Strategies for very Large
+Datasets. In Proceedings of the National Academy of
+Sciences (PNAS), volume 106, pp. 369–374, 2009.
+Derezi`nski, M., Calandriello, D., and Valko, M. Exact sam-
+pling of determinantal point processes with sublinear time
+preprocessing. In International Conference on Machine
+Learning, Workshop on Negative Dependence in Machine
+Learning, 2019.
+Ferrari-Trecate, G., Williams, C. K., and Opper, M. Finite-
+dimensional Approximation of Gaussian Processes. In
+Advances in Neural Information Processing Systems
+(NIPS), pp. 218–224, 1999.
+Gautier, G., Bardenet, R., and Valko, M. DPPy:
+Sampling Determinantal Point Processes with
+Python. ArXiv e-prints , 2018. URL http:
+//arxiv.org/abs/1809.07258. Code at
+http://github.com/guilgautier/DPPy/ Documentation at
+http://dppy.readthedocs.io/.
+Gittens, A. and Mahoney, M. Revisiting the Nystr ¨om
+method for improved large-scale machine learning. In
+Proceedings of the 30th International Conference on Ma-
+chine Learning, volume 28 of Proceedings of Machine
+Learning Research, pp. 567–575, Atlanta, Georgia, USA,
+June 2013. PMLR.
+Gradshteyn, I. S. and Ryzhik, I. M.Table of Integrals, Series,
+and Products. Academic press, 2014.
+Hensman, J., Fusi, N., and Lawrence, N. D. Gaussian
+processes for big data. In Uncertainty in Artiﬁcial Intelli-
+gence (UAI), pp. 282, 2013.
+Hensman, J., Matthews, A., and Ghahramani, Z. Scalable
+Variational Gaussian Process Classiﬁcation. InArtiﬁcial
+Intelligence and Statistics (AISTATS), pp. 351–360, 2015.
+Hensman, J., Durrande, N., and Solin, A. Variational Fourier
+Features for Gaussian Processes. In Journal of Machine
+Learning Research, volume 18, pp. 1–52, 2018.
+Hermon, J. and Salez, J. Modiﬁed log-Sobolev inequalities
+for strong-Rayleigh measures. 2019.
+Huggins, J. H., Campbell, T., Kasprzak, M., and Broderick,
+T. Scalable Gaussian Process Inference with Finite-data
+Mean and Variance Guarantees. In International Confer-
+ence on Artiﬁcial Intelligence and Statistics (AISTATS),
+2019.
+Koltchinskii, V . and Gin´e, E. Random Matrix Approxi-
+mation of Spectra of Integral Operators. In Bernoulli,
+volume 6, pp. 113–167, 2000.
+Kulesza, A. and Taskar, B. k-DPPs: Fixed-size Determi-
+nantal Point Processes. In Proceedings of the 28th Inter-
+national Conference on Machine Learning (ICML), pp.
+1193–1200, 2011.
+Lanczos, C. An Iteration Method for the Solution of the
+Eigenvalue Problem of Linear Differential and Integral
+Operators. In Journal of Research of the National Bureau
+of Standards, pp. 255–282, 1950.
+L´azaro-Gredilla, M. and Figueiras-Vidal, A. Inter-domain
+Gaussian Processes for Sparse Inference using Inducing
+Features. In Advances in Neural Information Processing
+Systems (NIPS) 22, pp. 1087–1095. 2009.
+
+=== PDF PAGE 10 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+Li, C., Jegelka, S., and Sra, S. Fast DPP Sampling for
+Nystrom with Application to Kernel Methods. In Interna-
+tional Conference on Machine Learning, pp. 2061–2070,
+2016.
+Matthews, A. G. d. G., Hensman, J., Turner, R., and
+Ghahramani, Z. On Sparse Variational Methods and
+the Kullback-Leibler Divergence between Stochastic Pro-
+cesses. In Artiﬁcial Intelligence and Statistics (AISTATS),
+pp. 231–239, 2016.
+Mercer, J. Functions of Positive and Negative Type, and
+their Connection the Theory of Integral Equations. In
+Phil. Trans. R. Soc. Lond. A, volume 209, pp. 415–446.
+The Royal Society, 1909.
+Neal, R. M. Bayesian Learning for Neural Networks, vol-
+ume 118. Springer, 1996.
+Qui˜nonero Candela, J. and Rasmussen, C. E. A Unifying
+View of Sparse Approximate Gaussian Process Regres-
+sion. In Journal of Machine Learning Research, volume 6,
+pp. 1939–1959, 2005.
+Rahimi, A. and Recht, B. Random Features for Large-scale
+Kernel Machines. In Advances in Neural Information
+Processing Systems (NIPS), pp. 1177–1184, 2008.
+Rasmussen, C. E. and Williams, C. K. Gaussian Processes
+for Machine Learning. MIT Press, 2006.
+Ritter, K., Wasilkowski, G. W., and Wo ´zniakowski, H.
+Multivariate Integration and Approximation for Random
+Fields Satisfying Sacks-Ylvisaker Conditions. In The
+Annals of Applied Probability, volume 5, pp. 518–540.
+Institute of Mathematical Statistics, 1995.
+Seeger, M. W., Kakade, S. M., and Foster, D. P. Infor-
+mation Consistency of Nonparametric Gaussian Process
+Methods. In IEEE Transactions on Information Theory,
+volume 54, pp. 2376–2382. IEEE, 2008.
+Shawe-Taylor, J., Williams, C. K., Cristianini, N., and Kan-
+dola, J. On the eigenspectrum of the Gram matrix and the
+generalization error of kernel-PCA. IEEE Transactions
+on Information Theory, 51(7):2510–2522, 2005.
+Titsias, M. K. Variational Learning of Inducing Variables in
+Sparse Gaussian Processes. In Artiﬁcial Intelligence and
+Statistics (AISTATS), pp. 567–574, 2009.
+Titsias, M. K. Variational Inference for Gaussian and Deter-
+minantal Point Processes. In Workshop on Advances in
+Variational Inference (NIPS), December 2014.
+Turner, R. E. and Sahani, M.Two Problems with Variational
+Expectation Maximisation for Time Series Models , pp.
+104–124. Cambridge University Press, 2011.
+Widom, H. Asymptotic Behavior of the Eigenvalues of Cer-
+tain Integral Equations. I. In Transactions of the Amer-
+ican Mathematical Society , volume 109, pp. 278–295.
+American Mathematical Society, 1963.
+Widom, H. Asymptotic behavior of the eigenvalues of
+certain integral equations. II. In Archive for Rational Me-
+chanics and Analysis, volume 17, pp. 215–229. Springer,
+1964.
+Williams, C. K. I. and Seeger, M. Using the Nystr ¨om
+Method to Speed Up Kernel Machines. In Advances
+in Neural Information Processing Systems (NIPS) 13, pp.
+682–688. MIT Press, 2001.
+Youla, D. The Solution of a Homogeneous Wiener-Hopf
+Integral Equation Occurring in the Expansion of Second-
+order Stationary Random Functions. In IRE Transactions
+on Information Theory, volume 3, pp. 187–193. IEEE,
+1957.
+Zhu, H., Williams, C. K. I., Rohwer, R., and Morciniec,
+M. Gaussian Regression and Optimal Finite Dimensional
+Linear Models. In Neural Networks and Machine Learn-
+ing, pp. 167–184. Springer-Verlag, 1997.
+A. Proof Of Lemma 1
+Titsias [2014] proves the tighter upper bound,
+L≤L ′
+upper :=−N
+2 log(2π)
+− 1
+2 log(|Qn|)− 1
+2yT
+(
+Qn + ˜λmaxI
+)−1
+y.
+Subtracting,
+L′
+upper−L lower
+= t
+2σ2n
++ 1
+2
+(
+yT
+(
+Q−1
+n − (Qn + ˜λmaxI)−1
+)
+y
+)
+. (18)
+Since Qﬀ is symmetric positive semideﬁnite,Qn is positive
+deﬁnite with eigenvalues bounded below by σ2
+n. Write,
+Qn = UΛUT, where U is unitary and Λ is a diagonal
+matrix with non-increasing diagonal entries γ1 ≥ γ2 ≥
+... ≥γN≥σ2
+n.
+We can rewrite the second term (ignoring the factor of one
+half) in Equation 18 as,
+(UTy)T
+(
+Λ−1− (Λ + ˜λmaxI)−1
+)
+(UTy).
+
+=== PDF PAGE 11 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+Deﬁne,z = (UTy). Since U is unitary,∥z∥ =∥y∥.
+(UTy)T(
+Λ−1− (Λ +tI)−1)
+(UTy)
+= zT
+(
+Λ−1− (Λ + ˜λmaxI)−1
+)
+z
+=
+∑
+i
+z2
+i
+˜λmax
+γ2
+i +γi˜λmax
+≤∥ y∥2 ˜λmax
+γ2
+N +γN ˜λmax
+.
+The last inequality comes from noting that the fraction in
+the sum attains a maximum when γi is minimized. Since
+σ2
+n is a lower bound on the smallest eigenvalue ofQn, we
+have,
+yT
+(
+Q−1
+n − (Qn + ˜λmaxI)−1
+)
+y≤
+˜λmax∥y∥2
+σ4n +σ2n˜λmax
+.
+lemma 1 follows.
+B. KL Divergence Gaussian Distributions
+B.1. KL divergence between multivariate Gaussian
+distributions
+We make use of the formula for KL divergences between
+multivariate Gaussian distributions in our proof of lemma 2,
+and the univariate case in proposition 1.
+Recall the KL divergence fromp1∼N (m1, S1) top2∼
+N (m2, S2) both of dimensionN is given by
+KL(p1∥p2) = 1
+2
+(
+Tr
+(
+S2
+−1S1
+)
++ log
+(|S2|
+|S1|
+)
++(m1− m2)
+T
+S2
+−1(m1− m2)−N
+)
+≥ 0. (19)
+The inequality is a special case of Jensen’s inequality.
+B.2. Proof of Upper Bound in lemma 2
+In the main text we showed,
+Ey
+[
+KL
+(
+Q∥ ˆP
+)]
+= t
+2σ2n
++
+∫
+N (y; 0, Kn)
+× log
+(N (y; 0, Kn)
+N (y; 0, Qn)
+)
+dy
+In order to complete the proof, we need to show that the
+second term on the right hand side is bounded above by
+t/(2σ2
+n). Using Equation 19:
+Ey
+[
+KL
+(
+Q∥ ˆP
+)]
+= t
+2σ2n
+− N
+2 + 1
+2 log
+(|Qn|
+|Kn|
+)
++ 1
+2 Tr
+(
+Q−1
+n (Kn)
+)
+≤ t
+2σ2n
+− N
+2 + 1
+2 Tr
+(
+Q−1
+n (Qn + ˜Kﬀ)
+)
+. (20)
+The inequality follows from noting the log determinant term
+is negative, asKn≻ Qn (i.e. Kn−Qn is positive deﬁnite).
+Simplifying the last term,
+1
+2 Tr(I) + 1
+2 Tr
+(
+Q−1
+n ˜Kﬀ)
+)
+≤N/2 +tλ1
+(
+Q−1
+n
+)
+/2
+≤N/2 +t/(2σ2
+n).
+The ﬁrst inequality uses that for positive semi-deﬁnite sym-
+metric matrices Tr(AB)≤ Tr(A)λ1(B) which is a special
+case of H ¨older’s inequality for Schatten norms. The ﬁnal
+line uses that the largest eigenvalue of Q−1
+n is bounded
+above byσ−2
+n . Using this in Equation 20 ﬁnishes the proof.
+B.3. Proof of Proposition 1
+Deﬁningϵ = 2KL(q∥p),
+ϵ = σ2
+1 + (µ1−µ2)2
+σ2
+2
+− log
+(σ2
+1
+σ2
+2
+)
+− 1 (21)
+≥x− log(x)− 1
+where we have deﬁnedx = σ2
+1
+σ2
+2
+.
+Applying the lower boundx− log(x)− 1≥ (x− 1)2/2−
+(x− 1)3/3,
+ϵ≥ (x− 1)2/2− (x− 1)3/3.
+A bound on|x− 1| that holds for all ϵ can then be found
+with the cubic formula. Under the assumption that ϵ< 1
+5,
+we havex− log(x)< 1.2 which impliesx∈ [0.493, 1.77].
+Forx in this range, we have
+x− log(x)− 1≥ (x− 1)2/3
+So,
+|x− 1|≤
+√
+3ϵ
+This proves that,
+1−
+√
+3ϵ< σ2
+1
+σ2
+2
+< 1 +
+√
+3ϵ.
+From Equation 21 andx− logx> 1,
+|µ1−µ2|≤ σ2
+√
+3ϵ.
+Using our bound on the ratio of the variances completes the
+proof of proposition 1.
+C. Covariances for Interdomain Features
+We compute the covariances for eigenvector and eigenfunc-
+tion inducing features.
+
+=== PDF PAGE 12 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+C.1. Eigenvector inducing features
+Recall we have deﬁned eigenvector inducing features by,
+um =
+N∑
+i=1
+w(m)
+i f(xi).
+Then,
+cov(um,uk) = E
+
+
+N∑
+i=1
+w(m)
+i f(xi)
+N∑
+j=1
+w(k)
+j f(xj)
+
+
+=
+N∑
+i=1
+w(m)
+i
+N∑
+j=1
+w(k)
+j E[f(xi)f(xj)]
+=
+N∑
+i=1
+w(m)
+i
+N∑
+j=1
+w(k)
+j k(xi, xj).
+We now recognize this expression asw(m)TKﬀw(k). Using
+the deﬁning property of eigenvectors as well as orthonor-
+mality,
+cov(um,uk) =λk(Kﬀ)δm,k.
+Similarly,
+cov(um,f (xi)) = E
+
+
+N∑
+j=1
+w(m)
+j f(xj)f(xi)
+
+
+=
+N∑
+j=1
+w(m)
+j E[f(xj)f(xi)]
+=
+N∑
+j=1
+w(m)
+j k(xj, xi).
+This is the ith entry of the matrix vector product
+Kﬀw(m) =λm(Kﬀ)w(m)
+i .
+C.2. Eigenfunction inducing features
+Recall we have deﬁned eigenfunction inducing features by,
+um =
+∫
+φm(x)f(x)p(x)dx.
+Then,
+cov(um,uk)
+= E
+[∫
+φm(x)f(x)p(x)dx
+∫
+φk(x′)f(x′)p(x′)dx′
+]
+=
+∫
+φm(x)p(x)
+∫
+φk(x′)E[f(x)f(x′)]p(x′)dx′dx
+=
+∫
+φm(x)p(x)
+∫
+φk(x′)k(x, x′)p(x′)dx′dx.
+The expectation and integration may be interchanged by Fu-
+bini’s theorem, as both integrals converge absolutely since
+p(x) is a probability density, theφm(x) are inL2(X )p⊂
+L1(X )p andk is bounded.
+We may then apply the eigenfunction property to the inner
+integral and orthonormality of eigenfunctions to the result
+yielding,
+cov(um,uk) =λk
+∫
+φk(x)φm(x)p(x)dx =λkδm,k.
+With similar considerations,
+cov(um,f (xi)) = E
+[∫
+φm(x)f(x)f(xi)p(x)dx
+]
+=
+∫
+φm(x)E[f(x)f(xi)]p(x)dx
+=λmφm(xi).
+D. Discrete k-DPPs
+D.1. Proof of Corollary 1 from Lemma 3
+EZ∼ν[t] = EZ∼µ[t] + (EZ∼ν[t]− EZ∼µ[t])
+≤ (M + 1)
+N∑
+M +1
+λ(Kﬀ) +
+∑
+Z∈(
+N
+M)
+(µ(Z)−ν(Z))t(Z)
+≤ (M + 1)
+N∑
+M +1
+λ(Kﬀ) +Nv
+∑
+Z∈(
+N
+M)
+|µ(Z)−ν(Z)|
+≤ (M + 1)
+N∑
+M +1
+λ(Kﬀ) + 2Nvϵ.
+The ﬁrst inequality follows from lemma 3. The second
+uses the triangle inequality replacet(Z) with a bound on its
+maximum. The ﬁnal line uses one of the deﬁnitions of total
+variation distance for discrete random variables.
+D.2. Sampling Approximate k-DPPs
+Belabbas & Wolfe [2009] proposed using the Metropolis
+method for approximate sampling from a k-DPP. Several
+recent works have shown that a natural Metropolis algorithm
+on k-DPPs mixes quickly. In particular, Anari et al. [2016]
+considers the following algorithm:
+Theorem 5 (Anari et al. [2016], Theorem 2). Let A denote
+algorithm 1. Let νR denote the distribution induced by
+R steps of A. Let R(ϵ) denote the minimum R such that
+∥µ−νR∥TV < ϵ, whereµ is a k-DPP on some kernel
+matrix Kﬀ. Then
+R(ϵ)≤NM log
+( (N
+M
+)
+M!
+ϵ
+)
+≤NM 2 logN +NM log 1
+ϵ.
+
+=== PDF PAGE 13 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+Algorithm 1 MCMC algorithm for samplingϵ k-DPP (A)
+Input: Training inputs X ={xi}N
+i=1, number of points
+to choose,M, kernelk.
+Returns: A sample ofM inducing points drawn propor-
+tional to the determinant of KZ,Z
+InitializeM columns greedily in an iterative fashion call
+this setS0.
+forr<R do
+Sample i uniformly from Sr and j uniformly from
+X\Sr. DeﬁneT =S\{i}∪{ j},
+Computepi→j := 1
+2 min{1, det(KT )/det(KSr)}
+With probabilitypi→jSr+1 =T otherwise,Sr+1 =S
+end for
+Return:SR
+Takingϵ to be any ﬁxed inverse power ofN, (i.e.ϵ =N−γ,
+will make the second termO(NM log(N)), while by taking
+γ large (e.g. greater than 2), we can make 2Nvϵ small.
+The total cost of the algorithm is determined by the cost of
+the greedy initialization, plus R(ϵ) times the per iteration
+cost of the algorithm. A naive implementation of the greedy
+initialization requiresO(NM 4) time andO(NM ) memory,
+simply by computing the determinant of each of theN−m
+possible ways to extend the current subset (faster implemen-
+tations are possible, but this sufﬁces for our purposes). We
+assume that this is implemented in such a way that at the
+end of the initialization we have access to det(KS0) and a
+Cholesky factorizationS0 = L0L0
+T.
+We take as an inductive hypothesis that at iterationr of the
+algorithm, we know det(KSr) and a Cholesky factorization,
+KSr = LrLT
+r. We then need to show we can compute a
+Cholesky factorization and determinant of KT inO(M 2).
+Given the Cholesky factorization of T, det(KT ) can be
+computedO(M) as it is the product of the square of the
+diagonal elements. It therefore remains to consider the
+calculation of LT, a Cholesky factor of KT.
+The computation of LT proceeds in two steps: ﬁrst we
+compute LS\i using LS.
+LS =
+
+
+L1,1 0 0
+ℓ2,1 ℓ2,2 0
+L3,1 ℓ3,2 L3,3
+
+,KS =
+
+
+K1,1 k2,1 K1,3
+k2,1 k(xi, xi) k2,3
+K3,1 k3,2 K3,3
+
+
+A direct calculation shows,
+LS\i =
+[L1,1 0
+L3,1 L′3,3
+]
+where L′3,3L′T
+3,3 = L3,3LT
+3,3 +ℓ3,2ℓT
+3,2. This is a rank one-
+update to a Cholesky factorization, and can be performed
+using standard methods inO(M 2).
+We now need to extend a Cholesky factorization fromS\i
+toT, which involves adding a row.
+LT =
+[LS\i 0
+c d
+]
+with c = L−1
+S\ikS\i,j and d =√
+k(xj, xj)− kT
+S\i,jL−1T
+S\i L−1
+S\ikS\i,j. All of these
+calculations can be computed in O(M 2) completing the
+proof of the per iteration cost.
+E. Proof of Corollaries
+E.1. Corollary 2
+From theorem 3, with probability 1−δ and this choice ofϵ
+KL
+(
+Q∥ ˆP
+)
+≤ C(M + 1)
+2σ2nδ
+(
+1 +∥y∥2
+2
+σ2n
+)
++N−γ(R/σ2
+n + 1/N) (22)
+Take M = (3+γ) log(N )+logD
+log(B−1) . If M ≥ N the KL-
+divergence is zero and we are done. Otherwise,C(M +1)<
+N 2 ∑∞
+i=M +1λi. By the geometric series formula,
+∞∑
+i=M +1
+λi =v
+√
+2a√
+A
+BM
+1−B
+Now,BM =N−3−γD−1, so
+∞∑
+i=M +1
+λi =δN−3−γ,
+implying C(M +1)
+2δσ 2n
+< N−1−γ. Using this in eq. 22 com-
+pletes the proof.
+E.2. Corollary 3
+It is sufﬁcient to consider the case of isotropic kernels and in-
+put distributions.4 From [Seeger et al., 2008] in the isotropic
+case (i.e.Bi =Bj =:B for alli,j ≤D),
+λs+D−1≤
+(2a
+A
+)D/2
+Bs1/D
+.
+Deﬁne ˜M =M +D− 1, to be the number of features used
+for inference.
+4For the general case, the eigenvalues can be bounded above
+by constant times the eigenvalues of an operator with an isotropic
+kernel with all lengthscales equal to the shortest kernel lengthscale
+and the input density standard deviation set to the largest standard
+deviation of any one-dimensional marginal ofp(x).
+
+=== PDF PAGE 14 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+∞∑
+s= ˜M +1
+λs≤
+(2a
+A
+)D/2 ∞∑
+s=M +1
+Bs1/D
+(23)
+<
+(2a
+A
+)D/2 ∫ ∞
+s=M
+Bs1/D
+ds =:I. (24)
+In the second line, we use thatB <1, soBs1/D
+obtains its
+minimum on the intervals∈ [s′,s′+1] at the right endpoint
+(i.e. monotonicity). We now deﬁneα =− log(B). So,
+I =
+(2a
+A
+)D/2 ∫ ∞
+s=M
+exp
+(
+−αs1/D
+)
+ds (25)
+=
+(2a
+A
+)D/2
+α−DD
+∫ ∞
+t=αM 1/D
+e−ttD−1dt (26)
+In the second line we made the substitutiont =αs1/D, so
+ds =α−DDtD−1. We now recognize,
+∫ ∞
+t=αM 1/D
+e−ttD−1dt
+as an incomplete gamma function, Γ(D,αM 1/D). From
+Gradshteyn & Ryzhik [2014, 8.352],
+Γ(D,y ) = (D− 1)!e−y
+D−1∑
+k=0
+yk
+k!
+So,
+I =
+(2a
+A
+)D/2
+α−DD!e−αM 1/D
+D−1∑
+k=0
+αkMk/D
+k! (27)
+AsM grows as a function ofN andD is ﬁxed, forN large
+D≤αM 1/D. This implies that that the largest term in the
+sum on the right hand side is the ﬁnal term, so
+I≤
+(2a
+A
+)D/2
+α−1D2e−αM 1/D
+M (D−1)/D. (28)
+ChooseM = 1
+α log
+(
+Nγ′(2a
+A
+)D/2
+D2α−1
+)D
+. Then
+(2a
+A
+)D/2
+α−1D2e−αM 1/D
+=N−γ′
+and
+M (D−1)/D <M = 1
+α log
+(
+Nγ′
+(2a
+A
+)D/2
+D2α−1
+)D
+,
+so
+I≤ 1
+α log
+(
+Nγ′
+(2a
+A
+)D/2
+D2α−1
+)D
+N−γ′
+.
+For any ﬁxedD, for this choice ofM for anyε> 0 forN
+large,
+I =O
+(
+N−γ′+ε
+)
+.
+By choosingγ′ > 3 +ϵ′, for some ﬁxedϵ′ > 0 the proof is
+complete, using a similar argument as the one used in the
+proof of the previous corollary.
+Note that using the bound proven in Theorem 2 (the tight-
+est of our bounds) the exponential scaling in dimension
+is unavoidable. If both k andp(x) are isotropic, then the
+eigenvalue ( 2a
+A )DBm appears
+(m+D−1
+D−1
+)
+times. This fol-
+lows from noting that this is the number of ways to write
+m as a sum of D non-negative integers. Using an iden-
+tity and standard lower bound for binomial coefﬁcients∑K
+i=1
+(m+D−1
+D−1
+)
+=
+(K+D
+D
+)
+≥
+(K+D
+D
+)D
+> C(D)KD. for
+some constant depending on D,C(D). Using Theorem 2 we
+need to choose M such thatλM =O(1/N). This means
+choosing K ≫ log(N) in the sum above, leading to at
+leastα logD(N) features being needed for some constant
+α. The constant in this lower bound decays rapidly with
+D, while the constant in the upper bound does not. Better
+understanding this gap is important for understanding the
+performance of sparse Gaussian process approximations in
+high dimensions.
+If the data actually lies on a lower dimensional manifold, we
+conjecture the scaling depends mainly on the dimensionality
+of the manifold. In particular, if the manifold is linear and
+axis-aligned, then the kernel matrix only depends on dis-
+tances along the manifold (not in the space it is embedded
+in) so the eigenvalues will not be effected by the higher di-
+mensional embedding. We conjecture that similar properties
+are exhibited when the data manifold is nonlinear.
+F . Smoothness and Sacks-Ylivasker
+Conditions
+In many instances the precise eigenvalues of the covariance
+operator are not available, but the asymptotic properties
+are well understood. A notable example is when the data
+is distributed uniformly on the unit interval. If the kernel
+satisﬁes the Sacks-Ylivasker conditions of orderr:
+• k(x,x′) is r-times continuously differentiable on
+[0, 1]2 Moreover, k(x,x′) has continuous partial
+derivatives up to orderr+2 times on (0, 1)2∩(x>x ′)
+and (0, 1)2∩(x<x ′). These partial derivatives can be
+continuously extended to the closure of both regions.
+• LetL denotek(r,r)(x,x′),L+ denote the restriction
+ofL to the upper triangle andL− the restriction to the
+lower triangle, then L(1,0)
++ < L(1,0)
+− on the diagonal
+x =x′.
+
+=== PDF PAGE 15 ===
+Rates of Convergence for Sparse Variational Gaussian Process Regression
+• L(2,0)
++ (s,·) is an element of the RKHS associated toL
+and has norm bounded independent ofs.
+Notably, Mat´ern half integer kernels of orderr + 1/2 meet
+the S-Y condition of orderr. See Ritter et al. [1995] for a
+more detailed explanation of these conditions and extensions
+to the multivariate case.

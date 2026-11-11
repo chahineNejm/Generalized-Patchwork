@@ -1,0 +1,265 @@
+=== PDF PAGE 1 ===
+arXiv:1410.7827v2  [cs.LG]  24 Nov 2015
+Generalized Product of Experts for Automatic and
+Principled Fusion of Gaussian Process Predictions
+Yanshuai Cao David J. Fleet
+Department of Computer Science, University of Toronto
+Abstract
+In this work, we propose a generalized product of experts (gP oE) framework for
+combining the predictions of multiple probabilistic model s. We identify four de-
+sirable properties that are important for scalability, expressiveness and robustness,
+when learning and inferring with a combination of multiple m odels. Through
+analysis and experiments, we show that gPoE of Gaussian proc esses (GP) have
+these qualities, while no other existing combination schem es satisfy all of them
+at the same time. The resulting GP-gPoE is highly scalable as individual GP ex-
+perts can be independently learned in parallel; very expressive as the way experts
+are combined depends on the input rather than ﬁxed; the combi ned prediction is
+still a valid probabilistic model with natural interpretat ion; and ﬁnally robust to
+unreliable predictions from individual experts.
+1 Introduction
+For both practical and theoretical reasons, it is often necessary to combine the predictions of multiple
+learned models. Mixture of experts, product of experts (PoE )[[1]], ensemble methods are perhaps
+the most obvious frameworks for such prediction fusion. However there are four desirable properties
+which no existing fusion scheme achieves at the same time: (i) predictions are combined without the
+need for joint training or training meta models; (ii) the waypredictions are combined depends on the
+input rather than ﬁxed; (iii) the combined prediction is a va lid probabilistic model; (iv) unreliable
+predictions are automatically ﬁltered out from the combine d model. Property (i) allows individual
+experts to be trained independently, making the overall mod el easily scalable via parallelization;
+property (ii) gives the combined model more expressive powe r; while property (iii) allows uncer-
+tainty to be used in subsequent modelling or decision making; and ﬁnally property (iv) ensures that
+the combined prediction is robust to poor prediction by someof the experts. In this work, we propose
+a novel scheme called generalized product of expert (gPoE) that achieves all four properties if indi-
+vidual experts are Gaussian processes, and consequently, e xcels in terms of scalability, robustness
+and expressiveness of the resulting model.
+In comparison, a mixture of experts with ﬁxed mixing probabilities does not satisfy (ii) and (iv), and
+because experts and mixing probabilities generally need to be learned together, (i) is not satisﬁed
+either. If an input dependent gating function is used, then the MoE can achieve property (ii) and (iv),
+but joint training is still needed, and the ability (iv) to ﬁl ter out poor predictions crucially depends
+on the joint training.
+Depending on the nature of the expert model, a PoE may or may not need joint or re-training, but it
+does not satisfy property (iv), because without the gating f unction to ”shut-down” bad experts, the
+combined prediction is easily mislead by a single expert putting low probability on the true label.
+In the ensemble method regime, bagging[2] does not satisfy ( ii) and (iv), as it uses ﬁxed equal
+weights to combine models, and does not automatically ﬁlterpoor predictions, although empirically
+it is usually robust due to the equal weight voting. Boostingand stacking[3] requires sequential joint
+training and training a meta-predictor respectively, so they do not satisfy (i). Furthermore, boosting
+does not satisfy (ii) and (iv), while stacking only has limited ability for (iv) that depends on training.
+1
+
+=== PDF PAGE 2 ===
+As we will demonstrate, the proposed gPoE of Gaussian process es not only enjoys the good qualities
+given by the four desired properties of prediction fusion, but it also retains some important attributes
+of PoE: many weak uncertain predictions can yield very sharp combined prediction together; and
+the combination has closed analytical form as another Gaussian distribution.
+2 Generalized Product of Expert
+2.1 PoE
+We start by brieﬂy describing the product of expert model, of which our proposed method is a
+generalization. A PoE models a target probability distribution as the product of multiple densities,
+each of which is given by one expert. The product is then renormalized to sum to one. In the context
+of supervised learning, the distributions are conditional:
+P (y|x) = 1
+Z
+∏
+i
+pi(y|x) ( 1)
+In contrast to mixture models, experts in PoE hold ”veto” power, in the sense that a value has low
+probability under the PoE if a single expert pi(y|x) assigns low probability to a particular value.
+As Hinton pointed out [1], training such model for general experts by maximizing likelihood is
+hard because of the renormalization term Z. However, in the special case of Gaussian experts
+pi(y|x) = N (mi(x), Σi(x)), the product distribution is still Gaussian, with mean and covariance:
+m(x) = (
+∑
+i
+mi(x)Ti(x))(
+∑
+i
+Ti(x))
+− 1
+(2)
+Σ(x) = (
+∑
+i
+Ti(x))
+− 1
+(3)
+where Ti(x) = Σ − 1
+i (x) is the precision of the i-th Gaussian expert at point x. Qualitatively, conﬁ-
+dent predictions have more inﬂuence over the combined prediction than the less conﬁdent ones. If
+the predicted variance were always the correct conﬁdence to be used, then PoE would have exactly
+the behavior needed. However, a slight model misspeciﬁcation could cause an expert to produce
+erroneously low predicted variance along with a biased mean prediction. Because of the combi-
+nation rule, such over-conﬁdence by a single expert about its erroneous prediction is enough to be
+detrimental for the resulting combined model.
+2.2 gPoE
+Given that PoE has almost the desired behavior except for the fact that an expert’s predictive pre-
+cision is not necessarily the right measure of reliability of prediction for use in weighting, we will
+introduce another measure of such reliability to down-weight or ignore bad predictions.Like PoE,
+the proposed generalized product of experts is also a probability model deﬁned by products of dis-
+tributions. Here we again focus on conditional distribution for supervised learning, taking the form:
+P (y|x) = 1
+Z
+∏
+i
+pαi(x)
+i (y|x) ( 4)
+where αi(x) ∈ R+ is a measure of the i-th expert’s reliability at point x. We will introduce one
+particular choice for Gaussian processes in the next subsection, for now let us ﬁrst analyze the effect
+of αi(x). Raising a density to a power as done in equation (4) has been widely used as a way
+for annealing distributions in MCMC, or balancing different parts of a probabilistic model that has
+different degrees of freedom ([4], see 6.1.2 Balanced GPDM). If αi(x) = 1 ∀i, x, then we recover
+the PoE as a special case. αi > 1 sharpens the i-th distribution in the product (4), whereas αi < 1
+broadens it. The limit cases of αi → ∞, while the other exponents are ﬁxed causes the largest
+mode of i-th distribution to dominate the product distribution with arbitrarily large “veto” power; on
+the other hand, αi → 0 causes i-th expert to have arbitrarily small weight in the combined model,
+effectively ignoring its prediction.
+Another interesting property of gPoE is that if each pi is Gaussian, then the resulting P (y|x) is still
+Gaussian as in PoE. To see this, it sufﬁces to show that pαi
+i is Gaussian, which is apparent with a
+little algebraic manipulation:
+pαi
+i = exp(αi ln(pi)) = 1
+C e xp(−.5(y − mi)⊤ (αiΣ− 1
+i )(y − mi)) (5)
+2
+that is kind 
+of the point?
+
+=== PDF PAGE 3 ===
+This also shows that the powerαi e ssentially scales the precision ofi-th Gaussian. Therefore, similar
+to equation (2) and (3), the mean and covariance of Gaussian gPoE are:
+m(x) = (
+∑
+i
+mi(x)αi(x)Ti(x))(
+∑
+i
+αi(x)Ti(x))
+− 1
+(6)
+Σ(x) = (
+∑
+i
+αi(x)Ti(x))
+− 1
+(7)
+2.3 gPoE for Gaussian processes
+Now that we have established how αi(x) can be used to control the inﬂuence of individual experts,
+there is a natural choice of αi(x) for Gaussian processes that can reliably detect if a particular GP
+expert does not generalize well at a given point x: the change in entropy from prior to posterior at
+point x, ∆Hi(x), which takes almost no extra computation since posterior variance at x is already
+computed when the GP expert makes prediction and the prior variance is simplyk(x, x), where k is
+the kernel used.
+When the entropy change at point x is zero, it means the i-th expert does not have any information
+about this point that comes from training observation, therefore, it shall not contribute to the com-
+bined prediction, which is achieved by our model because αi(x) = 0 in (6) and (7). For Gaussian
+processes, this covers both the case if point x is far away from training points or if the model is
+misspeciﬁed. 1
+There are other quantities that could be used as αi(x), for example the difference between the prior
+and posterior variance (instead of half of difference of log of the two variances). The reason we
+choose the entropy change is because it is unit-less in the sense of dimensional analysis in physics,
+so that the resulting predictive variance in equation (7) is of the correct unit. The same is not true
+if αi(x) is the difference of variances which carries the unit of variance (or squared unit of variable
+y). The KL divergence between prior and posterior distribution at point x could also potentially be
+used as αi(x), but we ﬁnd the entropy change to be already effective in our experiments. We will
+explore the use of KL divergence in future work.
+3 Experiment
+We compare gPoE against bagging, MoE, and PoE on three different datasets: KIN40K (8D feature
+space, 10K training points), SARCOS (21D, 44484 training points), and the UK apartment price
+dataset (2D, 64910 training points) used in SVI-GP work of Hensman et al. [8]. We try three
+different ways to build individual GP experts: (SoD) random subset of data; (local) local GP around
+a randomly selected point; (tree) a tree based construction, where a ball tree [5] built on training set
+recursively partitions the space, and on each level of the tree, a random subset of data is drawn to
+build a GP. On all datasets and for all methods of GP expert construction, we use256 data points for
+each expert, and construct 512 GP experts in total. Each GP expert uses a kernel that is the sum of
+an ARD kernel and white kernel, and all hyperparameters are learned by scaled conjugate gradient.
+For MoE, we do not jointly learn experts and gating functions, as it is very time consuming, instead
+we use the same entropy change as the gating function (re-normalized to sum to one). Therefore,
+all experts in all combination schemes could be learned independently in parallel. On a 32-core ma-
+chine, with the described setup, training 512 GP experts with independent hyperparameter learning
+via SGD on each datasets takes between 20 seconds to just under one minute, including the time for
+any preprocessing such as ﬁtting the ball tree.
+In terms of test performance evaluation, we use the commonly used metrics standardized negative
+log probability (SNLP) and standardized mean square error (SMSE). Table 1 and 2 show that gPoE
+consistently out-performs bagging, MoE and PoE combination rules by a large margin on both
+scores. Under the tree based expert construction method, we explore a heuristic variant of gPoE
+(tree-gPoE), which takes only experts that are on the path deﬁned by the root node to the leaf node
+of the test point in the tree. Alternatively, this could be viewed as deﬁning αi(x) = 0 for all experts
+that are not on the root-to-leaf path. This variant gives a slight further boost to performance across
+the board.
+1F or the experiments, we also normalize the weighting factors at each point x so that ∑
+i αi(x) = 1 .
+3
+VERY COOL VERY SIMPLE
+
+=== PDF PAGE 4 ===
+Another interesting observation is that while gPoE performs consistently well, PoE is almost always
+poor, especially in SNLP score. This empirically conﬁrms ou r previous analysis that misguided
+over-conﬁdence by experts are detrimental to the resulting PoE, and shows that the correction by
+entropy change in gPoE is an effective way to ﬁx this problem.
+SoD Local Tree
+Bagging MoE PoE gPoE Bagging MoE PoE gPoE Bagging MoE PoE gPoE tree-gPoE
+SARCOS .619 0.164 0.438 0.0603 0.685 0.119 0.619 0.0549 0.648 0.208 0.493 0.014 0.009
+KIN40K 0.628 0.520 0.543 0.346 0.761 1.174 0.671 0.381 0.735 0.691 0.652 0.285 0.195
+UK-APT 0.00219 0.00220 0.00218 0.00214 0.00316 0.00301 0.00315 0.00122 0.00309 0.00193 0.00310 0.00162 0.00144
+Table 1: SMSE
+SoD Local Tree
+Bagging MoE PoE gPoE Bagging MoE PoE gPoE Bagging MoE PoE gPoE tree-gPoE
+SARCOS N/A -0.528 205.27 -1.445 N/A -1.432 3622.5 -2.456 N/A -0.896 1305.46 -2.643 -2.77
+KIN40K N/A -0.344 215.02 -0.542 N/A 0.6136 495.17 -0.518 N/A -0.155 376.4 -0.643 -0.824
+UK-APT N/A -0.175 244.06 -0.191 N/A -0.215 805.4 -0.337 N/A -0.235 627.07 -0.355 -0.410
+Table 2: SNLP
+Finally, we would like to note that as a testimony to the expre ssive power given by the gPoE, GP
+experts trained on only 256 points with very generic kernels could combine to give predi ction per-
+formance close to or even superior to sophisticated sparse G aussian process approximation such as
+stochastic variational inference (SVI-GP), as evidenced b y the comparison in table 3 for the UK-
+APT dataset. Note also that due to parallelization, trainin g in our case took less than 30 seconds
+on this problem of 64910 training points, although testing t ime in our gPoE is much longer than
+sparse GP approximations. Similar results competitive or even superior to sophisticated FITC[6] or
+CholQR[7] approximations are observed on SARCOS and KIN40K as well, but due to space and
+time constraints are not included in this extended abstract, but in future work instead. We would like
+to emphasize that such comparison does not suggest gPoE as a silver bullet for beating benchmarks
+using any naive expert GP model, but to demonstrate the expressiveness of the resulting model, and
+shows its potential to be used in conjunction with other soph isticated techniques for sparsiﬁcation
+and automatic model selection.
+SoD-256 SoD-500∗ SoD-800∗ SoD-1000∗ SoD-1200∗ SVI-GP∗ SoD-gPoE Local-gPoE Tree-gPoE Tree2-gPoE
+RMSE 0.566 0.522 +/- 0.018 0.510 +/- 0.015 0.503 +/- 0.011 0.502 +/- 1.012 0.426 0.556 0.419 0.484 0.456
+Table 3: RMSE: comparing root mean square error on the UK-APT dataset, we use this score instead of SMSE
+and SNLP as it is the measure used by Hensman et al. in [8]. All m ethods with ∗ next to the name indicates
+that the number is what is reported in the SVI-GP paper [8].
+4 Discussion and Conclusion
+In this work, we proposed a principled way to combine predictions of multiple independently learned
+GP experts without the need for further training. The combin ed model takes the form of a general-
+ized product of experts, and the combined prediction is Gaus sian and has desirable properties such
+as increased expressiveness and robustness to poor predictions of some experts.
+We showed that the gPoE has many interesting qualities over o ther combination rules. However,
+one thing it cannot capture is multi-modality like in mixtur e of experts. In future work it would
+interesting to explore generalized product of mixture of Ga ussian processes, which captures both
+“or” constraints as well as “and” constraints. Another futu re work direction is to explore other
+measures of model reliability for GP. Finally, while the lac k of change in entropy is an indicator
+of irrelevant prediction, the converse statement does not s eem to be true, i.e., sufﬁcient change in
+entropy does not necessarily guarantee reliable prediction because of all the potential ways the model
+could be mis-speciﬁed. However, our empirical results sugg est that at least with RBF kernels, the
+change in entropy is always reliable even if the estimated po sterior variance itself is not accurate.
+Further theoretical work is needed to better understand the converse case.
+4
+
+=== PDF PAGE 5 ===
+Acknowledgments
+We thank J. Hensman for providing his dataset for benchmarking, as well as the anonymous reviewer
+for insightful comments and question about the reliability issue in the converse case.
+References
+[1] G.E. Hinton. Training products of experts by minimizing contrastive divergence. Neural
+Computation, 14:1771–1800, 2002.
+[2] Breiman, Leo. Bagging predictors. Machine Learning, 24 (2): 123140, 1996.
+[3] David H. Wolpert. Stacked Generalization Neural Networks, 5, 241–259, 1992.
+[4] R. Urtasun. Motion Models for Robust 3D Human Body Tracki ng. Phd Thesis 3541, EPFL
+2006
+[5] Omohundro, Stephen M. Five Balltree Construction Algor ithms International Computer Sci-
+ence Institute Technical Report, 1989.
+[6] E. Snelson and Z. Ghahramani. Sparse gaussian processes using pseudo-inputs. NIPS 18, pp.
+1257–1264. 2006.
+[7] Y . Cao, M. Brubaker, D. J. Fleet, A. Hertzmann. Efﬁcient O ptimization for Sparse Gaussian
+Process Regression NIPS 2013, 2013.
+[8] James Hensman, Nicolo Fusi, Neil D. Lawrence. Gaussian P rocesses for Big Data NIPS 2013,
+2013.
+5

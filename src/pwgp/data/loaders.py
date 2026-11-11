@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -109,7 +110,7 @@ def prepare_flight(
     sample_size: int = 800_000,
     seed: int = 7,
 ) -> Path:
-    """Create the deterministic eight-predictor FLIGHT dataset used by the paper."""
+    """Prepare eight-predictor FLIGHT data by removing unusable rows, never imputing."""
     planes = pd.read_csv(planes_path, low_memory=False)
     required_plane_columns = ["tailnum", "year"]
     missing_plane_columns = [
@@ -139,6 +140,8 @@ def prepare_flight(
     ]
     generator = np.random.default_rng(seed)
     pieces: list[pd.DataFrame] = []
+    counts = dict.fromkeys(("input_rows", "removed_invalid_flags", "removed_cancelled_or_diverted",
+                            "removed_invalid_features", "removed_invalid_age", "eligible_rows"), 0)
     for chunk in pd.read_csv(
         flights_path,
         compression="bz2",
@@ -146,10 +149,13 @@ def prepare_flight(
         chunksize=250_000,
         low_memory=False,
     ):
-        chunk = chunk[
-            pd.to_numeric(chunk["Cancelled"], errors="coerce").fillna(0).eq(0)
-            & pd.to_numeric(chunk["Diverted"], errors="coerce").fillna(0).eq(0)
-        ]
+        counts["input_rows"] += len(chunk)
+        flags = chunk[["Cancelled", "Diverted"]].apply(pd.to_numeric, errors="coerce")
+        valid_flags = flags.isin([0, 1]).all(axis=1)
+        noncancelled = flags.eq(0).all(axis=1)
+        counts["removed_invalid_flags"] += int((~valid_flags).sum())
+        counts["removed_cancelled_or_diverted"] += int((valid_flags & ~noncancelled).sum())
+        chunk = chunk[valid_flags & noncancelled]
         age = pd.to_numeric(chunk["Year"], errors="coerce") - pd.to_numeric(
             chunk["TailNum"].astype(str).map(plane_year), errors="coerce"
         )
@@ -165,8 +171,13 @@ def prepare_flight(
                 "month": pd.to_numeric(chunk["Month"], errors="coerce"),
                 "arrdelay": pd.to_numeric(chunk["ArrDelay"], errors="coerce"),
             }
-        ).dropna()
+        )
+        valid = np.isfinite(prepared.to_numpy(dtype=np.float64)).all(axis=1)
+        counts["removed_invalid_features"] += int((~valid).sum())
+        prepared = prepared.loc[valid]
+        counts["removed_invalid_age"] += int(((prepared["age"] < 0) | (prepared["age"] > 100)).sum())
         prepared = prepared[(prepared["age"] >= 0) & (prepared["age"] <= 100)]
+        counts["eligible_rows"] += len(prepared)
         if len(prepared):
             count = min(len(prepared), max(1, round(0.18 * len(prepared))))
             pieces.append(prepared.iloc[generator.choice(len(prepared), count, replace=False)])
@@ -193,7 +204,46 @@ def prepare_flight(
         X=frame[features].to_numpy(np.float64),
         y=frame["arrdelay"].to_numpy(np.float64),
     )
+    output_path.with_suffix(".json").write_text(json.dumps({
+        "row_counts": {**counts, "sampled_rows": len(frame)},
+        "seed": seed, "maximum_rows": sample_size, "within_chunk_fraction": 0.18,
+        "imputation": "none", "malformed_numeric_policy": "remove_row",
+        "reference_status": "raw reconstruction; original SVGP cleaning/split not verified",
+    }, indent=2, allow_nan=False), encoding="utf-8")
     return output_path
+
+
+def prepare_author_flight(source: Path, output: Path) -> Path:
+    """Convert the trusted author pickle using the published SVGP feature mapping."""
+    columns = ["plane_age", "Distance", "AirTime", "DepTime", "ArrTime",
+               "DayOfWeek", "DayofMonth", "Month", "ArrDelay"]
+    frame = pd.read_pickle(source)
+    if not isinstance(frame, pd.DataFrame):
+        raise TypeError("Author airline pickle must contain a pandas DataFrame")
+    missing = [column for column in columns if column not in frame.columns]
+    if missing:
+        raise KeyError(f"Missing author airline columns: {missing}")
+    numeric = frame[columns].apply(pd.to_numeric, errors="coerce")
+    valid = np.isfinite(numeric.to_numpy(dtype=np.float64)).all(axis=1)
+    clean = numeric.loc[valid].copy()
+    if clean.empty:
+        raise ValueError("Author airline data has no usable rows")
+    for column in ("DepTime", "ArrTime"):
+        clean[column] = 60 * np.floor(clean[column] / 100) + clean[column] % 100
+    output.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(output, X=clean[columns[:-1]].to_numpy(np.float64),
+                        y=clean["ArrDelay"].to_numpy(np.float64))
+    output.with_suffix(".json").write_text(json.dumps({
+        "source": str(source), "dataset": "Hensman VFF/SVGP author-prepared airline",
+        "row_counts": {"input_rows": len(frame), "removed_invalid": int((~valid).sum()),
+                       "output_rows": len(clean)},
+        "time_conversion": "HHMM to minutes since midnight, as in airline_svigp_rbf.py",
+        "feature_columns": columns[:-1], "target_column": "ArrDelay",
+        "imputation": "none", "subsampling": "none", "split": "not applied",
+        "normalization": "not applied; fit preprocessing on training rows only",
+        "reference_status": "VFF author-prepared data, not verified original 2013 split",
+    }, indent=2, allow_nan=False), encoding="utf-8")
+    return output
 
 
 def load_oisst(path: Path, *, bounds: tuple[float, float, float, float] | None = None) -> RegressionDataset:

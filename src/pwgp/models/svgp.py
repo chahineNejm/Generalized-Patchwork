@@ -14,6 +14,7 @@ from pwgp.config import (
     NumericalConfig,
 )
 from pwgp.kernels import ard_rbf
+from pwgp.linalg import cholesky_solve
 from pwgp.parameters import GlobalARDHyperparameters, UnitCubeParameter
 from pwgp.variational import DenseGaussian
 
@@ -72,9 +73,7 @@ class SVGP(nn.Module):
             self.hyp.lengthscales(),
             self.hyp.outputscales(),
         )
-        identity = torch.eye(
-            len(supports), dtype=supports.dtype, device=supports.device
-        )
+        identity = torch.eye(len(supports), dtype=supports.dtype, device=supports.device)
         covariance = covariance + self.numerical.prior_jitter * identity
         return {"covariance": covariance, "cholesky": torch.linalg.cholesky(covariance)}
 
@@ -83,18 +82,14 @@ class SVGP(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         prior = prior or self.prior()
         supports = self.supports()
-        cross_covariance = ard_rbf(
-            x, supports, self.hyp.lengthscales(), self.hyp.outputscales()
-        )
-        weights = torch.cholesky_solve(
-            cross_covariance.T, prior["cholesky"]
-        ).T
+        cross_covariance = ard_rbf(x, supports, self.hyp.lengthscales(), self.hyp.outputscales())
+        weights = cholesky_solve(cross_covariance.T, prior["cholesky"]).T
         mean = weights @ self.q.mean
-        conditional_variance = self.hyp.outputscales() - (
-            weights * cross_covariance
-        ).sum(-1)
+        conditional_variance = self.hyp.outputscales() - (weights * cross_covariance).sum(-1)
         propagated = weights @ self.q.cholesky()
         variance = conditional_variance + propagated.square().sum(-1)
+        if not bool(torch.isfinite(mean).all() & torch.isfinite(variance).all()):
+            raise FloatingPointError("SVGP predictive mean and variance must be finite")
         if bool((variance <= self.numerical.variance_floor).any()):
             raise FloatingPointError("SVGP latent variance is below the configured floor")
         return mean, variance
@@ -126,4 +121,3 @@ class SVGP(nn.Module):
         if observation_noise:
             variance = variance + self.hyp.noise_std().square()
         return mean, variance
-

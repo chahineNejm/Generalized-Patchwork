@@ -1,0 +1,1427 @@
+=== PDF PAGE 1 ===
+ProSpar-GP: scalable Gaussian process
+modeling with massive non-stationary
+datasets
+Kevin Li∗, Simon Mak ∗
+November 16, 2023
+Abstract
+Gaussian processes (GPs) are a popular class of Bayesian nonparametric models,
+but its training can be computationally burdensome for massive training datasets.
+While there has been notable work on scaling up these models for big data, existing
+methods typically rely on a stationary GP assumption for approximation, and can
+thus perform poorly when the underlying response surface is non-stationary, i.e., it
+has some regions of rapid change and other regions with little change. Such non-
+stationarity is, however, ubiquitous in real-world problems, including our motivating
+application for surrogate modeling of computer experiments. We thus propose a new
+Product of Sparse GP (ProSpar-GP) method for scalable GP modeling with massive
+non-stationary data. The ProSpar-GP makes use of a carefully-constructed product-
+of-experts formulation of sparse GP experts, where different experts are placed within
+local regions of non-stationarity. These GP experts are fit via a novel variational
+inference approach, which capitalizes on mini-batching and GPU acceleration for
+efficient optimization of inducing points and length-scale parameters for each expert.
+We further show that the ProSpar-GP is Kolmogorov-consistent, in that its generative
+distribution defines a valid stochastic process over the prediction space; such a property
+provides essential stability for variational inference, particularly in the presence of
+non-stationarity. We then demonstrate the improved performance of the ProSpar-GP
+over the state-of-the-art, in a suite of numerical experiments and an application for
+surrogate modeling of a satellite drag simulator.
+Keywords: Bayesian nonparametrics, big data, Gaussian processes, surrogate modeling,
+uncertainty quantification, variational inference.
+∗Department of Statistical Science, Duke University
+1
+arXiv:2311.08752v1  [stat.ME]  15 Nov 2023
+ight be very interesting???
+maybe good dataset?
+
+=== PDF PAGE 2 ===
+1 Introduction
+Gaussian processes (GPs; [ 20]) are a popular class of Bayesian nonparametric models.
+GPs have been widely applied in broad scientific and engineering applications, including
+rocket design [ 78], cosmology [ 34], and high-energy physics [ 17, 29, 30], primarily due
+to its model flexibility and closed-form predictive equations. However, one well-known
+limitation of GPs is that it scales poorly for massive datasets; the computation of its
+posterior predictive distribution requires O(n3) work and O(n2) memory, where n ≫ 1 is
+the sample size of the large training dataset. Such bottlenecks arise due to the need for
+storing and inverting an n × n covariance matrix. Without appropriate modifications, this
+computational burden restricts n to only thousands of sample points for GP training, which
+presents a critical limitation in the modern era of big data.
+There has thus been a notable body of work aimed at tackling such computational
+bottlenecks for GPs. A popular class of methods in spatial statistics involves the use of
+covariance tapering for sparsifying the underlying covariance matrix [ 34, 35]. Another
+class of methods employs low rank approximations of this covariance matrix via sampling
+or approximation from its spectral density [ 39, 56]. Divide-and-conquer methods have
+also garnered much attention; this includes [ 52], which “stitches” together distinct GPs
+on local regions using soft continuity conditions, and [ 68], which leverages a multi-level
+modeling approach for jointly capturing global and local trends. Recent works [ 33, 64]
+have investigated the use of Vecchia approximations for constructing a sparse precision
+matrix via nearest neighbor conditioning sets; such methods appear to yield state-of-the-art
+performance in applications. Of interest to us later is the class of sparse GP (or inducing
+point) approaches [26, 66], also known as Gaussian predictive process models [ 3] in spatial
+statistics. Such methods parameterize the GP using m ≪ n latent “pseudo-observations” (to
+be introduced later), which induce a low-rank covariance structure that can greatly reduce
+training and prediction costs. Inducing point approaches also allow for easy integration of
+stochastic variational inference and mini-batching [ 24] for further computational efficiency,
+and have thus been widely used in the machine learning (ML) literature [43, 46, 57, 76].
+2
+good for intro
+
+=== PDF PAGE 3 ===
+A notable limitation of the above approaches, however, is that the quality of its ap-
+proximation can depend greatly on the presumed model of the underlying GP, which is
+typically taken as stationary. In applications, however, the observed data can often be
+highly non-stationary: there may be regions of the prediction space where the response
+surface changes rapidly, and other regions where the surface is relatively smooth. This arises
+naturally in our motivating surrogate modeling application for satellite drag [
+64], where the
+goal is to train an efficient predictive model for “emulating” expensive computer simulations
+of satellite bodies moving through atmospheric gases. From prior knowledge, the response
+surface for satellite drag is known to be highly non-stationary [ 47], as different regions of
+the parameter space correspond to distinct physical regimes. With such non-stationarity in
+the massive training data, the aforementioned existing methods (whose approximation can
+greatly depend on its underlying stationary assumption) may yield a mediocre fit of the
+response surface, as we shall see later.
+One seemingly straight-forward solution is to simply fit a GP model with a non-stationary
+covariance kernel; such models have been widely explored in the context of spatial statistics
+[23, 51, 60]. However, there are difficulties in leveraging existing scalable approximation
+techniques for these non-stationary models, particularly in higher-dimensional settings. An
+alternate approach is deep GP (DGP) modeling [ 13, 16], for which numerous approaches
+have been proposed for scalable prediction, including expectation propagation [ 7], doubly
+stochastic variational inference [ 61], and Hamiltonian Monte Carlo [ 22]. In particular, a
+recent work [ 64] utilized Vecchia approximations with elliptical slice sampling for DGP
+fits. Despite such techniques, DGPs can still be computationally expensive to fit for large
+datasets, and can have highly complex posterior geometries that make it difficult to fully
+explore for stable inference and prediction [55]; we shall see this in later experiments.
+We thus propose a new Product of Sparse GP (ProSpar-GP) method that addresses
+the above challenges for scalable GP training with massive non-stationary datasets. The
+key idea is to leverage a “product-of-experts” formulation [ 25] of sparse GP experts, which
+aggregates J ≥ 1 sparse GP experts into a global probabilistic predictive model. This is
+achieved by placing different experts (with distinct kernel hyperparameters and inducing
+3
+maybe that s a direction??
+
+=== PDF PAGE 4 ===
+points) within local regions to account for non-stationarity over the prediction space. With
+a carefully-designed variational inference procedure, each sparse GP expert can be trained
+via an efficient optimization of its length-scale parameters and local inducing points. Our
+variational inference procedure can be performed in O(PJ
+j=1 m3
+j) runtime and O(PJ
+j=1 m2
+j)
+memory, where mj ≪ n is the number of inducing points for the j-th sparse GP expert.
+The developed procedure can further capitalize on mini-batching and GPU acceleration
+for computational efficiency. With this, we then demonstrate the improved predictive
+performance of the ProSpar-GP over the state-of-the-art, in a suite of numerical experiments
+and the motivating surrogate modeling application.
+It is worth noting that, in the ML literature, there is a body of work on product-of-expert
+(POE) formulations with standard GP experts. This was first explored in [ 9], then extended
+in [15] for efficient computation. One known limitation is that such approaches typically
+yield poorly calibrated uncertainties, due to its reliance on an invalid joint probability
+distribution. [ 11, 42] explored alternate expert aggregation strategies to address this;
+however, the resulting generative model of such methods does not define a valid stochastic
+process [ 62], which (as we shall see later) can yield poor predictive performance and
+uncertainty quantification. The proposed ProSpar-GP has a key advantage over the above
+methods: we prove that our approach is Kolmogorov-consistent, in that its generative
+distribution defines a valid stochastic process over the prediction space. This permits stable
+variational inference and prediction under our model [ 44], and allows for greater modeling
+flexibility for each GP expert to better capture non-stationary behavior (more on this in
+Section 2.3). Due in part to this stability, we show later in a suite of numerical experiments
+that the ProSpar-GP offers improved performance over existing POE approaches.
+The paper is organized as follows. Section 2 provides a brief review of GPs, sparse GPs
+and other state-of-the-art methods, and explores their potential limitations for massive non-
+stationary datasets. Section 3 presents the proposed ProSpar-GP, including the employed
+variational inference approach that leverages mini-batching and GPU acceleration for
+scalable prediction. Section 4 investigates important properties of the ProSpar-GP, including
+computational and memory complexity, Kolmogorov consistency, and global-local modeling.
+4
+
+=== PDF PAGE 5 ===
+Section 5 compares the ProSpar-GP to the state-of-the-art in a suite of numerical experiments.
+Section 6 explores its performance in an application to surrogate modeling of a satellite
+drag simulator. Section 7 concludes with final thoughts.
+2 Background & Motivation
+2.1 Gaussian process modeling
+Gaussian processes [ 20, 59] are a widely-used class of Bayesian non-parametric models.
+Suppose we wish to predict an unknown scalar function f(x) over an input domain X ⊆ Rd.
+A (zero-mean) GP prior on f(·) takes the form f(·) ∼ GP{0, kϕ(·, ·)}, where kϕ(·, ·) is a
+pre-specified covariance function with length-scale parameters ϕ. Suppose we observe data
+y = (y1, · · · , yn), following:
+yi = f(xi) + ϵi, i = 1, · · · , n, (1)
+where ϵi
+i.i.d.
+∼ N (0, γ2) are i.i.d. normal noise terms. Conditioning on such data, one can
+show [59] that the posterior distribution of f(xnew) at a new input xnew takes the form:
+f(xnew)|y1, · · · , yn ∼ N {µ(xnew), σ2(xnew)}, (2)
+where:
+µ(xnew) = kT
+n(xnew)(Kn,n+γ2I)−1y, σ 2(xnew) = kϕ(xnew, xnew)−kT
+n(xnew)(Kn,n+γ2I)−1kn(xnew)
+(3)
+are its posterior mean and variance expressions. Here, Kn,n = [ kϕ(xi, xj)]n
+i,j=1 is the n × n
+covariance matrix for the data, and kn(xnew) = (kϕ(xi, xnew))n
+i=1 is the covariance vector between
+the data and the new input xnew. Equation (2) thus provides a closed-form expression for the GP
+posterior predictive distribution. There are various ways for fitting the required model parameters
+ϕ and γ2, including maximum likelihood estimation, empirical Bayes and fully Bayesian inference;
+see [20] for details.
+Equation (3) reveals the primary computational bottleneck for GP modeling with big data:
+the storage and inverse computation of the n × n matrix Kn,n + γ2I require O(n2) memory and
+O(n3) work, respectively. This can clearly be computationally infeasible when the sample size n
+5
+
+=== PDF PAGE 6 ===
+is larger than several thousands. This issue is further compounded by the need to estimate the
+model hyperparameters ϕ and γ2 from data. Using either a maximum likelihood or a Bayesian
+approach, this estimation typically requires many evaluations of its likelihood function, with each
+evaluation involving a separate inverse of the n × n covariance matrix. Without modifications,
+this thus greatly limits the use of GP models for massive training datasets.
+2.2 Sparse Gaussian processes
+A popular strategy on tackling this limitation in the ML literature is via sparse Gaussian
+processes [24, 26, 66]; this is also known as Gaussian predictive processes in spatial statistics [ 3].
+The key idea is to leverage a set of m ≪ n “representative” inducing points {zl}m
+l=1 ⊆ X over the
+input space, where the number of inducing points m is much smaller than the sample size n. Let
+f = (f(xi))n
+i=1 be the latent function values at training input points, and u = (f(zl))m
+l=1 be the
+latent pseudo-observations at inducing points. Following the fully-independent-training-conditional
+(FITC) formulation in [ 66], we adopt the approximation that the entries in f are conditionally
+independent given the pseudo-observations u. This can be represented hierarchically as:
+y|f = f + ϵ, ϵ ∼ N (0, γ2I),
+f |u i.i.d.∼ N (Kn,mK−1
+m,mu, Λ), Λ = diag{Kn,n − KT
+n,mK−1
+m,mKm,n},
+u ∼ N (0, Km,m).
+(4)
+Here, Km,m = [kϕ(zl, zl′)]m
+l,l′=1 is the m × m covariance matrix at inducing points, and Kn,m =
+[kϕ(xi, zl)]m
+l=1
+n
+i=1 is the n × m cross-covariance matrix between inducing points and observed inputs.
+With this approximation, the corresponding marginal likelihood p(y) and the posterior distri-
+bution of pseudo-observations [u|y] admit efficient closed-form expressions. The kernel parameters
+ϕ, noise variance γ2 and inducing points {zl}m
+l=1 can then be estimated via maximization of this
+closed-form marginal likelihood, for which each evaluation requires O(nm2 + m3) work. Finally,
+with these parameters fitted, the desired (approximate) predictive posterior distribution [f(xnew)|y]
+can be computed via marginalization, i.e., [ f(xnew)|y] =
+R
+[f(xnew)|u][u|y]du, where [u|y] again
+can be obtained in closed-form from (4). This marginalization yields a closed-form distribution for
+[f(xnew)|y] that can be computed in O(nm2 + m3) work, which greatly reduces the O(n3) work
+needed for standard GPs. There has since been many extensions of sparse GPs, including the use
+6
+
+=== PDF PAGE 7 ===
+(a)
+ (b)
+ (c)
+Figure 1: Visualizing three different sparse GP fits on a 1-d example with n = 750 observations
+and m = 45 inducing points. The posterior mean predictor is shown as the solid red curve, with
+its 95% predictive intervals shaded in red. (a, left) uses the length-scale parameter and inducing
+points optimized via the marginal likelihood. (b, middle) uses the optimized length-scale and
+manually-placed inducing points. (c, right) uses the same inducing points in (b) with a small
+choice of length-scale parameter.
+of variational inference for efficient estimation of model parameters; see [24, 26].
+However, a key limitation of existing sparse GP approaches is that, for a fixed number of
+inducing points m, its approximation of the desired “full” GP fit (i.e., using all n data points)
+can become increasingly poor when the response surface is non-stationary; such non-stationarity,
+however, is ubiquitous in many applications. Non-stationarity introduces two critical challenges for
+existing sparse GP methods. First, since the representative inducing points {zl}m
+l=1 are optimized
+via the marginal likelihood of a presumed stationary GP, these optimized points can thus be
+far away from regions of high activity in the response surface. With such points, the resulting
+sparse GP can then yield a poor approximation of the full GP fit. Second, it is known [ 8, 12]
+that model misspecification (in the form of non-stationarity) can cause highly unstable estimates
+of length-scale parameters. One solution might be to increase the number of inducing points m
+in hopes of better capturing non-stationary regions in the data. This, however, requires a large
+choice of m, which greatly diminishes the computational efficiency of sparse GPs.
+We use a simple d = 1 example to illustrate such limitations. Figure 3 shows the true function
+f(·) in black, chosen as a highly non-stationary function that varies quickly within the region
+[−0.5, 0.5] and slowly otherwise. We then generate n = 750 observations, with noise standard
+deviation set as 15% of the standard deviation of function values. With this data, we then fit
+7
+ok
+maybe in the appendix 
+add a point about this 
+nonstationarity issue?
+ok they do synthetic data to show the need for 
+non stationarity , abblation can be just as good I think???
+ show that fixed GP hyperparameter 
+over all s not great, could be an appendix result
+
+=== PDF PAGE 8 ===
+several sparse GPs with m = 45 inducing points (marked as red points in the figure), using the
+squared-exponential kernel. The first, (a), makes use of optimized length-scale parameter ϕ and
+inducing points {zl}m
+l=1 via maximization of the marginal likelihood from a stationary GP, as
+recommended in [ 24, 26, 66]. We see that these inducing points are not concentrated in the
+region of high variation, i.e., [ −0.5, 0.5], which results in poor predictive performance and overly
+conservative uncertainty quantification. The second model, (b), aims to correct this by manually
+placing more inducing points within [ −0.5, 0.5], with length-scale again optimized via the marginal
+likelihood from a stationary GP. Despite this, we see that the estimated length-scale is much too
+high to adequately capture the high variation within the middle region. Finally, the third model
+(c) tries to address this by imposing a much smaller upper bound for length-scale optimization,
+using the same inducing points in (b). With this smaller length-scale (along with high density
+of inducing points within [ −0.5, 0.5]), we see much better predictions within the region of high
+variation. However, this comes at a clear cost: with a small global length-scale parameter, its
+prediction within regions of low variation now becomes highly volatile and inaccurate. Such issues
+are exacerbated in the presence of non-stationarity in higher dimensions, where there can be many
+local regions of high variation that can be identified with massive training data.
+2.3 Recent developments for scalable GPs
+We now briefly review recent developments and the state-of-the-art, including its potential
+limitation for modeling massive non-stationary datasets. Particularly in the ML literature, there
+has been many extensions of sparse GPs [ 4, 43], including variational approximations [ 24, 26],
+hybrid MCMC [37], and amortized implementations [27]. Such methods, however, have been noted
+to suffer from blurry (i.e., over-smoothed) predictions, due to its approximation via a stationary
+model using few inducing points [8, 64, 77]. A recent promising development is the class of Vecchia-
+approximated GPs, which approximates the underlying precision matrix by conditioning each
+observation on a subset of q data points (typically its q-nearest neighbors). This approximation
+induces a sparse precision matrix, which allows for efficient inference of model parameters (e.g.,
+length-scales) and subsequent prediction in O(nq3) work. One potential limitation of Vecchia
+methods is that they can be highly sensitive to the choice of conditioning sets and ordering.
+Conditioning sets are typically selected via scaled Euclidean distance metrics, which may encounter
+difficulties for non-stationary data in moderate dimensions, as we shall see later. [ 31] tackles this
+8
+gold
+
+=== PDF PAGE 9 ===
+via the construction of conditioning sets and orderings with a distance function learned from a
+non-stationary covariance kernel. This, however, requires the learning of such a non-stationary
+kernel, which is again difficult in moderate dimensions and with large sample sizes [ 63]; such
+methods have thus been largely applied in lower-dimensional spatio-temporal settings.
+Deep GPs (DGPs; [ 13, 16]) offer an alternative approach, by warping the input space through
+multiple GP layers to model potential non-stationarity. A popular approach for scalable DGP
+fitting is via Doubly Stochastic Variational Inference (DSVI) [61], which extends the earlier inducing
+points idea; this approach suffers from similar limitations, however, in that limited inducing points
+restrict the expressiveness of the model [ 64]. A recent promising approach [ 64] aims to address this
+via the combination of Vecchia approximations with DGPs. However, while DGPs offer greater
+expressiveness over standard GPs, such models are inherently difficult to fit: their posteriors
+are inherently multi-modal, with complex symmetries that can make parameter inference and
+subsequent predictions highly unstable [ 50, 79]. This becomes further pronounced in the presence
+of massive non-stationary training data, as we show later. The theoretical underpinnings of DGPs
+are also scant, and recent work has shown that DGPs may easily degenerate to stationary GPs in
+practical problems [14, 55].
+Finally, another class of methods involves local GP experts, which leverage local GP fits
+on partitions of the data to better model non-stationarity in a scalable manner. This includes
+the local GP approximations in [ 21] and its extension [ 68]. [ 52] leverages a generative model of
+local GP models patched together with loose continuity conditions. Such local methods, however,
+may overfit to local partitions and disregard global structure, which can harm generalization
+in moderate dimensions [ 43]. A recent development on this front is [ 11], which uses a “healed”
+generalized product of local experts (HgPOE); each expert is a GP fitted on a disjoint partition of
+the big data, then aggregated by taking the normalized product of predictive densities over all
+J ≥ 1 experts. This builds on a rich literature on product-of-experts modeling; see the seminal
+work [25] and its extensions [ 11, 42, 65, 73, 74]. More specifically, the HgPOE adopts the following
+approximation for the predictive density of f(xnew):
+p(f(xnew)|y) ∝
+JY
+j=1
+ϕ(f(xnew); µj(xnew), σ2
+j (xnew))αj (xnew). (5)
+9
+
+=== PDF PAGE 10 ===
+Here, ϕ(·; µ, σ2) is the normal density with mean µ and variance σ2, and µj(xnew) and σ2
+j (xnew)
+are the posterior mean and variance of the j-th GP expert (see (3)) fit using only data from the
+j-th data partition. The function αj(xnew) controls the influence of expert j in the aggregate
+prediction, with a larger αj dictating greater influence. Softmax weights of the form αj(xnew) =
+exp{−T σ2
+j (xnew)}/PJ
+k=1 exp{−T σ2
+k(xnew)} are recommended in [11], where T > 0 is a pre-selected
+hyperparameter that controls the smoothness of expert weights. One key limitation of the HgPOE
+is that it is Kolmogorov-inconsistent [ 62]: its aggregation does not define a valid stochastic process
+on f(·). This is likely a cause for the observed instability of such methods [9, 11, 15, 72], particularly
+in its tendency to overfit when allowing expert-specific length-scale parameters [11, 15].
+2.4 Illustrating example
+We demonstrate these potential drawbacks of the above state-of-the-art using thed-dimensional
+Michalewicz test function [ 45, 68, 69] (see Figure 2a), with inputs x ∈ [0, π]d in dimensions d = 3,
+5 and 10. This function is highly non-stationary, with steep valleys interspersed with flat planes.
+We first generate a large amount ( n = 100, 000) of training data using a Latin hypercube design
+[75], with a small noise variance of γ2 = 10−8. We then compare the performance of a suite of
+existing methods: (i) stochastic variational inducing points (SVGP; [ 26]), a popular inducing
+points approach in ML, (ii) the state-of-the-art for Vecchia GPs: the scaled Vecchia-approximated
+GP (SVecGP; [33]) and the Vecchia-approximated deep GP (VDGP; [ 64]), and (iii) recent local
+GP methods: the hybrid local approximate GP (HLaGP; [ 68]) and the HgPOE [ 11]. Predictive
+performance is evaluated on a separate test set of n∗ = 25, 000 samples (also generated using a
+Latin hypercube design). All methods were compared using recommended settings using available
+code packages; further implementation details can be found in Section 5.1.
+Figure 2b shows the resulting test root-mean-squared-errors (RMSEs) of the compared methods
+in various dimensions d. While some methods generally perform well in low dimensions ( d = 3),
+we see that in the presence of non-stationarity, their performance can quickly deteriorate in higher
+dimensions (d = 5 and d = 10). As expected, the inducing points approach (SVGP) yields mediocre
+performance, as its inducing points can be far from the non-stationary regions of interest. A similar
+sensitivity to non-stationarity can be observed for Vecchia methods as dimension increases. While
+the local GP methods (HLaGP and HgPOE) aim to capture local variability via local experts, such
+methods appear to similarly deteriorate in performance for d ≥ 5, which is inline with observed
+10
+
+=== PDF PAGE 11 ===
+(a) Visualizing the 2-d Michalewicz func-
+tion (image from https: // www. sfu. ca/
+~ ssurjano/ michal. html).
+(b) Test RMSEs for the compared methods using
+n = 100, 000 noisy samples.
+Figure 2: Illustrating example with the d-dimensional Michalewicz function.
+generalization issues in moderate dimensions [ 43]. This suggests that, when non-stationarity is
+present, the current state-of-the-art for scalable GPs may encounter difficulties in moderate to
+high dimensions; we aim to address this next.
+3 The ProSpar-GP
+We now introduce the proposed ProSpar-GP, which leverages the product of sparse GP experts
+for scalable GP training with large non-stationary data. We first introduce our model specification,
+then present an efficient variational inference approach for model fitting and prediction, capitalizing
+on mini-batching and GPU acceleration for further scalability.
+3.1 Model specification
+To achieve effective and scalable modeling with large non-stationary data, the ProSpar-GP
+makes use of a carefully-constructed generative model for the observations y at observed inputs
+x1, · · · , xn. Suppose we have J ≥ 1 sparse GP experts, each modeling for local regions of non-
+stationarity over the prediction space. Here, the j-th expert has its distinct kernel k[j](·, ·) equipped
+with separate length-scale parameters θ[j], along with its own set of inducing points {z[j]
+l }mj
+l=1 and
+corresponding pseudo-observations u[j] ∈ Rmj. We will discuss how such inducing points can be
+11
+
+=== PDF PAGE 12 ===
+optimized later in Section 3.2. With this, the ProSpar-GP leverages the following hierarchical
+generative model:
+y|f = f + ϵ, ϵ ∼ N (0, γ2I), f = (f(x1), · · · , f(xn)), (6)
+p(f |u[1], · · · , u[J]) ∝
+JY
+j=1
+( nY
+i=1
+p(f(xi)|u[j])αj (x)
+)
+, (7)
+f(xi)|u[j] i.i.d.∼ N (K[j]
+n,mjR−1
+j u[j], Λj),
+Λj = diag{λj(xi)}n
+i=1, λ j(x) = k[j](x, x) − k[j]
+mj(x)TR−1
+j k[j]
+mj(x),
+(8)
+u[j] ∼ N (0, Rj), Rj = K[j]
+mj ,mj + Dj, j = 1, · · · , J. (9)
+While the above may seem quite involved, its intuition is straight-forward; we inspect below
+this hierarchical specification line-by-line. Equation (6) specifies the distribution of the observed
+responses y given latent function values f. Equation (7) adopts a “product-of-experts” approxima-
+tion [11, 25] of the distribution for f, via the aggregation of predictive densities from the J sparse
+GP expert. Equation (8) then specifies the separate sparse GP models for each expert j, following
+the FITC formulation (4), with its corresponding inducing points {z[j]
+l }mj
+l=1 and pseudo-observations
+u[j]. Finally, each set of pseudo-observations u[j] follows the marginal normal distribution from the
+underlying GP for expert j, where K[j]
+mj ,mj is its covariance matrix and Dj = diag{d1,j, · · · , dmj ,j}
+is a diagonal matrix of nugget terms [54]; we will discuss the specification of Dj later.
+A key advantage of the product-of-expert aggregation in Equation (7) is that it provides a
+closed-form distribution for the latent responsesf |u[1], · · · , u[J], which facilitates efficient variational
+inference and prediction. In particular, one can show that:
+p(f |u[1], . . . ,u[J]) ∝
+JY
+j=1
+( nY
+i=1
+p(f(xi)|u[j])αj (x)
+)
+∝ ϕ
+
+f; Λ
+JX
+j=1
+AjΛ−1
+j µj, Λ
+
+ , (10)
+where, with λ(xi) =
+PJ
+j=1 αj(xi)/λj(xi)
+−1
+, we have Λ = diag{λ(xi)}n
+i=1, Λj = diag{λj(xi)}n
+i=1
+,
+Aj = diag{αj(xi)}n
+i=1
+, and µj = K[j]
+n,mjR−1
+j u[j]. In other words, provided the pseudo-observations
+from all J experts, the conditional distribution of f after expert aggregation reduces to a (closed-
+form) multivariate normal distribution. Taking (10) along with the marginal distribution of
+pseudo-observations u[1], · · · , u[J] from (9), the marginal distribution of f then reduces to a
+12
+this is very important
+Notation hurt my eyes
+needs to check more but looks like a special case for my formulation???
+
+=== PDF PAGE 13 ===
+zero-mean multivariate normal distribution, with covariance matrix:
+Cov(f) = Λ +
+JX
+j=1
+ΛAjΛ−1
+j K[j]
+n,mjR−1
+j K[j]
+mj ,nΛ−1
+j AjΛ. (11)
+This thus shows how the employed generative model aggregates the J sparse GP experts for
+parametrizing the marginal covariance of f. We show next in Section 3.2 that, while the covariance
+matrix in (11) and its corresponding precision matrix are dense, we can bypass direct evaluations
+of its inverse and determinant for model training and prediction, via a carefully-constructed
+variational inference procedure.
+Here, the choice of the function αj(x) plays an important role in how the sparse GP experts
+are aggregated for global prediction. In our implementation, we used the softmax parametrization:
+αj(x) = exp {−Tjλj(x)c}PJ
+k=1 exp {−Tkλk(x)c}
+, j = 1, · · · , J, (12)
+where λj(x) is the posterior variance of the j-th sparse GP expert at a new point x, T1, · · · , TJ are
+positive temperature parameters, and c > 0 is a tuneable hyperparameter. Thus, if the j-th sparse
+GP expert is more certain of its prediction at point x, i.e., it has lower posterior variance λj(x), it
+will then have greater influence in the aggregate predictor, which is as desired. The parameters
+T1, · · · , TJ and c then control how quickly this expert influence decays with expert uncertainty. In
+our implementation, these parameters are optimized via variational inference (see Section 3.2),
+to allow for a flexible and efficient calibration of local expert influence from data. The nugget
+parameters in D
+j (see (9)) also serve an important purpose: they control the local influence of
+each sparse GP expert; as dl,j increases, its corresponding pseudo-observation u[j]
+l will have less
+effect on the posterior predictive distribution of f(x) [67]. These nugget parameters will again be
+optimized via variational inference (see Section 3.2).
+An appealing property of the ProSpar-GP model (6)-(9) is that, while each sparse GP expert
+focuses primarily on modeling local activity, the training of its inducing points and pseudo-
+observations makes use of the full dataset y, instead of just a small local partition. As such, each
+expert can leverage global information over the full prediction space (if needed) to improve local
+fits. This global property of experts addresses the aforementioned limitation of some existing local
+GP methods (e.g., the HgPOE [
+11]), which may discard global information in local expert training,
+13
+horrible horrible notations
+Bon this is a choice ??? why would I care?
+
+=== PDF PAGE 14 ===
+and thus may be less effective for prediction given a computational budget. To contrast, the
+ProSpar-GP can capture both local and global features via the use of sparse GP experts equipped
+with localized inducing points; we will explore this later in Section 4.3.
+3.2 Variational inference and prediction
+With the hierarchical model (6)-(9) in hand, we now tackle the problem of posterior inference
+on the pseudo-observations u := {u[j]}J
+j=1, as well as estimation of its inducing points {z[j]
+l }mj
+l=1
+J
+j=1,
+associated kernel length-scale parameters {θ[j]}J
+j=1 and other model parameters. One approach
+might be to directly sample the posterior distribution of pseudo-observations u (which can
+be obtained in closed-form), with model parameters optimized via the maximization of the
+closed-form marginal likelihood of y. This “direct” approach can, however, be computationally
+prohibitive with massive datasets, as it requires the inverse computation and matrix multiplication
+of the dense (PJ
+j=1 mj) × (PJ
+j=1 mj) covariance matrix (11), which incur O
+
+(PJ
+j=1 mj)3
+
+and
+O
+
+n(PJ
+j=1 mj)2
+
+complexity for each evaluation of the marginal likelihood, respectively. We
+thus adopt the following variational inference approach for efficient training of the ProSpar-GP,
+leveraging the use of mini-batching and GPU acceleration for further scalability.
+Our variational inference procedure [ 5] proceeds by first defining an appropriate variational
+family for approximating the posterior, then optimizing for the distribution in this family that
+minimizes the Kullback-Liebler (KL) divergence from the desired posterior. We consider the
+following factorized variational family for approximating the posterior distribution of the pseudo-
+observations u:
+p(u|y) ≈ q(u) =
+JY
+j=1
+ϕ(u[j]; w[j]
+u , Σ[j]
+u ), (13)
+where q(·) denotes the variational density, and {w[j]
+u }J
+j=1 and {Σ[j]
+u )}J
+j=1 are variational parameters.
+This factorized form yields an easily-computable evidence lower bound (see below) that can be
+efficiently optimized for the above variational parameters. In later numerical experiments, this
+factorized form appears to be flexible enough for good predictive performance; one can, however,
+employ alternate variational forms guided by available prior knowledge, and proceed in a similar
+fashion below.
+With the variational family (13), we can derive the following evidence lower bound (ELBO;
+14
+
+=== PDF PAGE 15 ===
+[5]), which lower bounds the log-marginal likelihood log p(y) of the observed data y:
+log p(y) = log
+Z p(y|u)p(u)
+q(u) q(u)du
+
+≥
+Z
+q(u) log
+ p(y|u)p(u)
+q(u)
+
+du
+=
+nX
+i=1
+
+
+log
+
+ϕ
+
+yi; λ(xi)
+JX
+j=1
+αj(xi)
+λj(xi)k[j]
+mj(xi)TR−1
+j w[j]
+u , σ2
+
+
+
+
++
+JX
+j=1
+λ2(xi)
+ αj (xi)
+λj (xi)
+2
+k[j]
+mj(xi)TR−1
+j Σ[j]
+u R−1
+j k[j]
+mj(xi)
+λ2(xi) + σ2
+
+
+
+− KL{q(u)||p(u)},
+(14)
+where KL(·||·) denotes the KL divergence. The right side of (14) provides the ELBO, which is then
+maximized with respect to the variational parameters {w[j]
+u }J
+j=1 and {Σ[j]
+u )}J
+j=1; this is equivalent
+to minimizing the KL divergence between the true posterior and its variational approximation
+(see [5]). One can further use this ELBO for fitting the remaining ProSpar-GP model parameters,
+e.g., its inducing points {z[j]
+l }mj
+l=1
+J
+j=1, kernel length-scale parameters {θ[j]}J
+j=1, softmax weighting
+parameters {Tj}J
+j=1 and c, and the nugget parameters in {Dj}J
+j=1. Specifically, these parameters
+are set to maximize the ELBO; this can be viewed as an empirical Bayes estimation of such
+parameters, as the ELBO lower bounds the log-marginal likelihood [ 10]. Parameter estimation
+via the ELBO (or marginal likelihood) also helps regularize against over-fitting [44, 58], which is
+important for estimating expert-specific length-scale parameters in our model.
+There are two key advantages in using this variational approach for parameter estimation over
+the aforementioned direct maximization of the marginal likelihood. First, note that the ELBO
+(14) sums over the n ≫ 1 observations in the big data. This allows for unbiased gradient estimates
+of the ELBO via Monte Carlo approximation using random subsamples (or mini-batching) of the
+large dataset; such estimates can then be directly integrated within mini-batch stochastic gradient
+descent methods [41] for scalable parameter optimization. Similar stochastic variational inference
+approaches have shown successful results for scaling up standard GPs (see, e.g., [ 24, 28]), and
+appears to work well for our model later. Second, each evaluation of the ELBO (14) requires
+only operations on the J smaller mj × mj matrices, rather than the operations on the large
+P
+j=1 mj ×P
+j=1 mj covariance matrix required for the direct marginal likelihood. This greatly
+reduces computation for parameter estimation, leading to significant speed-ups for model training
+15
+
+=== PDF PAGE 16 ===
+with massive data. A full analysis of computational complexity is provided later in Section 4.1.
+The above variational approach for parameter estimation (in particular, of local inducing points
+and length-scales of each expert) thus provides a scalable and data-adaptive way of identifying
+local regions of non-stationarity from massive datasets.
+Finally, with optimized variational parameters ( {w[j]
+u }J
+j=1, {Σ[j]
+u )}J
+j=1) and estimated model
+parameters, we can then approximate the desired posterior predictive distribution [ f(xnew)|y] at a
+new point xnew, by marginalizing against the variational form (13):
+[f(xnew)|y] =
+Z
+[f(xnew)|u][u|y] du ≈
+Z
+[f(xnew)|u]
+JY
+j=1
+ϕ(uj; w[j]
+u , Σ[j]
+u ) du
+= ϕ(f(xnew); µnew, σ2
+new).
+(15)
+Here, µnew and σ2
+new have the closed-form expressions:
+µnew = λ(xnew)
+JX
+j=1
+αj(xnew)
+λj(xnew)k[j]
+mj(xnew)TR−1
+j w[j]
+u ,
+σ2
+new = λ(xnew) +
+JX
+j=1
+λ2
+j(xnew)k[j]
+mj(xnew)TR−1
+j Σ[j]
+u R−1
+j k[j]
+mj(xnew).
+(16)
+Thus, with optimized variational and model parameters, one can then use such closed-form
+expressions to efficiently sample from the (approximated) posterior predictive distribution of
+f(xnew).
+4 Properties of the ProSpar-GP
+We now explore key appealing properties of the ProSpar-GP and how they compare to
+existing methods. This includes an investigation of runtime and memory complexity, Kolmogorov
+consistency, and global-local modeling properties.
+4.1 Computational and memory complexity
+Recall that the key computational bottleneck for standard GP modeling is the required O(n3)
+work and O(n2) memory, where n is the sample size of the large training dataset. In the following,
+we investigate the runtime and memory complexities of the ProSpar-GP, and compare it with the
+16
+
+=== PDF PAGE 17 ===
+existing state-of-the-art in terms of addressing this bottleneck.
+For model training of the ProSpar-GP, its complexity is dominated by the computational cost in
+evaluating the mini-batched ELBO objective, i.e., the unbiased Monte Carlo approximation of (14)
+using random subsamples of size B ≪ n from the large training dataset. Each evaluation of this
+mini-batch ELBO requires Cholesky decompositions of J matrices, each of size mj × mj, where mj
+is the number of inducing points for the j-th expert. With this, one can show that each mini-batch
+ELBO evaluation requires a runtime complexity of O
+
+BPJ
+j=1 m2
+j +PJ
+j=1 m3
+j
+
+and a memory
+complexity of O
+PJ
+j=1 m2
+j
+
+. Using the trained model, predictions from the ProSpar-GP via the
+posterior predictive distribution (15) requires a runtime of O
+PJ
+j=1 m2
+j
+
+and memory complexity
+O
+PJ
+j=1 m2
+j
+
+, assuming the J Cholesky decompositions from model training are re-used for
+prediction. To contrast, standard stochastic variational inducing point approaches [ 26] require a
+runtime and memory cost of O
+ 
+Bm2 + m3
+and O
+ 
+m2
+respectively, where m is the number of
+total inducing points used for approximation. Viewed this way, the ProSpar-GP allows for quicker
+computation over existing inducing point approaches given the same number of inducing points
+m, particularly when mj (the number of inducing points for an expert j in the ProSpar-GP) is
+much less than m =PJ
+j=1 mj (the total number of inducing points). Moreover, in the presence of
+non-stationarity, further computational gains can be realized as standard inducing point methods
+require considerably more inducing points over the ProSpar-GP for accurate approximation (see
+Section 2.2).
+The computational advantage of the ProSpar-GP extends beyond the above runtime analysis. A
+quick inspection of (14) shows that a significant portion of the ELBO evaluations (and subsequent
+operations for computing the predictive distribution (15)) involves matrix multiplications, which
+can be greatly sped up via standard off-the-shelf GPU software, e.g., PyTorch [ 53], JAX [6, 18] or
+TensorFlow [1]. This straight-forward integration of GPU acceleration within the ProSpar-GP
+is a potential advantage over Vecchia-approximation methods, which require either populating
+individual elements of a sparse Cholesky matrix, or performing n Cholesky decompositions (each
+with complexity O(q3), where q is the number of nearest neighbors used). Neither of these
+operations easily exploit GPU acceleration [ 18], and may require an expert GPU programmer to
+realize tangible computational gains. Our approach does not suffer as much from this problem,
+as it only requires J ≪ n Cholesky decompositions. Further, with multiple GPUs, much of the
+17
+weak
+ydour 3al mahbas
+
+=== PDF PAGE 18 ===
+required computation for ProSpar-GP model training and prediction can easily parallelized by
+dividing the experts among GPU units. Our later numerical experiments make use of a single
+GPU for computation.
+4.2 Kolmogorov consistency
+An appealing property of the ProSpar-GP is that its Kolmogorov consistency [ 71], in that the
+generative distribution in (6)-(9) defines a valid stochastic process over Rd; such consistency is
+critical for stable model training using variational inference. This is formally stated below:
+Proposition 1. Consider the marginal density specification (6)-(9) from the ProSpar-GP on the
+latent function values f given a finite set of input points x1, · · · , xn ∈ X . It follows that:
+1. This marginal density (denoted p(f)) is permutation-invariant, i.e., for any choice of
+x1, . . . ,xn and any permutation π of {1, · · · , n}, we have:
+p(f(x1), · · · , f(xn)) = p(f(xπ(1)), · · · , f(xπ(n))). (17)
+2. For any two sets of latent function realizations f1 and f2, we have:
+p(f1) =
+Z
+p(f1, f2)df2. (18)
+Thus, by the Kolmogorov extension theorem (Theorem 2.4.3 of [ 71]), there exists a valid stochastic
+process on Rd satisfying the ProSpar-GP marginal distribution p(f).
+The proof of this proposition is provided in Supplementary Materials. The key idea is to leverage
+the so-called Kolmogorov extension theorem (Theorem 2.4.3 of [ 71]) to guarantee the existence
+of a (infinite-dimensional) stochastic process that satisfies a prescribed specification of its finite-
+dimensional marginal distribution. This consistency argument is crucial for ensuring that inference
+is performed under a valid probabilistic model [62].
+We note that many existing product-of-expert approaches for GPs (e.g., [ 11, 15, 42, 65, 73, 74])
+may not satisfy Condition 2 in the above proposition (see [62]). This inconsistency can greatly limit
+the model flexibility and stability of such approaches, and may explain why these methods tend to
+perform better with identical expert length-scale parameters as a safeguard against over-fitting
+18
+is this useful at all??
+kind of an easy result tbfh
+why???
+this seems v interesting but I don t know
+I think this could be added as a sentence if we really care about it??? as a side note?
+
+=== PDF PAGE 19 ===
+[11, 15]. To contrast, the ProSpar-GP relies on a valid generative stochastic process (Proposition
+1) when making inference on model hyperparameters; this then improves the stability of parameter
+inference without need for model simplifications, which can be detrimental for non-stationary
+modeling. Such consistency is also critical for ensuring stability in mini-batch optimization; if
+violated, the marginal likelihood to optimize may change between mini-batches, which is highly
+undesirable.
+4.3 Global-local modeling
+Finally, another appealing property of the ProSpar-GP is that, by allowing local sparse GP
+experts access to the full (global) dataset y, it inherits both the desired computational efficiency
+of local-expert models and the predictive power of global models. This is in contrast with many
+existing local GP expert methods, which may sacrifice the latter for scalability with big data. This
+“global-local” property can facilitate scalable prediction given a computational budget, particularly
+for non-stationary surfaces with global trends but local regions of variability. To explore this
+further, we return to our earlier 1-d example from Section 2.2, which featured a non-stationary
+function with distinct local and global features. Such non-stationarity posed a challenge for
+standard sparse GP methods, as seen earlier in Figure 3. We now apply the proposed ProSpar-GP
+with J = 9 experts, each equipped with mj = 5 inducing points, where inducing point locations
+and GP length-scales (along with variational parameters) are optimized via the ELBO (14).
+Figure 3a shows the corresponding ProSpar-GP fit, along with its optimized inducing points
+(colored by expert). We highlight two interesting observations. First, note that the optimized
+inducing points are largely situated within the desired middle interval [ −0.5, 0.5], where there is
+high fluctuation in f. This addresses the earlier limitation of standard sparse GPs from Section
+2.2 (see Figure 1a), where in neglecting non-stationarity, the optimized inducing points can be far
+from regions of high activity. By optimizing such points within a product-of-experts framework,
+the ProSpar-GP (Figure 3a) appears to do well at allowing experts to carefully adapt to and model
+for local non-stationary features. Second, we see that the fitted ProSpar-GP experts can indeed
+learn and model for global behavior in f. Recall from Figure 1c that, even when inducing points
+are manually placed within regions of high activity, the resulting sparse GP fit does not capture
+well the underlying global trend of the function, particularly near the ends of the prediction space.
+The ProSpar-GP addresses this (Figure 3a) by carefully placing some experts for modeling the
+19
+why??? I m not understanding exactly which hyperparameters? is this even true?
+why ?????
+good sentence
+
+=== PDF PAGE 20 ===
+(a)
+ (b)
+Figure 3: (a, left) Visualizing the fitted ProSpar-GP with J = 9 experts and mj = 5 inducing
+points on the earlier 1-d example. The colored crosses mark inducing point locations, with each
+color representing a different sparse GP expert. (b, right) Visualizing the fitted inverse length-scale
+parameters for the ProSpar-GP experts via a 10-nearest-neighbor smoother.
+underlying global structure, and other experts to model local non-stationary fluctuations. With
+this global-local modeling property, the fitted ProSpar-GP achieves noticeably improved prediction
+with better calibrated uncertainties for this non-stationary example.
+Figure 3b further investigates this global-local property. The plotted curve visualizes how
+the fitted inverse length-scale parameters for the J = 9 ProSpar-GP experts change over the
+domain, using a 10-nearest-neighbor smoother on the optimized inducing points with fitted inverse
+length-scales as labels. We see a clear peak in these inverse length-scales within the region of
+high volatility (near the center), and low inverse length-scales within regions of low volatility (at
+the end-points). Thus, for this test function with global structure and local fluctuations, the
+ProSpar-GP captures both properties well via a careful placement of local experts (with small
+length-scales) and global experts (with large length-scales) over appropriate regions of the domain.
+Finally, we consider a more challenging experiment to compare this global modeling property
+with existing local GP methods. Figure 4 visualizes this set-up. Using a function with a clear
+global trend, we generate from it two large disjoint training datasets, with no data in the middle
+of the input space. We then compare the performance of our method (with J = 20 experts and
+20
+
+=== PDF PAGE 21 ===
+(a) ProSpar-GP
+ (b) HgPOE
+ (c) HLaGP
+Figure 4: Visualizing the predictive performance of the ProSpar-GP and two local GP expert
+methods (HgPOE and HLaGP), for an experiment with two disjoint training datasets (green dots).
+The posterior mean predictor is shown as the solid blue curve, with its 95% predictive intervals
+shaded in blue.
+mj = 20 inducing points) with two state-of-the-art local GP experts methods: the HgPOE [ 11]
+(with 20 experts) and the HLaGP [ 68] (with local designs of size 20). Methods that can best
+exploit the underlying global structure should thus provide good predictions within the data-sparse
+middle region. Figures 4a-4c show the corresponding predictions (with uncertainty) for the three
+methods. We see that the HgPOE fails to capture this global trend, which is unsurprising since it
+aggregates GP models on disjoint partitions. The HLaGP provides improved global modeling via
+a careful construction of conditioning sets, but still yields erratic predictions and uncertainties
+within the data-sparse region. The ProSpar-GP provides the best performance of the compared
+methods, both visually and in terms of RMSE and CRPS. This thus suggests that the sparse GP
+experts in our model, each having access to the full (global) dataset, can indeed learn and exploit
+global trends for better predictive performance. This improved prediction within data-scarce
+regions becomes increasingly important in higher dimensions, when there are larger gaps between
+training data points; we will see this next in numerical experiments.
+5 Numerical Experiments
+We now explore the ProSpar-GP in a suite of numerical experiments that feature large training
+datasets on non-stationary response surfaces, and compare its performance with existing state-
+of-the-art methods. We first outline the compared methods and their implementation, then
+investigate its performance in terms of point and probabilistic predictions.
+21
+
+=== PDF PAGE 22 ===
+5.1 Set-up and benchmark methods
+Following Section 2.3, we choose several benchmarks from state-of-the art methods using
+inducing points, Vecchia approximations, deep GPs and local GP expert methods. Hyperparameter
+settings for each approach (detailed below) are either fixed at recommended settings from the
+provided paper and/or package, or are chosen to provide comparable computing power between
+all methods. The compared methods are listed below:
+• Stochastic Variational Gaussian Process (SVGP; [26]): The SVGP is a widely-adopted
+inducing point approach for scalable GP regression [ 4, 24]. We used the implementation in the
+Python package GpyTorch [18], with the Mat´ ern-5/2 kernel,m = 1024 inducing points, and a
+mini-batch size of B = 1024. Such settings are widely used in the literature.
+• Vecchia-approximated Deep Gaussian Process (VDGP; [64]): The VDGP is a recent
+development on Vecchia-approximated GPs. We used the implementation in the R package
+deepgp [64] with the recommended two layers. Each layer makes use of a GP with the Mat´ ern-
+5/2 kernel [67]. Here, we followed the recommended setting of q = 25 nearest neighbors and
+1000 MCMC iterations; while performance may improve with additional MCMC iterations, even
+1000 iterations can take more than a day to run for some experiments.
+• Scaled Vecchia-approximated Gaussian process (SVecGP; [33]): The SVecGP is a recent
+Vecchia GP method that constructs conditioning sets via a scaled Euclidean distance [32]. Model
+hyperparameters are estimated via a randomly subsampled dataset of 10 , 000 points. Here, we
+used the provided code from the paper, with the Mat´ ern-5/2 kernel and q = 25 and q = 150
+nearest neighbors; these will be denoted as SVecGP(25) and SVecGP(150), respectively.
+• Hybrid Local Approximate Gaussian Process (HLaGP; [68]): The HLaGP is a recent
+local GP method that hybridizes global and local information to make predictions for individual
+test points. We used the implementation from the R package lagp [21], with local designs of
+size 50 constructed via the Active Learning Cohn criterion. Here, local GP experts are equipped
+with the squared-exponential kernel with length-scale parameters estimated from data.
+• Healed generalized Product of Experts (HgPOE; [11]): The HgPOE (as described in
+Section 2.3) is implemented from the provided code in the paper, using softmax weights with the
+22
+
+=== PDF PAGE 23 ===
+recommended temperature parameter of T = 100. Here, each expert employs a separate squared-
+exponential kernel, and is assigned approximately 500 data points, thus yielding J ≈ n/500
+experts. These data points were assigned to each expert via k-means clustering of the input
+points, as recommended in [11]. We have tried reducing the number of experts in implementation,
+but this resulted in numerical instabilities and much higher computational costs.
+• ProSpar-GP: Our method is implemented using separate squared-exponential kernels (with
+distinct length-scale parameters) for each sparse GP expert. Here, J = 200 experts are used,
+each with mj = 25 inducing points. The locations of these inducing points, as well as model
+hyperparameters, are optimized via variational inference (see Section 3.2). We made use of the
+Adam algorithm [36] for optimizing the ELBO (14), along with a mini-batch size of B = 1024.
+For methods involving local modeling (HLaGP, HgPOE and ProSpar-GP), we found that the
+squared-exponential kernel works slightly better than the Mat´ ern kernel. This may be because the
+dangers of global over-smoothing is not as pronounced for local models, which may further benefit
+from the regularization of a smoother kernel. This observation is consistent with the implementation
+of local expert models in the literature [ 11, 21, 62, 74], All methods are then compared on two
+metrics: the RMSE, which measures quality of point predictions, and the continuous ranked
+probability score (CRPS; [19]), which measures quality of probabilistic predictions.
+5.2 Results
+We first explore the performance of these methods for the aforementioned Michalewicz function
+[45, 64, 68], a common test function for surrogate modeling and uncertainty quantification [ 69].
+As is clear from Figure 2a, this function is highly non-stationary, with steep valleys interspersed
+with flat areas of low variation. We investigate this function in d = 3, 5 and 10 dimensions, using
+n = 50, 000 and 100 , 000 training samples drawn from a Latin hypercube design [ 75] with noise
+variance γ2 = 10−8. We evaluate prediction accuracy on 25 , 000 test points obtained in a similar
+fashion. This simulation is replicated 10 times for each method, except for the VDGP, which is
+replicated 3 times due to its high computation cost (see Section 5.1).
+Figure 5 shows the RMSE and CRPS in the Michalewicz experiments, for different dimensions
+d and sample sizes n. In low dimensions ( d = 3), we see that the local-neighbor methods (SVecGP
+and HLaGP) yield the best performance for both point and probabilistic predictions, the proposed
+23
+they take one size
+
+=== PDF PAGE 24 ===
+Figure 5: Predictive metrics (top: RMSE in log-scale; bottom: CRPS in log-scale) of the compared
+methods in the Michalewicz experiment, for different dimensions d and sample sizes n.
+Michalewicz (n = 50, 000 samples)
+d ProSpar-GP VDGP SVecGP(25) SVecGP(150) HLaGP SVGP HgPOE
+3 6.65 544.09 0.44 22.95 64.16 15.02 3.01
+5 7.43 981.60 0.55 22.54 57.83 14.73 3.19
+10 10.43 1658.27 1.04 44.50 46.10 14.69 3.30
+Michalewicz (n = 100, 000 samples)
+d ProSpar-GP VDGP SVecGP(25) SVecGP(150) HLaGP SVGP HgPOE
+3 13.29 1028.09 0.45 23.01 91.96 29.33 5.89
+5 23.98 2012.85 0.54 22.71 43.61 29.10 7.82
+10 30.18 2919.13 1.09 46.38 53.30 29.03 6.07
+Table 1: Total CPU hours (in minutes) required for model training and prediction of the compared
+methods in the Michalewicz experiment, for different dimensions d and sample sizes n.
+ProSpar-GP providing comparable (but slightly worse) performance, and the HgPOE and SVGP
+yielding mediocre performance. The excellent performance of existing local-neighbor methods is
+not surprising: with closer vicinity of points in low dimensions, the choice of conditioning sets
+is less important. In higher dimensions ( d = 5 and d = 10), the same local-neighbor methods
+(SVecGP and HLaGP) quickly deteriorate in performance for both RMSE and CRPS (as was
+24
+
+=== PDF PAGE 25 ===
+noted from Section 2.3), with similarly mediocre performance for the HgPOE 1 and SVGP. The
+ProSpar-GP provides considerably improved predictions over existing methods in this challenging
+higher-dimensional setting, yielding much lower RMSE and CRPS. The improvement of the
+ProSpar-GP over the inducing points SVGP approach is also worth noting, where the latter (see
+Section 2.3) can yield poor approximations in non-stationary settings. Here, the proposed approach
+appears to identify important non-stationary structure of the Michalewicz function within the
+product-of-experts framework, then leverage this learned local structure for effective prediction,
+particularly in higher dimensions.
+As different methods are optimized for different computing systems, an “apples-to-apples”
+comparison of computation time may be difficult here. For example, the proposed ProSpar-GP and
+SVGP leverage speed-ups from GPU acceleration, the VDGP and HLaGP are optimized for parallel
+computation, while SVecGP and HgPOE are not as easily parallelized. In our implementation,
+the ProSpar-GP, HgPOE and SVGP are run on a single Nvidia RTX 2080 Ti GPU, the VDGP
+and HLaGP are run on eight Intel Xeon Gold 6252 CPU cores, and the SVecGP is run on a single
+such core. With this in mind, however, Table 1 provides a rough snapshot of computing costs,
+by reporting the total processing time (in minutes) required for model training and prediction,
+over different dimensions d and sample sizes n. We see that the ProSpar-GP enjoys comparable
+computing times with the quickest methods, with only the SVecGP(25) and HgPOE being faster.
+The latter two methods, despite being highly efficient, can yield poor predictions, particularly
+in higher dimensions. It is worth noting that the ProSpar-GP runs around twice as fast as the
+inducing points SVGP approach, despite the former using almost five times the number of inducing
+points. This speed-up highlights the benefit of dividing inducing points over different local experts,
+which can jointly reduce the computational cost of Cholesky decompositions (see Section 4.1) as
+well as allow for localized modeling of non-stationary features.
+Next, we investigate these methods for another common test function in uncertainty quan-
+tification: the G-function [ 69]. This function again exhibits non-stationary behavior: it has
+fairly gradual variations near the origin, but abrupt variations towards the edges of the domain.
+As before, we perform this experiment in d = 3, 5 and 10 dimensions, using n = 50, 000 and
+100, 000 samples drawn from a Latin hypercube design [ 75] with noise variance γ2 = 10−8. These
+1Here, we tried to improve predictions for the HgPOE by varying the number of experts (and thereby
+the number of points per expert), but this did not appear to improve performance.
+25
+
+=== PDF PAGE 26 ===
+Figure 6: Predictive metrics (top: RMSE in log-scale; bottom: CRPS in log-scale) of the compared
+methods in the G-function experiment, for different dimensions d and sample sizes n.
+G-function (n = 50, 000 samples)
+d ProSpar-GP VDGP SVecGP(25) SVecGP(150) HLaGP SVGP HgPOE
+3 6.65 527.96 0.29 18.11 55.53 14.83 3.34
+5 7.34 1069.63 0.36 31.02 64.10 14.84 3.08
+10 9.34 2089.28 1.05 33.45 46.10 14.71 2.78
+G-function (n = 100, 000 samples)
+d ProSpar-GP VDGP SVecGP(25) SVecGP(150) HLaGP SVGP HgPOE
+3 13.34 1100.96 0.30 17.94 72.79 29.75 6.65
+5 14.56 2107.15 0.36 30.75 48.31 29.41 8.63
+10 18.61 2757.93 1.06 29.14 54.17 29.31 7.48
+Table 2: Total processing time (in minutes) required for model training and prediction of the
+compared methods in the G-function experiment, for different dimensions d and sample sizes n.
+simulations are replicated in the same fashion as the earlier experiment.
+Figure 6 shows the RMSE and CRPS in the G-function experiments for different dimensions
+d and sample sizes n. We observe similar results as before. In low dimensions ( d = 3), local-
+neighbor methods (SVecGP and HLaGP) perform the best, with comparable (but slightly worse)
+26
+
+=== PDF PAGE 27 ===
+predictions from the ProSpar-GP, and mediocre performance for the HgPOE and SVGP. This
+is again unsurprising, since for local-neighbor methods in low dimensions, the precise selection
+of conditioning sets is less important as observations are closer together. When dimension d
+increases ( d = 5 and d = 10), the performance of existing methods again greatly deteriorates,
+and in this more challenging setting, the ProSpar-GP considerably outperforms its competitors in
+terms of predictive performance. Table 2 summarizes the computing times for model training and
+prediction, where we again see that the ProSpar-GP enjoys comparable computational efficiency
+with the quickest methods. Thus, with massive non-stationary training data, the ProSpar-GP
+appears to be capable of leveraging the learned local non-stationary structure for efficient and
+effective predictive modeling.
+6 Application: Surrogate Modeling of Satellite Drag
+We now explore the effectiveness of the ProSpar-GP in a surrogate modeling application on
+emulating satellite drag; further details in [ 68]. Such modeling is needed for avoiding disastrous
+satellite collisions (see, e.g., one such collision in [ 2]) in low earth orbit, which is becoming
+increasingly crowded. A critical factor to avoiding collisions, as identified by the Committee for
+the Assessment of the U.S. Air Forces Astrodynamics Standards [ 49], is the careful modeling
+of interactions between atmosphere and satellite, specifically with respect to drag coefficients.
+With recent developments in scientific computing, these drag coefficients can now be accurately
+simulated via sophisticated physical models, over a broad range of temperature conditions, velocities,
+satellite geometries and orientations. There is, however, a key limitation: such simulators are too
+computationally expensive to run for real-time navigation purposes [38].
+Surrogate models [ 20] thus provide an attractive solution. The idea is to simulate a carefully-
+designed set of training data over the parameter space, then use this to train a “surrogate model”
+for emulating the expensive simulator. Prior work [ 47, 68] has shown that GPs are quite effective
+for the surrogate modeling of satellite drag. One requirement for such surrogates is that they
+should ensure a relative predictive accuracy of 1% over the parameter space [ 68], to guarantee
+reliable performance in downstream tasks (e.g., navigation). This becomes more difficult for
+realistic geometries, which require more parameters and therefore a larger sample size from the
+simulator to achieve the desired accuracy. Furthermore, it has been noted [ 47] that the response
+27
+math paper??? 
+whashignton post???
+
+=== PDF PAGE 28 ===
+surface for satellite drag can be highly non-stationary. This surrogate modeling application, with
+massive and non-stationary data, thus provides a nice test problem for the ProSpar-GP.
+For our experiments, we consider the satellite drag for the Hubble Space Telescope moving
+through a pure hydrogen gaseous composition; this is known [ 33, 68] to be a challenging surrogate
+modeling problem due to its highly non-concave and non-stationary response surface. We adopt
+the two million simulation runs from [ 68], which were generated from a Latin hypercube design
+using the test particle Monte Carlo program developed at Los Alamos National Laboratory. This
+simulator has a total of d = 8 parameters, including satellite velocity, yaw and pitch; details can
+be found in Table 1 of [ 68]. We then draw the training and testing data randomly from these
+simulation runs, with the training data having (large) sample sizes of n = 1.00 × 105, 1.75 × 105
+and 2.50 × 105, and the testing set fixed at 1 .75 × 105 samples. The same methods are compared as
+in earlier numerical experiments, with the nugget terms for SVecGP, VDGP and HLaGP fixed at
+10−4, as recommended in [ 64, 68]. As before, all methods are replicated 10 times for each sample
+size setting, except for the VDGP, which is replicated 3 times due to its high computational cost.
+The latter is also not applied to the n = 2.50 × 105 setting, where a single replication requires
+several days of runtime.
+Figure 7 shows the RMSE and CRPS of the compared methods, with the blue line marking the
+desired 1% RMSE threshold for the surrogate model. We see that the SVGP and HgPOE again
+yield mediocre performance at all sample sizes n; this is in line with earlier numerical experiments,
+where both methods performed poorly in the presence of non-stationarity for moderate to high
+dimensions. The local-neighbor methods (VDGP, SVecGP, HLaGP) provide improved performance
+in terms of RMSE and CRPS, but fall short of the desired 1% RMSE requirement even with
+n = 2.50 × 105 training samples. This can be restrictive for the surrogate modeling application,
+where each simulation run (i.e., data point) from the simulator is computationally expensive; one
+would thus prefer a surrogate model trained using a smaller training sample size n that satisfies the
+desired accuracy requirement. The proposed ProSpar-GP offers considerably improved predictions
+over existing methods, both in terms of RMSE and CRPS. It also addresses the aforementioned
+limitation: with n = 1.75 × 105 samples, the ProSpar-GP achieves the 1% RMSE threshold for
+the surrogate model, and with n = 2.50 × 105 samples, this error dips well below the desired
+threshold. Thus, with careful identification and integration of non-stationary structure within a
+28
+
+=== PDF PAGE 29 ===
+Figure 7: Predictive metrics (left: RMSE; right: CRPS) of the compared methods in the satellite
+drag surrogate modeling application, for different sample sizes n. The desired 1% RMSE is marked
+on the left plot by the blue horizontal line.
+Satellite Drag Surrogate Modeling (d = 8 parameters)
+n ProSpar-GP VDGP SVecGP(25) SVecGP(150) HLaGP SVGP HgPOE
+1.00 × 105 32.18 5430.30 1.68 59.59 460.85 30.61 2.53
+1.75 × 105 35.27 5794.89 1.21 65.23 257.97 51.87 4.39
+2.50 × 105 9.34 2089.28 1.05 33.45 46.10 14.71 2.78
+Table 3: Total processing time (in minutes) required for model training and prediction of the
+compared methods in the satellite drag surrogate modeling application, for different sample sizes n.
+product-of-experts framework, the ProSpar-GP allows for accurate surrogate modeling of satellite
+drag with considerably fewer evaluations from the expensive simulator.
+Table 3 summarizes the total processing time (in minutes) required for surrogate model
+training and prediction with different sample sizes n. As before, we see that the ProSpar-GP
+enjoys comparable computing times with the quickest methods, namely, SVecGP(25) and HgPOE.
+The latter two methods, however, yield considerably worse predictive performance, with RMSE
+well above the required 1% threshold (see Figure 7) for surrogate modeling. Other existing methods
+require higher training runtimes with considerably higher prediction errors, which is undesirable.
+Thus, with training and prediction runtimes factored in, the ProSpar-GP appears to considerably
+outperform its surrogate modeling competitors for this challenging satellite drag application.
+29
+
+=== PDF PAGE 30 ===
+7 Conclusion
+We introduced in this paper a novel Product of Sparse Gaussian Process (ProSpar-GP) method
+for scalable GP modeling with massive non-stationary datasets. While there is a notable body
+of work on scalable methods for GP modeling with big data, we showed that such methods may
+yield poor approximations when the underlying response surface is non-stationary, particularly in
+moderate to high dimensions. The ProSpar-GP addresses this critical limitation via a carefully-
+constructed product-of-expert formulation of sparse GP experts, which leverages an efficient
+variational inference procedure for optimizing different experts (i.e., its inducing points and
+length-scale parameters) within local regions of non-stationarity. We further showed that the
+ProSpar-GP enjoys Kolmogorov consistency, an important ingredient for ensuring stability for
+variational inference of the procedure. We then demonstrated the improved performance of the
+ProSpar-GP over the state-of-the-art (particularly in moderate to high dimensions), in a suite of
+numerical experiments and a surrogate modeling application for simulating satellite drag.
+Given the promising results in this paper, there are many fruitful avenues for impactful future
+work. For high-dimensional systems, particularly in the physical sciences, one often expects
+the presence of low-dimensional structure, e.g., in the form of manifold embeddings [ 40, 80] or
+structured sparsity [70]. One direction is thus the integration of such low-dimensional structure
+within each local expert in the ProSpar-GP, which can better refine non-stationary predictions in
+high dimensions. Another direction is the application of the ProSpar-GP for surrogate modeling
+in modern scientific problems with massive datasets, e.g., the real-time control of engines in
+unmanned aerial vehicles [48].
+Acknowledgements: The authors gratefully acknowledge funding from NSF CSSI 2004571,
+NSF DMS 2210729, NSF DMS 2316012 and DE-SC0024477. We also thank the JETSCAPE
+collaboration (https://jetscape.org/) for insightful conversations and discussions.
+References
+[1] Abadi, M., Agarwal, A., Barham, P., Brevdo, E., Chen, Z., Citro, C., Corrado, G. S., Davis, A.,
+Dean, J., Devin, M., et al. (2015). TensorFlow: Large-scale machine learning on heterogeneous
+systems. Software available from tensorflow.org.
+[2] Achenbach, J. (2009). Debris from satellites’ collision said to pose small risk to space station.
+The Washington Post .
+[3] Banerjee, S., Gelfand, A. E., Finley, A. O., and Sang, H. (2008). Gaussian predictive process
+30
+
+=== PDF PAGE 31 ===
+models for large spatial data sets. Journal of the Royal Statistical Society Series B: Statistical
+Methodology, 70(4):825–848.
+[4] Bauer, M., van der Wilk, M., and Rasmussen, C. E. (2016). Understanding probabilistic sparse
+Gaussian process approximations. In Lee, D., Sugiyama, M., Luxburg, U., Guyon, I., and
+Garnett, R., editors, Advances in Neural Information Processing Systems , volume 29. Curran
+Associates, Inc.
+[5] Blei, D. M., Kucukelbir, A., and McAuliffe, J. D. (2017). Variational inference: A review for
+statisticians. Journal of the American Statistical Association , 112(518):859–877.
+[6] Bradbury, J., Frostig, R., Hawkins, P., Johnson, M. J., Leary, C., Maclaurin, D., Necula, G.,
+Paszke, A., VanderPlas, J., Wanderman-Milne, S., and Zhang, Q. (2018). JAX: composable
+transformations of Python+NumPy programs. Software available from http://github.com/
+google/jax.
+[7] Bui, T., Hernandez-Lobato, D., Hernandez-Lobato, J., Li, Y., and Turner, R. (2016). Deep
+Gaussian processes for regression using approximate expectation propagation. In Balcan, M. F.
+and Weinberger, K. Q., editors, Proceedings of the 33rd International Conference on Machine
+Learning, pages 1472–1481. PMLR.
+[8] Burt, D., Rasmussen, C. E., and Van Der Wilk, M. (2019). Rates of convergence for sparse
+variational Gaussian process regression. In Chaudhuri, K. and Salakhutdinov, R., editors,
+Proceedings of the 36th International Conference on Machine Learning , pages 862–871. PMLR.
+[9] Cao, Y. and Fleet, D. J. (2015). Generalized product of experts for automatic and principled
+fusion of Gaussian process predictions. In Modern Nonparametrics 3: Automating the Learning
+Pipeline Workshop at NIPS 2014 .
+[10] Carlin, B. P. and Louis, T. A. (1997). Bayes and Empirical Bayes Methods for Data Analysis .
+Springer.
+[11] Cohen, S., Mbuvha, R., Marwala, T., and Deisenroth, M. (2020). Healing products of Gaussian
+process experts. In III, H. D. and Singh, A., editors, Proceedings of the 37th International
+Conference on Machine Learning, pages 2068–2077. PMLR.
+[12] Cole, D. A., Christianson, R. B., and Gramacy, R. B. (2021). Locally induced Gaussian
+processes for large-scale simulation experiments. Statistics and Computing , 31:1–21.
+[13] Damianou, A. and Lawrence, N. D. (2013). Deep Gaussian processes. In Carvalho, C. M.
+and Ravikumar, P., editors, Proceedings of the 16th International Conference on Artificial
+Intelligence and Statistics , pages 207–215.
+[14] de Souza, D. A., Nikitin, A., John, S., Ross, M., ´Alvarez, M. A., Deisenroth, M. P., Gomes,
+J. P., Mesquita, D., and Mattos, C. L. C. (2023). Thin and deep Gaussian processes. arXiv
+preprint arXiv:2310.11527.
+[15] Deisenroth, M. and Ng, J. W. (2015). Distributed Gaussian processes. In Bach, F. and
+Blei, D., editors, Proceedings of the 32nd International Conference on Machine Learning , pages
+1481–1490. PMLR.
+[16] Dunlop, M. M., Girolami, M. A., Stuart, A. M., and Teckentrup, A. L. (2018). How deep are
+deep Gaussian processes? Journal of Machine Learning Research , 19(54):1–46.
+[17] Everett, D., Ke, W., Paquet, J.-F., Vujanovic, G., Bass, S. A., Du, L., Gale, C., Heffernan, M.,
+Heinz, U., Liyanage, D., et al. (2021). Phenomenological constraints on the transport properties
+of QCD matter with data-driven model averaging. Phys. Rev. Lett., 126:242301.
+[18] Gardner, J., Pleiss, G., Weinberger, K. Q., Bindel, D., and Wilson, A. G. (2018). GPyTorch:
+Blackbox matrix-matrix Gaussian process inference with GPU acceleration. In Bengio, S.,
+31
+
+=== PDF PAGE 32 ===
+Wallach, H., Larochelle, H., Grauman, K., Cesa-Bianchi, N., and Garnett, R., editors, Advances
+in Neural Information Processing Systems . Curran Associates, Inc.
+[19] Gneiting, T. and Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation.
+Journal of the American Statistical Association , 102(477):359–378.
+[20] Gramacy, R. (2020). Surrogates: Gaussian Process Modeling, Design and Optimization for
+the Applied Sciences. Chapman Hall/CRC.
+[21] Gramacy, R. B. (2016). laGP: Large-scale spatial modeling via local approximate gaussian
+processes in R. Journal of Statistical Software , 72(1):1–46.
+[22] Havasi, M., Hern´ andez-Lobato, J. M., and Murillo-Fuentes, J. J. (2018). Inference in deep
+Gaussian processes using stochastic gradient Hamiltonian Monte Carlo. In Bengio, S., Wallach,
+H., Larochelle, H., Grauman, K., Cesa-Bianchi, N., and Garnett, R., editors, Advances in Neural
+Information Processing Systems, volume 31. Curran Associates, Inc.
+[23] Heinonen, M., Mannerstr¨ om, H., Rousu, J., Kaski, S., and L¨ ahdesm¨ aki, H. (2016). Non-
+stationary Gaussian process regression with Hamiltonian Monte Carlo. In Gretton, A. and
+Robert, C. C., editors, Proceedings of the 19th International Conference on Artificial Intelligence
+and Statistics, pages 732–740. PMLR.
+[24] Hensman, J., Fusi, N., and Lawrence, N. D. (2013). Gaussian processes for big data. In
+Proceedings of the 29th Conference on Uncertainty in Artificial Intelligence , pages 282–290.
+[25] Hinton, G. E. (2002). Training products of experts by minimizing contrastive divergence.
+Neural Computation, 14(8):1771–1800.
+[26] Izmailov, P., Novikov, A., and Kropotov, D. (2018). Scalable Gaussian processes with billions
+of inducing inputs via tensor train decomposition. In Storkey, A. and Perez-Cruz, F., editors,
+Proceedings of the 21st International Conference on Artificial Intelligence and Statistics , pages
+726–735. PMLR.
+[27] Jafrasteh, B., Villacampa-Calvo, C., and Hernandez-Lobato, D. (2022). Input dependent
+sparse Gaussian processes. In Chaudhuri, K., Jegelka, S., Song, L., Szepesvari, C., Niu, G.,
+and Sabato, S., editors, Proceedings of the 39th International Conference on Machine Learning ,
+pages 9739–9759. PMLR.
+[28] Jankowiak, M., Pleiss, G., and Gardner, J. (2020). Parametric Gaussian process regressors. In
+III, H. D. and Singh, A., editors, Proceedings of the 37th International Conference on Machine
+Learning, pages 4702–4712. PMLR.
+[29] Ji, Y., Mak, S., Soeder, D., Paquet, J. F., and Bass, S. A. (2023). A graphical multi-fidelity
+Gaussian process model, with application to emulation of expensive computer simulations.
+Technometrics. To appear.
+[30] Ji, Y., Yuchi, H. S., Soeder, D., Paquet, J.-F., Bass, S. A., Joseph, V. R., Wu, C. F., and
+Mak, S. (2022). Conglomerate multi-fidelity Gaussian process modeling, with application to
+heavy-ion collisions. arXiv preprint arXiv:2209.13748 .
+[31] Kang, M. and Katzfuss, M. (2023). Correlation-based sparse inverse Cholesky factorization
+for fast Gaussian-process inference. Statistics and Computing , 33(3):56.
+[32] Katzfuss, M. and Guinness, J. (2021). A general framework for Vecchia approximations of
+Gaussian processes. Statistical Science, 36(1):124–141.
+[33] Katzfuss, M., Guinness, J., and Lawrence, E. (2022). Scaled Vecchia approximation for fast
+computer-model emulation. SIAM/ASA Journal on Uncertainty Quantification , 10(2):537–554.
+[34] Kaufman, C. G., Bingham, D., Habib, S., Heitmann, K., and Frieman, J. A. (2011). Efficient
+emulators of computer experiments using compactly supported correlation functions, with an
+32
+
+=== PDF PAGE 33 ===
+application to cosmology. The Annals of Applied Statistics , 5(4):2470–2492.
+[35] Kaufman, C. G., Schervish, M. J., and Nychka, D. W. (2008). Covariance tapering for
+likelihood-based estimation in large spatial data sets. Journal of the American Statistical
+Association, 103(484):1545–1555.
+[36] Kingma, D. P. and Ba, J. (2014). Adam: A method for stochastic optimization. arXiv
+preprint arXiv:1412.6980.
+[37] Lalchand, V., Bruinsma, W., Burt, D., and Rasmussen, C. E. (2022). Sparse Gaussian process
+hyperparameters: Optimize or integrate? In Koyejo, S., Mohamed, S., Agarwal, A., Belgrave,
+D., Cho, K., and Oh, A., editors, Advances in Neural Information Processing Systems . Curran
+Associates, Inc.
+[38] Lawrence, E., Higdon, D., Walker, A., and Shoemaker, M. (2014). Estimation for satellite
+collision probabilities using importance sampling. In Proceedings of the 24th AAS/AIAA Space
+Flight Mechanics Meeting.
+[39] Li, K., Balakirsky, M., and Mak, S. (2023a). Trigonometric quadrature Fourier features for
+scalable Gaussian process regression. arXiv preprint arXiv:2310.14544 .
+[40] Li, K., Mak, S., Paquet, J.-F., and Bass, S. A. (2023b). Additive multi-index Gaussian process
+modeling, with application to multi-physics surrogate modeling of the quark-gluon plasma.
+arXiv preprint arXiv:2306.07299 .
+[41] Li, M., Zhang, T., Chen, Y., and Smola, A. J. (2014). Efficient mini-batch training for
+stochastic optimization. In Proceedings of the 20th ACM SIGKDD International Conference on
+Knowledge Discovery and Data Mining , pages 661–670.
+[42] Liu, H., Cai, J., Wang, Y., and Ong, Y. S. (2018). Generalized robust Bayesian committee
+machine for large-scale Gaussian process regression. In Dy, J. and Krause, A., editors,Proceedings
+of the 35th International Conference on Machine Learning , pages 3131–3140. PMLR.
+[43] Liu, H., Ong, Y.-S., Shen, X., and Cai, J. (2020). When Gaussian process meets big data:
+A review of scalable GPs. IEEE Transactions on Neural Networks and Learning Systems ,
+31(11):4405–4423.
+[44] Lotfi, S., Izmailov, P., Benton, G., Goldblum, M., and Wilson, A. G. (2022). Bayesian model
+selection, the marginal likelihood, and generalization. In International Conference on Machine
+Learning, pages 14223–14247. PMLR.
+[45] Marrel, A., Iooss, B., Laurent, B., and Roustant, O. (2009). Calculations of Sobol indices for
+the Gaussian process metamodel. Reliability Engineering & System Safety , 94(3):742–751.
+[46] McIntire, M., Ratner, D., and Ermon, S. (2016). Sparse Gaussian processes for Bayesian
+optimization. In Proceedings of the Conference on Uncertainty in Artificial Intelligence .
+[47] Mehta, P. M., Walker, A., Lawrence, E., Linares, R., Higdon, D., and Koller, J. (2014). Mod-
+eling satellite drag coefficients with response surfaces. Advances in Space Research, 54(8):1590–
+1607.
+[48] Narayanan, S. R., Ji, Y., Sapra, H. D., Yang, S., Mak, S., Sun, Z., Kokjohn, S., Kim, K.,
+and Kweon, C. B. (2023). Physics-integrated segmented Gaussian process (SegGP) learning
+for cost-efficient training of diesel engine control system with low cetane numbers. In AIAA
+SCITECH 2023 Forum.
+[49] National Research Council (2012). Continuing Kepler’s Quest: Assessing Air Force Space
+Command’s Astrodynamics Standards. National Academies Press.
+[50] Ober, S. W., Anson, B., Milsom, E., and Aitchison, L. (2023). An improved variational
+approximate posterior for the deep Wishart process. In Evans, R. J. and Shpitser, I., editors,
+33
+
+=== PDF PAGE 34 ===
+Proceedings of the 39th Conference on Uncertainty in Artificial Intelligence , volume 216 of
+Proceedings of Machine Learning Research, pages 1555–1563. PMLR.
+[51] Paciorek, C. J. and Schervish, M. J. (2006). Spatial modelling using a new class of nonsta-
+tionary covariance functions. Environmetrics, 17(5):483–506.
+[52] Park, C. and Apley, D. (2018). Patchwork kriging for large-scale Gaussian process regression.
+The Journal of Machine Learning Research , 19(1):269–311.
+[53] Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z.,
+Gimelshein, N., Antiga, L., et al. (2019). PyTorch: An imperative style, high-performance deep
+learning library. Advances in Neural Information Processing Systems , 32.
+[54] Peng, C.-Y. and Wu, C. F. J. (2014). On the choice of nugget in kriging modeling for determin-
+istic computer experiments. Journal of Computational and Graphical Statistics , 23(1):151–168.
+[55] Pleiss, G. and Cunningham, J. P. (2021). The limitations of large width in neural networks:
+A deep Gaussian process perspective. In Advances in Neural Information Processing Systems ,
+volume 34, pages 3349–3363.
+[56] Rahimi, A. and Recht, B. (2007). Random features for large-scale kernel machines. In
+Advances in Neural Information Processing Systems , volume 20.
+[57] Randrianarisoa, T. and Szabo, B. (2023). Variational Gaussian processes for linear inverse
+problems. arXiv preprint arXiv:2311.00663 .
+[58] Rasmussen, C. and Ghahramani, Z. (2000). Occam’s razor. In Advances in Neural Information
+Processing Systems.
+[59] Rasmussen, C. E. and Williams, C. K. I. (2005). Gaussian Processes for Machine Learning .
+MIT Press.
+[60] Remes, S., Heinonen, M., and Kaski, S. (2017). Non-stationary spectral kernels. In Guyon, I.,
+Luxburg, U. V., Bengio, S., Wallach, H., Fergus, R., Vishwanathan, S., and Garnett, R., editors,
+Advances in Neural Information Processing Systems , volume 30. Curran Associates, Inc.
+[61] Salimbeni, H. and Deisenroth, M. (2017). Doubly stochastic variational inference for deep
+Gaussian processes. In Guyon, I., Luxburg, U. V., Bengio, S., Wallach, H., Fergus, R.,
+Vishwanathan, S., and Garnett, R., editors, Advances in Neural Information Processing Systems,
+volume 30.
+[62] Samo, Y. and Roberts, S. (2016). String and membrane Gaussian processes. Journal of
+Machine Learning Research, 17:1–87.
+[63] Sauer, A., Cooper, A., and Gramacy, R. B. (2023a). Non-stationary Gaussian process
+surrogates. arXiv preprint arXiv:2305.19242 .
+[64] Sauer, A., Cooper, A., and Gramacy, R. B. (2023b). Vecchia-approximated deep Gaus-
+sian processes for computer experiments. Journal of Computational and Graphical Statistics ,
+32(3):824–837.
+[65] Sch¨ urch, M., Azzimonti, D., Benavoli, A., and Zaffalon, M. (2023). Correlated product of
+experts for sparse Gaussian process regression. Machine Learning, 112:1411—-1432.
+[66] Snelson, E. and Ghahramani, Z. (2005). Sparse Gaussian processes using pseudo-inputs. In
+Weiss, Y., Sch¨ olkopf, B., and Platt, J., editors, Advances in Neural Information Processing
+Systems, volume 18. MIT Press.
+[67] Stein, M. L. (1999). Interpolation of Spatial Data: Some Theory for Kriging . Springer Science
+& Business Media.
+[68] Sun, F., Gramacy, R. B., Haaland, B., Lawrence, E., and Walker, A. (2019). Emulating satellite
+drag from large simulation experiments. SIAM/ASA Journal on Uncertainty Quantification ,
+34
+
+=== PDF PAGE 35 ===
+7(2):720–759.
+[69] Surjanovic, S. and Bingham, D. (2013). Virtual library of simulation experiments: Test
+functions and datasets. https://www.sfu.ca/~ssurjano/.
+[70] Tang, T., Mak, S., and Dunson, D. (2023). Hierarchical shrinkage Gaussian processes:
+applications to computer code emulation and dynamical system recovery. arXiv preprint
+arXiv:2302.00755.
+[71] Tao, T. (2011). An Introduction to Measure Theory, volume 126. American Mathematical
+Society.
+[72] Trapp, M., Peharz, R., Pernkopf, F., and Rasmussen, C. E. (2020). Deep structured mixtures
+of Gaussian processes. In Chiappa, S. and Calandra, R., editors, Proceedings of the 23rd
+International Conference on Artificial Intelligence and Statistics . PMLR.
+[73] Tresp, V. (2000a). A Bayesian committee machine. Neural Computation, 12(11):2719–2741.
+[74] Tresp, V. (2000b). Mixtures of Gaussian processes. In Leen, T., Dietterich, T., and Tresp, V.,
+editors, Advances in Neural Information Processing Systems , volume 13. MIT Press.
+[75] Viana, F. A. (2016). A tutorial on Latin hypercube design of experiments. Quality and
+Reliability Engineering International, 32(5):1975–1985.
+[76] Wilson, A. G., Hu, Z., Salakhutdinov, R., and Xing, E. P. (2016). Deep kernel learning. In
+Gretton, A. and Robert, C. C., editors, Proceedings of the 19th International Conference on
+Artificial Intelligence and Statistics , pages 370–378. PMLR.
+[77] Wu, L., Pleiss, G., and Cunningham, J. P. (2022). Variational nearest neighbor Gaussian
+process. In Chaudhuri, K., Jegelka, S., Song, L., Szepesvari, C., Niu, G., and Sabato, S., editors,
+Proceedings of the 39th International Conference on Machine Learning , pages 24114–24130.
+PMLR.
+[78] Yeh, S.-T., Wang, X., Sung, C.-L., Mak, S, Chang, Y.-H., Zhang, L., Wu, C. F. J., and Yang,
+V. (2018). Common proper orthogonal decomposition-based spatiotemporal emulator for design
+exploration. AIAA Journal, 56(6):2429–2442.
+[79] Yu, H., Chen, Y., Low, B. K. H., Jaillet, P., and Dai, Z. (2019). Implicit posterior variational
+inference for deep Gaussian processes. In Wallach, H., Larochelle, H., Beygelzimer, A., d 'Alch´ e-
+Buc, F., Fox, E., and Garnett, R., editors, Advances in Neural Information Processing Systems ,
+volume 32.
+[80] Zhang, R., Mak, S., and Dunson, D. (2022). Gaussian process subspace prediction for model
+reduction. SIAM Journal on Scientific Computing , 44(3):A1428–A1449.
+35
+
+=== PDF PAGE 36 ===
+Supplementary Material
+Proof of Proposition 1
+For Kolmogorov consistency to hold, we would need to show both conditions in Proposi-
+tion 1 hold. To see that the first condition is true, note that:
+p(f) = p(f(x1), . . . ,f(xn)) ∼ N (f; 0, Σ),
+Σ = Λ +
+JX
+j=1
+ΛAjΛ−1
+j K[j]
+n,mjR−1
+j K[j]
+mj ,nΛ−1
+j AjΛ.
+Note that any permutation to the ordering of observations {(xπ(i), f(xπ(i)))}n
+i=1 simply
+permutes the rows/columns of the matrices Λ, Λj, Aj and K[j]
+n,mj. Because Λ, Λj, Aj
+are diagonal and R−1
+j does not depend on the observations, such a reordering results in a
+commensurate reordering of the elements in Σ. Thus, the density remains unchanged, as
+desired.
+The second condition follows from the marginalization property of the multivariate
+normal distribution. Here, Λ is diagonal, and given the expert parameters, calculation of
+the i-th diagonal element only requires the i-th observation. In addition, the covariance
+matrix of any nc-subset of the n observations only requires entries from the nc corresponding
+rows/columns of the matrices Λ, Λj, Aj and K[j]
+n,mj. Thus, inclusion or exclusion of an
+observation does not affect the parameters of any other latent function values, and we can
+simply marginalize out f2 as with any standard multivariate normal density.
+36

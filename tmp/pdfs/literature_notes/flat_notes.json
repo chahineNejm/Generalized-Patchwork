@@ -1,0 +1,812 @@
+[
+  {
+    "file": "CPOE.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "due to the high number of hyperparameters we do not pretend to give justce b trying out a few and opt out of this.\nmy general opinion on this paper is that it could be good general baseline but it has a lot of hyperparameters and uses the same kernel in all of the submodels,\nthus it s not necessarily very good? maybe a goo mention is enough and no note necessarily full comparision\ngold",
+        "bboxes": [
+          [
+            74.8,
+            202.1,
+            532.6,
+            533.0
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "text": "somewhere around that",
+        "bboxes": [
+          [
+            385.0,
+            778.3,
+            511.0,
+            790.3
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "this creates a sense of separation between the two? this is nice",
+        "bboxes": [
+          [
+            214.7,
+            777.5,
+            550.9,
+            789.5
+          ]
+        ]
+      },
+      {
+        "page": 4,
+        "text": "maybe ???\nsame same",
+        "bboxes": [
+          [
+            207.6,
+            124.2,
+            587.8,
+            284.0
+          ]
+        ]
+      },
+      {
+        "page": 6,
+        "text": "gen of POE and Sparse?",
+        "bboxes": [
+          [
+            436.0,
+            586.9,
+            569.4,
+            598.9
+          ]
+        ]
+      },
+      {
+        "page": 7,
+        "text": "good point to look at, discontinuities\nas told in the PW paper\nre the inducig points trained at all??? what is an inducing point here?\nselected as a fraction of the data????\nas you add correlation structure you add more info ok",
+        "bboxes": [
+          [
+            233.4,
+            60.2,
+            573.7,
+            684.5
+          ]
+        ]
+      },
+      {
+        "page": 10,
+        "text": "not relevant to me",
+        "bboxes": [
+          [
+            79.4,
+            525.4,
+            127.4,
+            531.4
+          ]
+        ]
+      },
+      {
+        "page": 11,
+        "text": "bof? naturel non?",
+        "bboxes": [
+          [
+            52.0,
+            629.8,
+            98.7,
+            635.8
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "text": "asically the idea is a sliding windiw of models.",
+        "bboxes": [
+          [
+            34.4,
+            624.0,
+            155.7,
+            630.0
+          ]
+        ]
+      },
+      {
+        "page": 13,
+        "text": "self indulgent, insititing on itself bull",
+        "bboxes": [
+          [
+            5.4,
+            195.4,
+            99.1,
+            201.4
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "GP for big data.pdf",
+    "notes": []
+  },
+  {
+    "file": "GP2scale.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "this is a\nnice observation\nnot sure what\nthis means",
+        "bboxes": [
+          [
+            544.0,
+            539.7,
+            602.2,
+            606.6
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "text": "this is cool",
+        "bboxes": [
+          [
+            461.7,
+            68.2,
+            499.1,
+            76.2
+          ]
+        ]
+      },
+      {
+        "page": 6,
+        "text": "looks like an\nawesome dataset",
+        "bboxes": [
+          [
+            512.7,
+            150.8,
+            575.4,
+            166.8
+          ]
+        ]
+      },
+      {
+        "page": 7,
+        "text": "is this possible for me? I don t think I have infinit scalability?",
+        "bboxes": [
+          [
+            338.0,
+            608.5,
+            549.2,
+            616.5
+          ]
+        ]
+      },
+      {
+        "page": 13,
+        "text": "Dataset divided\nDataset divided into\ninto equal chunks\nequal chunks\nSend to DASK worker\n1 1\n2 2\n3 3\n4 4\n1,1 1,2 1,3 1,4\n2,2 2,3 2,4\n3,3 3,4\n4,4",
+        "bboxes": [
+          [
+            82.4,
+            198.0,
+            520.2,
+            526.9
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "GPOE.pdf",
+    "notes": [
+      {
+        "page": 2,
+        "text": "that is kind\nof the point?",
+        "bboxes": [
+          [
+            519.5,
+            253.2,
+            585.6,
+            277.2
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "VERY COOL VERY SIMPLE",
+        "bboxes": [
+          [
+            52.0,
+            134.2,
+            205.4,
+            146.2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "NK annotated.pdf",
+    "notes": [
+      {
+        "page": 3,
+        "text": "this is very light",
+        "bboxes": [
+          [
+            52.1,
+            692.4,
+            134.1,
+            704.4
+          ]
+        ]
+      },
+      {
+        "page": 4,
+        "text": "this is light too\neasy prop\nmight use same thing works well\nhe4y tnajam tkoun l formule i4a ken nhotha mba3ed as a proposition",
+        "bboxes": [
+          [
+            64.8,
+            171.8,
+            309.2,
+            572.6
+          ]
+        ]
+      },
+      {
+        "page": 5,
+        "text": "potentially??? this seems stupid? would it fit my construction???\nsame as before???",
+        "bboxes": [
+          [
+            78.8,
+            462.9,
+            306.0,
+            619.2
+          ]
+        ]
+      },
+      {
+        "page": 11,
+        "text": "Bof Bof",
+        "bboxes": [
+          [
+            245.0,
+            231.5,
+            271.2,
+            239.5
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "text": "adding a hyperparameter to whatever",
+        "bboxes": [
+          [
+            130.0,
+            807.0,
+            262.9,
+            815.0
+          ]
+        ]
+      },
+      {
+        "page": 13,
+        "text": "could be a very nice tool to comparaision will add if doesn t clash too much\nfama bzeyed litterature\nis this still true for newer methods??? not so sure????",
+        "bboxes": [
+          [
+            131.3,
+            463.5,
+            462.9,
+            570.3
+          ]
+        ]
+      },
+      {
+        "page": 15,
+        "text": "throw away",
+        "bboxes": [
+          [
+            368.1,
+            557.3,
+            408.5,
+            565.3
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "patchwork kriging.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "this is gold\nalways site the same thing",
+        "bboxes": [
+          [
+            52.6,
+            501.4,
+            250.3,
+            697.3
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "text": "same same\nI should have something like this\ngut\nwaw???",
+        "bboxes": [
+          [
+            27.8,
+            180.9,
+            546.7,
+            672.3
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "or for the optimization process that is derived after that\ngold",
+        "bboxes": [
+          [
+            485.3,
+            555.6,
+            581.8,
+            659.4
+          ]
+        ]
+      },
+      {
+        "page": 4,
+        "text": "I should have similar structure",
+        "bboxes": [
+          [
+            534.8,
+            178.9,
+            588.0,
+            182.9
+          ]
+        ]
+      },
+      {
+        "page": 5,
+        "text": "basicaly the general setting",
+        "bboxes": [
+          [
+            528.6,
+            253.2,
+            577.1,
+            257.2
+          ]
+        ]
+      },
+      {
+        "page": 6,
+        "text": "could be nice to add somewhere the rate of fullnss of this matrix as a nice remark\ncomb2,n * 2 / comb2,n *comb2,n approximatif\nbarcha equationet bech yhotou equationet w bara",
+        "bboxes": [
+          [
+            37.8,
+            640.2,
+            460.1,
+            757.8
+          ]
+        ]
+      },
+      {
+        "page": 7,
+        "text": "maybe good entry point",
+        "bboxes": [
+          [
+            523.2,
+            173.4,
+            585.9,
+            179.4
+          ]
+        ]
+      },
+      {
+        "page": 9,
+        "text": "should be mentioned\nI m not sure why looking at the cholesky decomposition is even interesting??? should be skipped non? should check",
+        "bboxes": [
+          [
+            44.6,
+            145.1,
+            579.5,
+            722.3
+          ]
+        ]
+      },
+      {
+        "page": 10,
+        "text": "maybe??? I did not focus on this?\nso this is very good indeed\nmaybe I would need to\nmention it as is and not\nworry too much about it for now\nalso this is true for time\ncomplexity what about\nmemory??",
+        "bboxes": [
+          [
+            3.3,
+            384.3,
+            576.5,
+            620.0
+          ]
+        ]
+      },
+      {
+        "page": 11,
+        "text": "to read thouroughly\nthis should be one of the baselines I use????\nvery good justification point\na simple visual example I could\nhave is 2 anisotropic regions\none with absis and the other wth ordonn\u00e9",
+        "bboxes": [
+          [
+            3.6,
+            357.6,
+            554.3,
+            564.2
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "text": "our choce of optimized ponts makes\nthe boundaryy not necessarily a hyperplane aswell",
+        "bboxes": [
+          [
+            7.2,
+            79.2,
+            186.4,
+            95.2
+          ]
+        ]
+      },
+      {
+        "page": 19,
+        "text": "how is this related to me\nmaybe worth a mention",
+        "bboxes": [
+          [
+            453.2,
+            609.5,
+            539.5,
+            625.5
+          ]
+        ]
+      },
+      {
+        "page": 24,
+        "text": "good",
+        "bboxes": [
+          [
+            153.0,
+            142.1,
+            175.2,
+            152.1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "product of sparse GPs.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "ight be very interesting???\nmaybe good dataset?",
+        "bboxes": [
+          [
+            343.9,
+            516.0,
+            585.7,
+            587.2
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "text": "good for intro",
+        "bboxes": [
+          [
+            553.3,
+            146.9,
+            588.7,
+            152.9
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "maybe that s a direction??",
+        "bboxes": [
+          [
+            5.5,
+            372.3,
+            75.9,
+            378.3
+          ]
+        ]
+      },
+      {
+        "page": 7,
+        "text": "ok\nmaybe in the appendix\nadd a point about this\nnonstationarity issue?\nok they do synthetic data to show the need for\nnon stationarity , abblation can be just as good I think???\nshow that fixed GP hyperparameter\nover all s not great, could be an appendix result",
+        "bboxes": [
+          [
+            17.2,
+            384.7,
+            594.5,
+            729.2
+          ]
+        ]
+      },
+      {
+        "page": 8,
+        "text": "gold",
+        "bboxes": [
+          [
+            22.3,
+            524.7,
+            41.2,
+            534.7
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "text": "this is very important\nNotation hurt my eyes\nneeds to check more but looks like a special case for my formulation???",
+        "bboxes": [
+          [
+            3.8,
+            362.5,
+            358.8,
+            572.5
+          ]
+        ]
+      },
+      {
+        "page": 13,
+        "text": "horrible horrible notations\nBon this is a choice ??? why would I care?",
+        "bboxes": [
+          [
+            11.0,
+            102.4,
+            199.4,
+            307.5
+          ]
+        ]
+      },
+      {
+        "page": 17,
+        "text": "weak\nydour 3al mahbas",
+        "bboxes": [
+          [
+            4.4,
+            269.0,
+            83.9,
+            543.7
+          ]
+        ]
+      },
+      {
+        "page": 18,
+        "text": "this seems v interesting but I don t know\nI think this could be added as a sentence if we really care about it??? as a side note?\nis this useful at all??\nkind of an easy result tbfh\nwhy???",
+        "bboxes": [
+          [
+            4.4,
+            143.7,
+            509.2,
+            701.2
+          ]
+        ]
+      },
+      {
+        "page": 19,
+        "text": "why??? I m not understanding exactly which hyperparameters? is this even true?\nwhy ?????\ngood sentence",
+        "bboxes": [
+          [
+            13.0,
+            57.6,
+            528.6,
+            239.5
+          ]
+        ]
+      },
+      {
+        "page": 23,
+        "text": "they take one size",
+        "bboxes": [
+          [
+            3.2,
+            209.4,
+            83.8,
+            219.4
+          ]
+        ]
+      },
+      {
+        "page": 27,
+        "text": "math paper???\nwhashignton post???",
+        "bboxes": [
+          [
+            5.2,
+            351.2,
+            99.7,
+            371.2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "rates of convergence for SVGP.pdf",
+    "notes": [
+      {
+        "page": 2,
+        "text": "must read",
+        "bboxes": [
+          [
+            454.8,
+            585.9,
+            508.1,
+            597.9
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "this is a good idea\nnorm de y non null w en moyenne kima sigma donc...",
+        "bboxes": [
+          [
+            317.1,
+            549.7,
+            617.6,
+            608.7
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "sparse within sparse GP.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "good sentence\nis this the firtst\ninstance of NN?\nNN is interesting but it s orthogonal\nto what I have it s interesting either way???\ni DONT KNOW IF IT SHOULD BE\nIN THE BENCHMARK HOWEVER",
+        "bboxes": [
+          [
+            528.8,
+            329.8,
+            627.8,
+            732.5
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "text": "may add this somewhere???",
+        "bboxes": [
+          [
+            405.9,
+            718.9,
+            457.0,
+            722.9
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "should look into that\ndonc binary variables\nwrong?",
+        "bboxes": [
+          [
+            8.2,
+            276.6,
+            606.4,
+            533.3
+          ]
+        ]
+      },
+      {
+        "page": 4,
+        "text": "is this correct? it s linear good???",
+        "bboxes": [
+          [
+            32.3,
+            166.1,
+            211.1,
+            178.1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "titsias2009.pdf",
+    "notes": [
+      {
+        "page": 2,
+        "text": "this is all so interesting,\ntook me 2 months to arrive\nto the same conclusion\none could say that , the original worinvolving variatioanl ptimization had in mind to keep the same prior during the optimizaiton ie not affect the original kernel and not bias it\nmaking the kernel used indepenedt of the inducing points chosen. So introducing inducing variables leaves the original model unchanged. Choosing their locations changes how well the variational regression approximates its exact posterior.\nalthough this is very good our objectives here are differetn inducing points used here have the role of domain definintion and thus including them in the model make sense.",
+        "bboxes": [
+          [
+            117.2,
+            737.5,
+            592.7,
+            766.2
+          ]
+        ]
+      },
+      {
+        "page": 3,
+        "text": "look up technical report",
+        "bboxes": [
+          [
+            565.5,
+            664.4,
+            606.8,
+            668.4
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "file": "VNNGP.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "low quality\ngood\nmaine interesting for an\nintro a bit more in detail\nwith the idea of d proche\nen proche",
+        "bboxes": [
+          [
+            232.1,
+            166.5,
+            608.0,
+            690.7
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "text": "gold",
+        "bboxes": [
+          [
+            157.3,
+            714.4,
+            168.6,
+            720.4
+          ]
+        ]
+      },
+      {
+        "page": 4,
+        "text": "self indulging\n3FAT\nmech heka",
+        "bboxes": [
+          [
+            130.4,
+            163.0,
+            405.9,
+            428.5
+          ]
+        ]
+      },
+      {
+        "page": 5,
+        "text": "ok?",
+        "bboxes": [
+          [
+            550.7,
+            310.1,
+            560.4,
+            316.1
+          ]
+        ]
+      },
+      {
+        "page": 7,
+        "text": "1.2 1.0\n0.8\n0.6 0.4\n0.2\n5 10 15 20\nK\necnegrevid\nLK\n1e1 Lengthscale = 1 1e1 Lengthscale = 5 1e5 Lengthscale = 10 1e8 Lengthscale = 15 1e8 Lengthscale = 20\n6 1.50 3.0\n3 5 1.25 2.5\n4 1.00 2.0 Method 2 3 0.75 1.5 SVGP\n1 2 0.50 1.0 S V W NN S G G P P\n1 0.25 0.5\n0 0 0.00 0.0\n5 10 15 20 5 10 15 20 5 10 15 20 5 10 15 20\nK K K K",
+        "bboxes": [
+          [
+            70.7,
+            78.5,
+            524.3,
+            156.9
+          ]
+        ]
+      },
+      {
+        "page": 15,
+        "text": "1.0 0.8\n0.6\n0.4\n0.2\n5 10 15 20\nK\necnegrevid\nLK\n1e1 Lengthscale = 1 1e1 Lengthscale = 5 1e5 Lengthscale = 10 1e8 Lengthscale = 15 1e8 Lengthscale = 20\n6 1.50 3.0\n3 5 1.25 2.5 2 4 1.00 2.0 Method\n3 0.75 1.5 SVGP\n1 2 0.50 1.0 S V W NN S G G P P\n1 0.25 0.5\n0 0 0.00 0.0\n5 10 15 20 5 10 15 20 5 10 15 20 5 10 15 20\nK K K K\n1.2\n1.0\n0.8\n0.6\n0.4\n0.2\n5 10 15 20\nK\necnegrevid\nLK\n1e1 Lengthscale = 1 1e1 Lengthscale = 5 1e5 Lengthscale = 10 1e8 Lengthscale = 15 1e8 Lengthscale = 20\n6 1.5 3.0 3 5 2.5\n4 1.0 2.0 Method 2 3 1.5 SVGP\nSWSGP\n1 2 0.5 1.0 VNNGP\n1 0.5\n0 0 0.0 0.0\n5 10 15 20 5 10 15 20 5 10 15 20 5 10 15 20\nK K K K\n1.0\n0.8\n0.6\n0.4\n0.2\n5 10 15 20\nK\necnegrevid\nLK\n1e1 Lengthscale = 1 1e1 Lengthscale = 5 1e2 Lengthscale = 10 1e2 Lengthscale = 15 1e3 Lengthscale = 20\n1.25\n1.5 2.5\n1.00 6 2.0\n1.0 0.75 4 1.5 Me S t V ho G d P\n0.50 1.0 SWSGP 0.5 2 VNNGP\n0.25 0.5\n0.0 0.00 0 0.0\n5 10 15 20 5 10 15 20 5 10 15 20 5 10 15 20\nK K K K",
+        "bboxes": [
+          [
+            71.3,
+            212.4,
+            525.5,
+            465.6
+          ]
+        ]
+      }
+    ]
+  }
+]

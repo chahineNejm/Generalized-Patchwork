@@ -1,0 +1,209 @@
+Experiment	Dataset
+- Two regions with orthogonal anisotropy	Synthetic 2D (not priority)
+- Shared vs local kernel hyperparameters	Synthetic 1D with localized rapid variation (not priority)
+- Aggregation and uncertainty comparison	Nested Kriging’s synthetic Matérn example (YES)
+- Time and memory scaling	Increasing synthetic dataset sizes (Already did something like that we will think about it/not priority for now)
+- No stitches vs fixed vs learned stitches: anisotropic synthetic. (yes on one of the datasets? not necessarily that one)
+- Higher-dimensional nonstationarity: Michalewicz and G-function.(yes)
+- Include ProSpar-GP as a close baseline. (Yes)
+
+
+Datasets you flagged: California Housing, satellite drag; highlighted candidates: TCO, ICETHICK, PROTEIN, SARCOS and FLIGHT. (all yes)
+
+
+Benchmarks (reference check: 2026-11-11)
+GPW is our method; the following are comparison models, not completed runs.
+
+Main comparisons
+- SVGP (Hensman et al., 2013)
+  Paper: https://arxiv.org/abs/1309.6835
+  Paper-linked GitHub: https://github.com/SheffieldML/GPy
+  
+- Standard Patchwork Kriging (Park and Apley, 2018)
+  Paper: https://jmlr.org/papers/v19/17-042.html
+  Author GitHub: not verified. Our rectangular-region implementation is not authors' code.
+  
+- ProSpar-GP (Li and Mak, 2025)
+  Paper: https://doi.org/10.1080/10618600.2025.2490264
+  Author GitHub: not verified.
+  Local: ProSparGP implemented from supplied arXiv v1 (6)-(13), with approved
+  derived ELBO/prediction instead of literal printed (14)/(16); not author code.
+  Supports arbitrary D and unequal expert budgets; Heaton/UKHousing adapters use
+  equal budgets. Initial T_j, c, D_j and extra prior_jitter are required explicitly.
+  
+- VNNGP (Wu et al., 2022)
+  Paper: https://proceedings.mlr.press/v162/wu22h.html
+  GitHub: https://github.com/cornellius-gp/gpytorch
+  Paper-linked example: https://docs.gpytorch.ai/en/stable/examples/04_Variational_and_Approximate_GPs/VNNGP.html
+
+Aggregation/uncertainty diagnostic
+- Nested Kriging (Rulliere et al., 2018)
+  Paper: https://arxiv.org/abs/1607.05432
+  Author-associated GitHub: https://github.com/drulliere/nestedKriging
+  Repository association is from the authors' package announcement, not the supplied PDF.
+  Local implementation: NestedKriging; two-layer shared-prior exact experts,
+  arbitrary input dimension, RBF/Matern-5/2, explicit groups; no inducing variables.
+  LOO-MSE fitting uses Adam rather than the paper's SPSA; noiseless scale calibration.
+- PoE, gPoE, BCM, rBCM, smallest-variance, nearest-neighbor: diagnostic only; code links unverified.
+
+Optional / undecided
+- CPoE (Schurch et al., 2023)
+  Paper: https://doi.org/10.1007/s10994-022-06297-3
+  Paper-linked GitHub: https://github.com/manschuer/CPoE (returned 404).
+
+- SWSGP (Tran et al., 2021)
+  Paper: https://proceedings.mlr.press/v139/tran21a.html
+  Author GitHub: not verified.
+- Full GP: small-synthetic reference only; library: https://github.com/SheffieldML/GPy
+
+
+Hyperparameters / Controls
+M = total inducing points; P = patches/experts; m = points/expert;
+B = batch size except in the Patchwork paper, where B = stitches/shared boundary.
+Learned parameters are not fixed settings. NR = not reported in the checked source.
+
+Model | Structural controls | Learned parameters
+GPW | P, m, graph/neighbor count, stitches/edge, q_rank, train/freeze flags, weight_epsilon | local ARD lengthscales/output variances, shared noise SD, supports, independent stitches, q mean/block precision/low-rank factor; weights computed, not free parameters
+SVGP | M, inducing initialization, train/freeze flags, covariance family | global ARD lengthscales/output variance, noise SD, inducing locations, q mean/full Cholesky
+Standard Patchwork | partition, region size/count, stitches/boundary and placement | kernel lengthscales/output variance, observation noise; no variational q
+ProSpar-GP | P, m, expert kernel family | expert kernel parameters/inducing locations, noise variance, inducing nuggets D_j, temperatures T_j, exponent c, variational parameters (preprint Sec. 3)
+VNNGP | M, K neighbors, ordering, inducing initialization/fixed locations, batch sizes, covariance family | kernel parameters, likelihood noise, q mean/diagonal variance
+Nested Kriging | partition/submodel count, aggregation tree, kernel family | shared kernel parameters if fitted; none fitted in the selected synthetic example
+PoE/gPoE/BCM/rBCM/SPV/NN | expert data/layout/count; gPoE/rBCM weighting rule; NN neighbor count | expert kernel/noise parameters if fitted
+CPoE (optional) | P, correlation order C, sparsity gamma, ordering/partition/predecessor rule | shared kernel/noise parameters; local inducing inputs need not be optimized
+SWSGP (optional) | M, H active neighbors, fixed/learned inducing locations, full/diagonal q covariance | kernel/noise, inducing locations if enabled, variational parameters
+Full GP (optional) | kernel/mean family, training subset | kernel/noise/mean parameters if fitted
+Training controls: optimizer, learning rates, batch size, training budget, warm-up,
+scheduler, stopping/selection rule, seeds. Numerical settings are separate from model parameters.
+
+Our Current Colab Defaults (not new dataset prescriptions or completed results)
+Shared: ARD RBF; initial lengthscales=0.1, output variance=1, noise SD=0.1;
+100 epochs, kernel/noise frozen for first 20 in variational models; seed=31, float64, CUDA.
+Adam: q LR=0.002; support/stitch/kernel/noise LR=0.001; GPW alternates q/structure steps.
+GPW/SVGP: gradient clip=10, weight decay=0. No early stopping or LR scheduler.
+Bounds: lengthscales (0.02,3), output variance (0.02,30), noise SD (1e-4,1).
+Numerics: prior jitter=1e-4, minimum variational Cholesky diagonal=1e-3,
+variance validity threshold=1e-12, GPW weight epsilon=0.01 (runner override of library 1e-8).
+
+Runner | Model configurations | Other settings
+Heaton/MODIS | GPW 8x60 AND 4x120; SVGP M=480 | B=2048; prediction B=2048; GPW rank=32, graph neighbors=2, stitches/edge=8
+UKHousing reconstruction | GPW 8x128; SVGP M=1024 | B=1024; prediction B=256; GPW rank=32, graph neighbors=2, stitches/edge=8
+UKHousing reconstruction | Standard Patchwork | <=512 observations/region, 2 stitches/edge; fixed rectangles; Adam LR=0.01; 100 full-data updates, no warm-up
+UKHousing reconstruction | VNNGP | M=N_train fixed observed locations; K=32, B=512; mean-field q; q LR=0.002, kernel/noise LR=0.001 after warm-up
+UKHousing uses 64/16/20 train/validation/test; not the verified VNNGP paper snapshot.
+Our VNNGP is RBF, not the paper's Matern-5/2. Our standard Patchwork learns local
+kernels, unlike the shared-kernel real-data comparisons in Park/Apley.
+Source: experiments/{heaton_benchmark,ukhousing_benchmark,build_heaton_colab,build_ukhousing_colab}.py;
+src/pwgp/{config,training}.py and src/pwgp/models/. New target datasets have no assigned local configs yet.
+
+Reported Settings on Our Selected Benchmarks
+These are source configurations, not adopted settings. Set braces indicate multiple
+tested values, not a single selected winner; repeat counts are separate from grid sizes.
+
+SVGP - original paper, Sec. 4.3 and Fig. 8
+- FLIGHT regression: ARD squared-exponential + bias + noise; main M=1000, B=5000;
+  variational LR=0.01, kernel LR=1e-5, kernel momentum=0.9; 10 main runs.
+  Separate inducing sweep: M={50,100,200,500,800,1000}, six configurations.
+  Split: 700,000 training / 100,000 test; training-budget value NR in prose
+  (Fig. 8 traces extend to 1200 iterations; not an epoch count).
+- Additional SVGP settings appear below under ProSpar, VNNGP, SWSGP and gp2Scale.
+
+Standard Patchwork - Secs. 3.4, 6.1-6.6 and Appendix D
+Real-data kernels share hyperparameters across regions, estimated from all training
+data. PC-direction recursive spatial tree; B uniformly sampled stitches per boundary;
+90/10 random split. SE = squared exponential; Exp = exponential kernel.
+Dataset | P regions | B stitches/boundary | Reported structural grid | Kernels
+TCO (Appendix D; 48,331 rows) | {64,128,256,512} | {5,7} | 8 pairs | SE and Exp
+TCO.L2 (main text; distinct dataset) | {256,512,1024} | {3,5} | 6 pairs | SE and Exp
+ICETHICK | {64,128,256,512,1024} | {3,5,7} | 15 pairs | SE and Exp
+PROTEIN | {64,128,256} | {2,3,4} | 9 pairs | SE
+SARCOS (first torque target) | {128,256} | {3,5,7} | 6 pairs | SE
+FLIGHT | 1024 | 5 | 1 pair | SE
+Final fitted kernel/noise values and optimizer budget: NR in these experiment descriptions.
+The same paper's rBCM expert-count sweeps: TCO/TCO.L2 {100,150,200,250,300,600};
+ICETHICK {50,100,150,200,250,300}; PROTEIN/SARCOS {100,150,200,250,300}; FLIGHT 1024.
+
+ProSpar-GP - supplied arXiv v1, Secs. 3, 5.1-5.2, 6 (not verified against final publication)
+Common: P=200, m=25 (5000 total); expert-specific squared-exponential kernels;
+Adam, B=1024; inducing points, kernel parameters, T_j, c, D_j learned.
+SVGP comparator: M=1024, Matern-5/2, B=1024. Learning rates, training budgets,
+initial T_j/c/D_j and final learned values: NR; no expert-budget sweep specified.
+Benchmark | Tested data configurations | Repeats
+Michalewicz | d={3,5,10} x N_train={50k,100k}; N_test=25k; LHS; noise variance=1e-8 | 10/config
+G-function | same six dimension/sample-size configurations and noise | 10/config
+Satellite drag (Hubble/hydrogen) | d=8; N_train={100k,175k,250k}; N_test=175k from 2M simulations | 10/config
+The 1D motivation example uses sparse FITC/ML, N=750, M=45; it is not an SVGP run.
+
+VNNGP paper - selected overlap: PROTEIN; Sec. 4.3 / Appendix D.3.1
+M=N_train at observations, random ordering, mean-field q; K={32,256}.
+Shared comparison setup: ARD Matern-5/2, Gaussian likelihood, Adam;
+lengthscales/outputscale/likelihood-noise parameter initialized to 0.6931.
+For Protein (<50k): iterations={300,500} x LR={0.005,0.01}; K adds two choices
+(8 VNNGP combinations before seeds). LR drops x0.1 at 75% and 90% of budget.
+64/16/20 split, 3 seeds; select by validation NLL. Winning settings per seed: NR.
+SVGP comparator: M=1024, full covariance, k-means initialization (4 optimizer pairs).
+SWSGP comparators: M=N_train OR M={1024,2048,4096,8192}, K={32,256}, mean-field;
+learned-location version recomputes neighbors each epoch. Batch sizes: NR here.
+Protein's table reports 25.6k training points; do not assume identical CASP snapshots.
+For the existing UKHousing task (>50k), the paper's optimizer grid instead uses
+iterations={100,300}, LR={0.005,0.001}; our reconstructed data are not directly comparable.
+
+Nested Kriging / aggregation - selected 1D Matern example, Sec. 5.1 / Figs. 4-5
+N=30 uniform points in [0,1]; P=15 experts, two consecutive sorted points/expert;
+zero-mean Matern-5/2, variance=1, lengthscale=0.05, held fixed (no fitting).
+101 evenly spaced test points, 50 independent function/design replications.
+Same experts for NK, PoE, gPoE, BCM, rBCM, SPV; full GP uses all 30 observations.
+gPoE beta_i=1/15; rBCM beta_i(x)=0.5*log(prior_variance/local_variance_i(x));
+SPV picks minimum variance. NN neighbor count: not explicit in checked 1D description.
+
+gPoE original paper - SARCOS, Sec. 3 / Tables 1-2
+P=512 experts, 256 observations/expert; independent ARD + white-noise kernels,
+scaled conjugate-gradient hyperparameter fitting; entropy-change weights normalized.
+Three constructions: random subsets, local neighborhoods, ball tree; plus tree-gPoE
+using only root-to-leaf experts. Not the constant-beta NK diagnostic above.
+Kernel/noise final values, initialization, iteration budget and repeat count: NR.
+Paper: https://arxiv.org/abs/1410.7827
+
+CPoE (optional) - California Housing/cadata, SARCOS, PROTEIN/CASP
+Published author version, Table 3a, Table A4, Sec. 4.3 and Appendix A.7.2:
+Dataset | P experts | Train/test counts | C configurations
+California Housing/cadata | 64 | 19640/1000 | {1,2,3}
+SARCOS | 128 | 43484/1000 | {1,2,3}
+PROTEIN/CASP | 128 | 44730/1000 | {1,2,3}
+gamma=1; ARD SE, kernel/noise initialized to 1; stochastic Adam LR=0.01;
+max 15 epochs, relative stopping=1e-2; 5 repetitions. Partition size roughly 500.
+Also reported: SE versus FLEX kernel for each C (6 variants/dataset); FLEX is
+two spectral-mixture kernels + MLP covariance kernel + linear kernel, not a trained NN.
+The sparse-GP comparator M={500,1000} is not an SVGP configuration.
+Source: https://ipg.idsia.ch/preprints/schurch2023.pdf
+Table counts are recorded verbatim: Appendix A.7.2's stated split formula conflicts
+with those counts. Exact source snapshots/splits and final fitted values remain unverified.
+
+SWSGP (optional) - PROTEIN, original paper Secs. 4, 4.1, 4.3 / Figs. 3-4
+Common: Matern-5/2, Gaussian likelihood, Adam LR=0.001, B=64, 10 folds.
+- Small inducing sweep: M={32,64,128} x H={4,8,16}, nine configurations,
+  learned inducing positions, 300,000 iterations. SVGP comparisons use the same M,
+  an additional M=16 reference, and nearest-16 prediction variants.
+- Large inducing experiment: M=3000, H=50, fixed inducing positions, diagonal q;
+  SVGP comparators M={128,512}; training budget for this Protein run NR.
+  Fig. 4 split: 41,157 training / 4,573 test.
+AIRLINE classification in this paper is not our FLIGHT delay-regression benchmark.
+
+California Housing - SVGP/VNNGP in gp2Scale (Sec. 5.3 / Appendix B.3)
+Paper: 20,000 training / 640 test; Adam; SVGP M=100; VNNGP M=20,000, K=50.
+Code inspected at commit b968d975bd80fe8e23dca3a2ad62e398eeb008d4:
+- CA_svgp.ipynb: M=100 random observed initial points, trainable positions,
+  isotropic Matern-3/2 + outputscale, constant mean, full q, Gaussian likelihood;
+  500 full-batch updates, Adam LR=0.1 (function default 100 is overridden).
+  Optimizer includes model parameters only: likelihood noise is not optimized.
+- CA_nngp.ipynb DOES NOT implement VNNGP: independent exact local GPs, K=25
+  at the call (function default 50), isotropic Matern-3/2 lengthscale=1 plus white
+  noise variance=0.04, alpha=0, optimizer=None, local target normalization.
+  This conflicts with the paper's VNNGP description; no verified matching VNNGP config.
+Paper: https://arxiv.org/abs/2512.06143v3
+Pinned SVGP code: https://github.com/MarcusMNoack/gp2Scale/blob/b968d975bd80fe8e23dca3a2ad62e398eeb008d4/CA_Housing/CA_svgp.ipynb
+Pinned local-GP code: https://github.com/MarcusMNoack/gp2Scale/blob/b968d975bd80fe8e23dca3a2ad62e398eeb008d4/CA_Housing/CA_nngp.ipynb
+
+Scope: only overlaps with target datasets and the existing UKHousing task are listed.
+NR does not mean a library default. Fitted lengthscales/noise are not recoverable
+from structural settings alone. No source-only setting above was silently applied locally.

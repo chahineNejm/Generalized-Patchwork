@@ -1,0 +1,1176 @@
+=== PDF PAGE 1 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+Gia-Lac Tran 1 2 Dimitrios Milios 1 Pietro Michiardi 1 Maurizio Filippone 1
+Abstract
+Approximations to Gaussian processes (GPs)
+based on inducing variables, combined with varia-
+tional inference techniques, enable state-of-the-art
+sparse approaches to infer GPs at scale through
+mini-batch based learning. In this work, we fur-
+ther push the limits of scalability of sparse GPs
+by allowing large number of inducing variables
+without imposing a special structure on the induc-
+ing inputs. In particular, we introduce a novel
+hierarchical prior, which imposes sparsity on the
+set of inducing variables. We treat our model
+variationally, and we experimentally show consid-
+erable computational gains compared to standard
+sparse GPs when sparsity on the inducing vari-
+ables is realized considering the nearest inducing
+inputs of a random mini-batch of the data. We
+perform an extensive experimental validation that
+demonstrates the effectiveness of our approach
+compared to the state-of-the-art. Our approach
+enables the possibility to use sparse GPs using a
+large number of inducing points without incurring
+a prohibitive computational cost.
+1. Introduction
+Gaussian Processes (GPs) (Rasmussen & Williams, 2006)
+offer a powerful framework to perform inference over func-
+tions; being Bayesian, GPs provide rigorous uncertainty
+quantiﬁcation and prevent overﬁtting. However, the ap-
+plicability of GPs on large datasets is hindered by their
+computational complexity of O
+(
+N 3)
+, where N is the train-
+ing size. This issue has fuelled a considerable amount of
+research towards scalable GP methodologies that operate
+on a set of inducing variables (Qui˜nonero Candela & Ras-
+mussen, 2005). In the literature, there is a plethora of ap-
+proaches that offer different treatments of the inducing vari-
+ables (Lawrence et al., 2002; Seeger et al., 2003; Snelson
+1Department of Data Science, Eurecom, France 2Department of
+Computer Science, National University of Singapore, Singapore.
+Correspondence to: Gia-Lac Tran <tranlac@nus.edu.sg>.
+Proceedings of the 38 th International Conference on Machine
+Learning, PMLR 139, 2021. Copyright 2021 by the author(s).
+& Ghahramani, 2005; Naish-Guzman & Holden, 2007; Tit-
+sias, 2009; Hensman et al., 2013; Wilson & Nickisch, 2015;
+Hensman et al., 2015). Some of the more recent approaches,
+such as Scalable Variational Gaussian Processes ( SVGP s)
+(Hensman et al., 2015), allow for the application of GPs to
+problems with millions of data-points. In most applications
+of scalable GPs, these are approximated using M inducing
+points, which results in a complexity of O
+(
+M 3)
+. It has
+been shown recently by Burt et al. (2019) that it is possible
+to obtain an arbitrarily good approximation for a certain
+class of GP models (i.e. conjugate likelihoods, concentrated
+distribution for the training data) with M growing more
+slowly than N. However, the general case remains elusive
+and it is still possible that the required value for M may ex-
+ceed a certain computational budget. Our result contributes
+to strengthen our belief that sparsity does not only enjoy
+desirable theoretical properties, but it also constitutes an
+extremely computationally efﬁcient method in practice.
+In this work, we push the limits of scalability and effec-
+tiveness of sparse GPs enabling a further reduction in com-
+plexity, which can be translated to higher accuracy by con-
+sidering a larger set of inducing variables. The idea is to
+operate on a subset of H inducing points during training and
+prediction, with H ≪ M, while maintaining a sparse ap-
+proximation with M inducing variables. We formalize our
+strategy by imposing a sparsity-inducing structure on the
+prior over the inducing variables and by carrying out a vari-
+ational formulation of this model. This extends the original
+SVGP framework and enables mini-batch based optimization
+for the variational objective. We then consider ways to select
+the set of
+H inducing points based on neighbor information;
+at training time, for a given mini-batch, we activate H out
+of M inducing variables considering the nearest inducing
+inputs to the samples in the mini-batch, whereas at test time
+we select inducing variables corresponding to the inducing
+inputs which are nearest to the test data-points. We name
+our proposal Sparse within a Sparse GP (SWSGP ). SWSGP
+is characterized by a number of attractive features: (i) it
+improves signiﬁcantly the prediction quality using a small
+number of neighboring inducing inputs, and (ii) it acceler-
+ates the training phase, especially when the total number
+of inducing points becomes large. We extensively validate
+these properties on a variety of regression and classiﬁcation
+tasks. We also showcase SWSGP on a large scale classiﬁca-
+good sentence
+is this the firtst 
+instance of NN?
+NN is interesting but it s orthogonal 
+to what I have it s interesting  either way??? 
+i DONT KNOW IF IT SHOULD BE 
+IN THE BENCHMARK HOWEVER
+
+=== PDF PAGE 2 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+tion problem with M = 100, 000; we are not aware of other
+approaches that can handle such a large set of inducing in-
+puts without imposing some special structure on them (e.g.,
+grid) or without considering one-dimensional inputs.
+Hierarchical priors are often applied in Bayesian mod-
+eling to achieve compression and to improve ﬂexibility
+(Molchanov et al., 2017; Louizos et al., 2017). To the best
+of our knowledge, this work is the ﬁrst to explore these ideas
+as means to sparsify the inducing set in sparse GPs.
+2. Related Work and Background
+Sparse GPs that operate on inducing inputs have been ex-
+tensively studied in the last 20 years (Csat ´o & Opper,
+2002; Lawrence et al., 2002; Snelson & Ghahramani, 2005;
+Qui˜nonero Candela & Rasmussen, 2005; Naish-Guzman
+& Holden, 2007). Many attempts on sparse GPs speciﬁed
+inducing inputs by satisfying certain criteria that produce an
+informative set of inducing variables (Csat
+´o & Opper, 2002;
+Lawrence et al., 2002; Seeger et al., 2003). A different treat-
+ment has been proposed by Titsias (2009), which involves
+formulating the selection of inducing inputs as optimization
+of a variational lower bound to the marginal likelihood. The
+variational framework was later extended so that stochastic
+optimization can be admitted, thus improving scalability for
+regression (Hensman et al., 2013) and classiﬁcation (Hens-
+man et al., 2015), and to deal with large-dimensional inputs
+(Panos et al., 2018). All the aforementioned methodologies
+share a computational complexity of O
+(
+M 3)
+. Although
+there have been some attempts in the literature to infer the
+appropriate number of inducing points as well as the induc-
+ing inputs (Pourhabib et al., 2014; Burt et al., 2019), a large
+number of inducing variables is desirable to improve poste-
+rior approximation. In this work, we present a methodology
+that builds on the SVGP framework (Hensman et al., 2015)
+and reduces its complexity, thus increasing the potential of
+sparse GP application on even larger datasets and with a
+larger set of inducing variables.
+A different approach to scalable GPs was introduced by Wil-
+son & Nickisch (2015), namely Kernel Interpolation for
+Scalable Structured GPs (KISS -GP). This line of work in-
+volves arranging a large number of inducing inputs into a
+grid structure; this allows one to scale to very large datasets
+by means of fast linear algebra. The applicability of KISS -
+GP on higher-dimensional problems has been addressed by
+Wilson et al. (2015) by means of low-dimensional projec-
+tions. A more recent extension allows for a constant-time
+variance prediction using Lanczos methods (Pleiss et al.,
+2018). Our work takes a different approach by keeping
+the GP prior intact, and by imposing sparsity on the set of
+inducing variables.
+The local approximation of GPs inspired by the the concept
+of divide-and-conquer is also a practical solution to imple-
+ment scalable GPs (Kim et al., 2005; Urtasun & Darrell,
+2008; Datta et al., 2016; Park & Huang, 2016; Park & Ap-
+ley, 2017). More recently, Liu & Liu (2019) proposed an
+amortized variational inference framework where the near-
+est training points are selected for inference. In our work,
+we use neighbor information in a different way, by incorpo-
+rating it in a certain hierarchical structure of the auxiliary
+variables through a variational scheme.
+2.1. Scalable Variational Gaussian Processes
+Consider a supervised learning problem with inputs X =
+(x1, . . . ,xN )⊤ associated with labels y = ( y1, . . . , yN )⊤.
+Given a set of latent variables f = (f 1, . . . , fN )⊤, GP mod-
+els assume that labels are stochastic realizations based on
+f and a likelihood function p(y | f ). In SVGP s, the set of
+inducing points is characterized by inducing inputs Z =
+(z1, . . . ,zM )⊤ and inducing variables u = (u1, . . . , uM )⊤.
+Regarding f and u, we have the following joint prior:
+p(f , u) = N
+(
+0,
+[ KX KX,Z
+KZ,X KZ
+])
+, (1)
+where KX, KZ and KX,Z are covariance matrices evalu-
+ated at the inputs indicated by the subscripts. The posterior
+over inducing variables is approximated by a variational
+distribution q (u) = N (u | m, S), while keeping the exact
+conditional p(f | u) intact, that is q(f , u) = p(f | u)q(u).
+The variational parameters m and S, as well as the inputs Z,
+are optimized by maximizing a lower bound on the marginal
+likelihood p(y | X) =
+∫
+p(y | f )p(f | X)df. The lower
+bound on log p (y | X) can be obtained by considering the
+form of q(f , u) above and by applying Jensen’s inequality:
+Eq(f ) [log p (y | f )] − KL (q (u) ∥ p (u)) . (2)
+The approximate posterior q (f ) can be computed by inte-
+grating out u: q (f ) =
+∫
+q (u) p (f |u ) du. Thanks to the
+Gaussian form of q (u), q (f ) can be computed analytically:
+q (f ) = N (f | Am, KX + A (S − KZ) A) , (3)
+where A = KX,ZK−1
+Z . When the likelihood factorizes
+over training points, the lower bound can be re-written as:
+∑N
+i=1 Eq(fi) [log p (yi | fi)] − KL (q (u) ∥ p (u)) . (4)
+Each term of the one-dimensional expectation of the log-
+likelihood can be computed by Gauss-Hermite quadrature
+for any likelihoods (and analytically for the Gaussian like-
+lihood). The KL (q (u) ∥ p (u)) term can be computed
+analytically given that q (u) and p (u) are both Gaussian.
+To maintain positive-deﬁniteness ofS and perform uncon-
+strained optimization, S is parametrized as S = LLT , with
+L lower triangular.
+may add this somewhere???
+
+=== PDF PAGE 3 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+0 2 4 6 8 10
+−2
+0
+2
+f|u,w f|u,w f|u,w
+0 2 4 6 8 10
+−2
+0
+2
+True GP prior
+True GP samples
+Sample prior
+f samples
+Figure 1. The choice of inducing points does not affect the prior
+samples drawn from p(f ). Left: visualizations of f | u, w for
+different samples of w. Right: comparison of the marginalized
+(w.r.t. u, w) prior over f, against the true p(f ).
+3. Sparse Within Sparse GP
+We present a novel formulation of sparseGPs, which permits
+the use of a random subset of the inducing points with little
+loss in performance. We introduce a set of binary random
+variables w ∈ {0, 1}M to govern the inclusion of inducing
+inputs Z and the corresponding variablesu. We then employ
+these random variables to deﬁne a hierarchical structure on
+the prior as follows:
+p (u | w) = N (0, DwKZDw) , (5)
+where Dw = diag (w ) , and w ∼ p (w). Although the
+marginalized prior p(u) is not Gaussian, it is possible to
+use the joint p(u, w) = p(u | w) p(w) within a variational
+scheme. We thus consider a random subset of the inducing
+points during the evaluation of the prior in the variational
+scheme that follows; no inducing points are permanently
+removed. Regarding p(w), we consider an implicit distri-
+bution: its analytical form is unknown, but we can draw
+samples from it. Later, we will consider p(w) based on the
+nearest inducing inputs to random mini-batches of data.
+Remarks on the prior over f Our strategy simply as-
+sumes a certain structure on the auxiliary variables, but
+it has no effect on the prior over
+f; the latter remains un-
+changed. Let I and J bet the sets of indices such that
+wI = 1 and wJ = 0. Given an appropriate ordering, the
+conditional u | w is effectively the element-wise product
+[uI, uJ ]⊤ = u ◦ w. This reduces the variances and covari-
+ances of some elements of u to zero yielding a distribution
+of this form:
+p (f , u | w) = N
+
+
+
+
+0
+0
+0
+
+ ,
+
+
+KX KX,ZI 0
+KZI ,X KZI 0
+0 0 0
+
+
+
+ (6)
+The rows and columns ofuJ can simply be ignored. Regard-
+less of the value of w, the conditional f , uI | w is always a
+Gaussian marginal, as it is a subset of Gaussian variables.
+The marginalized p(f , u) =
+∫
+p(f , u | w) p(w)dw is mix-
+ture of Gaussian densities, where the marginal over f is the
+same for every component of the mixture.
+The effect on f is demonstrated in Figure 1, where we sam-
+ple from the (non-Gaussian) marginalized prior p(u) in
+two steps: ﬁrst we consider an arbitrary random subset
+uI, and then we sample from p(uI) ≡ p(u | w). Fi-
+nally, f samples are drawn from p(f | uI), which only
+involves the selected inducing variables uI. Following
+Eq. (1), the conditional f | u is normally-distributed with
+mean mf|uI = KX,ZI K−1
+ZI uI and covariance Sf|uI =
+KX − KX,ZI K−1
+ZI KZI ,X
+. These conditionals can be seen
+for different samples of u, w in the left side of Figure 1,
+while in the right side we compare the marginalized prior
+over f against the true GP prior.
+Of course, although the prior remains unchanged, that is not
+the case for the posterior approximation. It is well known
+that the choice of inducing inputs has an effect on the varia-
+tional posterior (Titsias, 2009; Burt et al., 2019). Our choice
+to impose a hierarchical structure to the inducing variables
+through w effectively changes the model compared toSVGP ,
+and we adapt the variational scheme accordingly.
+3.1. Lower Bound on Marginal Likelihood
+By introducing u, w and using Jensen’s inequality, the lower
+bound on log p (y) can be obtained as follows
+Eq(u,w) log p (y |u, w ) − KL (q (u, w) ∥p (u, w)) , (7)
+where we choose the variational distribution q to reﬂect the
+hierarchical structure of the prior, i.e. q (u, w) = q(u |
+w) p(w). This choice enforces sparsity over the approx-
+imate posterior q; the variational parameters are shared
+among the conditionals q(u | w), for which we assume:
+q(u | w) = N (u |Dwm, DwSDw ) (8)
+By maximizing the variational bound, we aim to obtain a
+q that performs well under a sparsiﬁed inducing set. We
+continue by applying Jensen’s inequality on p (y |u, w ),
+obtaining:
+log p (y |u, w ) ≥ Ep(f|u,w) log p (y |f ) (9)
+The bound we describe in Equations (7) and (9) is the same
+as in SVGP , but with a different variational distribution. In
+our case, the variational distribution imposes sparsity for u
+by means ofw. We can now substitute(9) into (7), obtaining
+a bound where we expand q(u, w) as q (u |w ) p (w). By
+making this assumption, we get the following evidence
+lower bound LELBO :
+N∑
+n=1
+Ep(w)
+[
+Eq(u|w )Ep(fn|u,w ) log p (yn |fn )
+− 1
+N KL
+(
+q (u |w )
+
+ p (u |w )
+)] (10)
+Recall that p (w) is implicit: although we do not make any
+particular assumptions about its analytical form, we can
+donc binary variables
+wrong?
+should look into that
+
+=== PDF PAGE 4 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+draw samples from it. Using MC sampling from p (w), we
+can obtain the approximation ˜LELBO :
+N∑
+n=1
+[
+Eq(u| ˜w(n) )Ep(fn|u, ˜w(n) ) log p (yn |fn )
+− 1
+N KL
+(
+q
+(
+u
+⏐⏐⏐ ˜w(n)
+) p
+(
+u
+⏐
+⏐⏐ ˜w(n)
+))]
+,
+(11)
+where ˜w(n) is sampled from p (w).
+Sampling from the set of inducing points. Recall that
+any sample ˜w from p (w) is a binary vector, i.e. w ∈
+{0, 1}M . In case all elements of w are set to one, our
+approach recovers the original SVGP with computational
+cost of O
+(
+M 3)
+coming from computing p (fn |u, ˜w = 1 )
+and KL (q (u |w ) ∥p (u |w )) in the ELBO . When any ˜wi
+is set to zero, the entries of the i-th row and i-th column
+of the covariance matrix in p (u |w ) and q (u |w ) are zero.
+This means that the i-th variable becomes unnecessary, so
+we get rid of i-th row and column in these matrices, and
+also eliminate the i-th element in mean vectors of q (u |w )
+and p (u |w ). This is equivalent to selecting a set of active
+inducing points in each training iteration.
+3.2. H-nearest Inducing Inputs
+Despite the fact that p(w) is an implicit distribution, we
+have been able to deﬁne and calculate a variational bound,
+assuming we can sample from p(w). We shall now describe
+our sampling strategy, which relies on neighbor information
+of random mini-batches.
+We introduce ZH
+x as the set of H-nearest inducing inputs.
+Intuitively, the prediction for an unseen datax using ZH
+x
+is a
+good approximation of the prediction using all M inducing
+points, that is ZM
+x
+. This can be veriﬁed by looking at the pre-
+dictive mean, which is expressed as a linear combination of
+kernel functions evaluated between training points and a test
+point, as in Eq. (3). The majority of the contribution is given
+by the inducing points with the largest kernel values, so we
+can use this as a criterion to establish whether an inducing
+input is “close” to an input vector (the effect of different
+kernels on the deﬁnition of nearest neighbors is explored
+in the supplement). With this intuition,
+p (w) becomes a
+deterministic function w (x) indicating which inducing in-
+puts are activated. For mini-batch based training, the value
+of w remains random, as it depends on the elements x that
+are selected in the random mini-batch; this materializes the
+sampling from the implicit distribution p(w). The maxi-
+mization of the ELBO in the setting described is summarized
+in Algorithm 1 (SWSGP ).
+Predictive distribution Contrary to what happens at train-
+ing time, where mini-batches of data are drawn randomly,
+Algorithm 1 Sparse within sparse GP (SWSGP )
+Require: D, H, M.
+Ensure: The optimum of trainable parameters θ.
+1: Initialize θ including kernel’s parameters, Z, m and L
+which can be used to construct S, i.e. S = LLT .
+2: while stopping criteria is False do
+3: ELL ← 0 and KL ← 0.
+4: Sample mini-batch B of size nB from D.
+5: for (xi, yi) ∈ B do
+6: Find ZH
+xi, i.e. the H-nearest Z to xi.
+7: Compute w (xi) using ZH
+xi as in (12).
+8: Extract mw(xi) and Sw(xi) from m and L.
+9: Compute q (fi |w (xi) ) as in (13).
+10: ELL ← ELL + Eq(fi|w(xi) ) log p (yi |fi ).
+11: KL ← KL + KL
+(
+q
+(
+uw(xi)
+)
+∥p
+(
+uw(xi)
+))
+12: end for
+13: ˜LELBO ← N
+nB
+ELL − 1
+nB
+KL.
+14: Update θ using the derivative of ˜LELBO .
+15: end while
+at test time the inputs of interest are not random; we need to
+describe the predictive distribution in terms of the determin-
+istic function w (x). In fact, if we would like to approximate
+the predictive distribution at xn using H-nearest inducing
+inputs to x, i.e. ZH
+xn, then w (x) =
+[
+w(1)
+x ...w(M )
+x
+]T
+where,
+w(m)
+x =
+{
+1 if zm ∈ ZH
+x
+0 else , with m = 1, ..., M (12)
+We extract the relevant elements using w (x); for the mean,
+we have mw(xi) = Dw(xi)m, and for the covariance we
+select the appropriate rows and columns using Sw(xi) =
+Dw(xi)SDw(xi). The approximate posterior over fi given
+w (xi), i.e. q (fi |w (xi) ) is:
+N
+(
+fi |Axi mw(xi),
+Kxi + Axi
+(
+Sw(xi) − KZH
+xi
+)
+A⊤
+xi
+)
+,
+(13)
+where Axi = Kxi,ZH
+xi
+K−1
+ZH
+xi
+.
+Limitations What we presented allows one to compute
+predictive distributions for individual test points following
+Eq. (13). As a result, it is not possible to obtain a full co-
+variance across predictions over multiple test points. While
+most performance and uncertainty quantiﬁcation metrics
+do not consider covariances, this might be a limitation in
+applications where covariances are essential. One way to
+work around this is to consider the union of nearest neigh-
+bors at test time; however, this would be inconsistent with
+is this correct? it s linear good???
+
+=== PDF PAGE 5 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+−1.5 −1.0 −0.5 0.0 0.5 1.0 1.5
+−2.5
+0.0
+2.5
+SVGP-128M
+−1.5 −1.0 −0.5 0.0 0.5 1.0 1.5
+−2.5
+0.0
+2.5
+SWSGP-128M-16H
+Figure 2. Visualization of posterior distribution of SVGP and
+SWSGP . In both cases, we consider 128 inducing points; in terms
+of our scheme (SWSGP ) we use 16 neighbors.
+Eq. (13) and the training procedure should be modiﬁed ac-
+cordingly considering the union of nearest neighbors for
+training points within mini-batches. The considerations sug-
+gest a further limitation of SWSGP , that is that the predictive
+distribution becomes dependent on the number of test points
+that are consdered within a batch at test time. Neverthe-
+less, the model is built and trained to deal with sparsity at
+test time, and this kind of inconsistency appears only when
+testing the model in conditions which are different com-
+pared to those at training time. Besides, the experiments
+show that SWSGP performs extremely well against various
+state-of-the-art competitors on a wide range of experiments.
+One-dimensional regression example. We visualize the
+posterior distribution for a synthetic dataset generated on a
+one-dimensional input space. We execute SVGP and SWSGP ,
+and depict the posterior distributions of these two methods
+by showing the predictive means (orange lines) and the 95%
+credible intervals (shaded areas) in Figure 2. We consider
+identical settings for the two methods (i.e. 128 inducing
+points, kernel parameters, likelihood variance) and a neigh-
+bor area of 16 for SWSGP ; a full account of the setup can be
+found in the supplement. We see that although the models
+are different, the predictive distributions appear remarkably
+similar. A more extensive evaluation follows in Section 4.
+3.3. Complexity
+The computational cost of SWSGP is dominated by lines
+6, 8 and 9 in Algorithm 1. For each data-point (xi, yi)
+in mini-batch B, we need to ﬁnd the H nearest inducing
+neighbors ZH
+xi for nB points in line 6, where nB = |B|; this
+contributes to the worst-case complexity by O (nBM H).
+In line 8, we extract relevant parameters from m and L.
+We focus on the cost of extracting Sw(xi) from L. Similar
+to SVGP (Section 2.1), we consider S = LLT , where L is
+lower triangular. We extract Lw(xi) = Dw(xi)L which
+contains the rows of L. Then, we compute Sw(xi) by
+Sw(xi) = Lw(xi)LT
+w(xi). The computational complexity
+of selecting the variational parameters is O
+(
+nBM H2)
+.
+Finally, the computation of approximating the predic-
+tive distribution in line 9 requires O
+(
+nBH 3)
+. The
+overall complexity for SWSGP in the general case is
+O
+(
+nBM H + nBM H2 + nBH 3)
+, which is a signiﬁcant
+improvement over the O
+(
+M 3)
+complexity of standard
+SVGP , assuming that nB, H ≪ M. If we choose
+S to be diagonal, the total complexity reduces to
+O
+(
+nBM H + nBH 3)
+; if we additionally consider Z to be
+ﬁxed, the computational cost is O(nBH 3). In the experi-
+ments of Section 4 we explore all these settings.
+4. Experiments
+We conduct experiments to evaluate SWSGP on a variety
+of experimental conditions. Our approach is denoted by
+SWSGP -M-H, where M inducing points are used and H de-
+termines how many neighbors are selected. The locations
+of the inducing points are optimized, unless stated other-
+wise. We introduce SVGP -M and SVGP -M-H as competitors;
+SVGP -M uses M inducing points. SVGP -M-H, instead, refers
+to SVGP using M inducing points at training time and H-
+nearest inducing inputs at test time. We also use SVGP -16M
+using 16 inducing points as a reference. The comparison is
+carried out on some UCI data sets for regression and classi-
+ﬁcation, i.e.,POWERPLANT , KIN, PROTEIN , EEG, CREDIT
+and SPAM. We also consider larger scale data sets, such as,
+WAVE, QUERY and the AIRLINE data or images classiﬁca-
+tion on MNIST . The task for the AIRLINE data set is the
+classiﬁcation of whether ﬂights are to subject to a delay,
+and we follow the same setup as in Hensman et al. (2013)
+and Wilson et al. (2016). Regarding MNIST , we consider
+the binary classiﬁcation setup of separating odd and even
+digits (pixels normalized between 0 and 1), and we use a
+Bernoulli likelihood with probit inverse link function. We
+use the Mat´ern-5/2 kernel in all cases except for theAIRLINE
+dataset, where the sum of a Mat´ern-3/2 and a linear kernel
+is used, similar to Hensman et al. (2015). All models are
+trained using the Adam optimizer (Kingma & Ba, 2015)
+with a learning rate of 0.001 and a mini-batch size of 64.
+The likelihood for regression and binary classiﬁcation are
+set to Gaussian and probit function, respectively. In regres-
+sion tasks, we report the test root mean squared error (RMSE )
+and the test mean negative log-likelihood (MNLL ), whereas
+we report the test error rate (ERR) and MNLL in classiﬁcation
+tasks. The results are averaged over 10 folds. All models in
+section 4.1 are trained over 300, 000 iterations.
+4.1. Impact of M and H
+We begin our evaluation by investigating the behavior of
+SWSGP -M-H with respect to M and H. Figure 3 shows that
+SWSGP -M-H consistently outperforms SVGP -M-H. This sug-
+gests that including neighbor information at prediction time,
+combined with the use of a larger set of inducing points
+alone is not enough to obtain competitive performance, and
+that only thanks to the sparsity-inducing prior over latent
+
+=== PDF PAGE 6 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+variables, this yields improvements. Crucially, the perfor-
+mance metrics obtained by SWSGP are comparable with
+those obtained by SVGP -M, while at each iteration only a
+small subset of H out of M inducing points are updated,
+carrying a signiﬁcant complexity reduction.
+M=32 M=64 M=1283.75
+4.00
+4.25RMSE
+POWERPLANT - 4
+M=32 M=64 M=128
+0.10
+0.12
+KIN8NM - 8
+M=32 M=64 M=128
+0.75
+0.80
+PROTEIN - 9
+M=32 M=64 M=128
+2.30
+2.40MNLL
+M=32 M=64 M=128
+-1.25
+-1.00
+M=32 M=64 M=128
+0.65
+0.70
+M=32 M=64 M=128
+0.15
+0.20
+0.25ERR
+EEG - 14
+M=32 M=64 M=128
+0.00
+0.20
+CREDIT - 24
+M=32 M=64 M=128
+0.05
+0.10
+0.15
+SPAM - 57
+M=32 M=64 M=128
+0.40
+0.60MNLL
+M=32 M=64 M=128
+0.00
+0.25
+M=32 M=64 M=128
+0.10
+0.20
+0.30
+SVGP-M
+SWSGP-M-4H
+SVGP-16M
+SWSGP-M-8H
+SVGP-M-16H
+SWSGP-M-16H
+Figure 3. Evaluation of SWSGP on UCI data sets with various con-
+ﬁguration for M and H. The title of each sub-ﬁgure follows
+the format of [name of data set]-[data dimensions]. The black
+up-triangles are for SVGP with M inducing points. The cyan down-
+triangles are for SVGP with 16 inducing points. The red circles are
+for SVGP training with M inducing points and the prediction at an
+unseen data x are made by ZH
+x . The green squares, stars and plus
+are for SWSGP with H of 4, 8 and 16 respectively. In these experi-
+ments, M varies from 32 to 128, as shown on horizontal axes. The
+standard deviation of the error metrics over 10 folds is represented
+by vertical bars; they are very small for most conﬁgurations.
+4.2. Running Time
+In Table 1, we report the training and testing times ofSWSGP
+and SVGP In SVGP , we set M = 256 for EEG, and 1024 for
+MNIST , i.e. SVGP -256M and SVGP -1024M. In our approach,
+we use the same M and we set H to 4, i.e. SWSGP -256M-4H
+and SWSGP -1024M-4H. In Table 1, we stress that t1 and
+t2 in SWSGP take into account the computation of ﬁnding
+neighbors inducing inputs for each data-point. In SVGP ,
+we assume that K−1
+Z is pre-computed and saved after the
+training phase. Therefore, the computational cost to evaluate
+the predictive distribution on a single test point is O
+(
+M 2)
+.
+The time t2 in SVGP refers to the execution time of carrying
+out predictions with the complexity of O
+(
+M 2)
+.
+The results in Tab 1 show a consistent improvement at test
+time compared to SVGP across all values of H and M. At
+training time, the results show a trend dependent on the
+number M of inducing points. Not surprisingly, SWSGP
+offers limited improvements when M is small. Considering
+EEG in which M is set to 256, SVGP is faster than SWSGP
+in terms of training time. This is because the inversion
+of a 256 × 256 matrix requires less time than ﬁnding the
+Table 1. Comparison of running time between SVGP and SWSGP .
+The running time for a training iteration is denoted by t1. The
+testing time for an unseen example is denoted by t2. Times are in
+milliseconds. The corresponding evaluated metrics ,i.e. ERR and
+MNLL are also shown in terms of training time. These ﬁgures are
+averaged over 5 folds. The models for EEG and MNIST are trained
+in 90 minutes and 6 hours respectively.
+(a) Running times for SVGP -256M and SWSGP -256M-4H on EEG.
+Conﬁguration t1(ms) t2(ms) ERR MNLL
+SVGP -256M 21.42 1.43 0.17 0 .34
+SWSGP -256M-4H 26.18 0.56 0.18 0.36
+(b) Running times for SVGP -1024M and SWSGP -1024M-4H on
+MNIST .
+Conﬁguration t1(ms) t2(ms) ERR MNLL
+SVGP -1024M 516 21.6 0.02 0.066
+SWSGP -1024M-4H 233 1 .77 0 .016 0 .05
+0 20 40 60 80
+0.1
+0.2
+0.3
+0.4
+EEG-ERR
+SVGP-256M
+SWSGP-256M-4H
+0 20 40 60 80
+0.4
+0.6
+EEG-MNLL
+SVGP-256M
+SWSGP-256M-4H
+(c) ERR and MNLL over training time (in minutes) on EEG.
+0 100 200 300
+0.02
+0.04
+0.06
+MNIST-ERR
+SVGP-1024M
+SWSGP-1024M-4H
+0 100 200 300
+0.1
+0.2
+MNIST-MNLL
+SVGP-1024M
+SWSGP-1024M-4H
+(d) ERR and MNLL over training time (in minutes) onMNIST .
+neighbors and inverting several 4 × 4 matrices. However,
+Tab 1 shows dramatic speedups compared toSVGP when the
+number of inducing points M is large. When M = 1024
+on MNIST , SWSGP -1024M-4H is faster than SVGP -1024M at
+training time. This is due to the inversion of the1024×1024
+kernel matrix being a burden for SVGP , whereas SWSGP
+deals with much cheaper computations. In addition, we
+show the corresponding ERR and MNLL of each model when
+we train SVGP and SWSGP on EEG and MNIST . On the
+EEG data set, our method is comparable with SVGP . On
+MNIST , SWSGP reaches high accuracies signiﬁcantly faster
+compared to SVGP .
+4.3. Large-scale Sparse GP Modeling with a Huge
+Number of Inducing Points
+Here we show that SWSGP allows one to use sparse GPs
+with a massive number of inducing points without incurring
+a prohibitive computational cost. We employ several large-
+scale data sets, i.e. PROTEIN , EEG, WAVE, QUERY and
+
+=== PDF PAGE 7 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+AIRLINE with 5 millions training samples. We test SWSGP
+with a large number of inducing points, ranging from 3, 000
+to 100, 000. In this case, we keep the inducing locations
+ﬁxed for SWSGP . We have attempted to run SVGP with
+such large values of M without success (out of memory in
+a system with 32GB of RAM). Therefore, as a baseline we
+execute SVGP -128M and SVGP -512M and report the results
+of SVGP with the conﬁguration in Hensman et al. (2015).
+In SWSGP , we impose a diagonal matrix S in the variational
+distribution q (u | w), and we ﬁx the position of the induc-
+ing inputs during training. By ﬁxing the inducing inputs,
+we can operate with pre-computed information about which
+inducing inputs are neighbors of training inputs. Thanks to
+these settings, SWSGP ’s training phase requires O
+(
+nBH 3)
+operations only, where nB is the mini-batch size. Due to
+the appropriate choice of H and nB, and the computational
+cost being independent of M, unlike SVGP , we can success-
+fully run SWSGP with an unprecedented number of inducing
+point, e.g. M = 100, 000.
+0 5 10 15 20
+0.8
+1.0
+RMSE
+SVGP-128M
+SVGP-512M
+SWSGP-3000M-50H
+0 5 10 15 20
+0.6
+0.8
+1.0
+1.2
+MNLL
+SVGP-128M
+SVGP-512M
+SWSGP-3000M-50H
+PROTEIN-41157-4573-9
+0 50 100 150
+0.0
+0.2
+0.4
+ERR
+SVGP-128M
+SVGP-512M
+SWSGP-3000M-50H
+0 50 100 150
+0.2
+0.4
+0.6
+MNLL
+SVGP-128M
+SVGP-512M
+SWSGP-5000M-50H
+EEG-70000-4900-14
+5 10 15 20
+0.1
+0.2
+RMSE
+SVGP-128M
+SVGP-512M
+SWSGP-10000M-50H
+0 5 10 15 20
+−2
+−1
+0
+1
+MNLL
+SVGP-128M
+SVGP-512M
+SWSGP-10000M-50H
+QUERY-190000-9843-4
+0 5 10 15 20
+0.7
+0.8
+0.9
+1.0
+RMSE
+SVGP-128M
+SVGP-512M
+SWSGP-10000M-50H
+0 5 10 15 20
+0.6
+0.8
+1.0
+MNLL
+SVGP-128M
+SVGP-512M
+SWSGP-10000M-50H
+WAVE-250000-37999-32
+Figure 4. SWSGP with large number of inducing points. The ﬁg-
+ure shows the progression of RMSE (ERR) and MNLL over time.
+Horizontal axes indicate the running times in minute. The title of
+each sub-ﬁgure follows the format of [name of data set]-[training
+size]-[testing size]-[data dimensions].
+In AIRLINE experiments, by setting H and the mini-batch
+size n to 100 and 64 respectively, in about 24 hours of train-
+ing we could run SWSGP -100,000M-100H for one million
+iterations. The ERR and MNLL of SWSGP -100,000M-100H
+evaluated on the test set are 21% and 0.48, respectively,
+while the ERR and MNLL of SVGP -200M published in Hens-
+man et al. (2015) are about 34% and 0.61, respectively. To
+the best of our knowledge, SWSGP is the ﬁrst to enable
+sparse GPs with such a large set of inducing points without
+imposing a grid structure on the inducing inputs. In addition,
+in Figure 4 we also show that SWSGP using 3, 000 or 5, 000
+or 10, 000 inducing points outperforms SVGP using 128 and
+512 inducing points on other data sets.
+We conclude by reporting comparisons with other GP-based
+models. In particular, we compare against the Stochastic
+Variational Deep Kernel Learning (SVDKL ) (Wilson et al.,
+2016) and the Deep GP approximated with random features
+(DGP-RBF) (Cutajar et al., 2017). In the former, KISS -GP is
+trained on top of a deep neural network which is optimized
+during training, and in the latter the layers of a deep GP are
+approximated as parametric models using random feature
+expansions. Both competitors feature mini-batch based
+learning, so this represents a challenging test for SWSGP .
+The results in Table 2 show that SWSGP is comparable with
+these competitors on various data sets. We believe that
+this is a remarkable result obtained by our shallow SWSGP ,
+supporting the conclusions of previous works showing that
+advances in kernel methods can result in performance which
+are competitive with deep learning approaches (see, e.g.,
+Rudi et al. (2017)).
+Table 2. Comparison of SWSGP , KISS -GP (Wilson & Nickisch,
+2015), SVDKL (Wilson et al., 2016) and DGP-RBF (Cutajar et al.,
+2017). The results SWSGP and KISS -GP are averaged over 5 folds.
+In order to deal with the difﬁculties of KISS -GP to handle large-
+dimensional input spaces, we followed (Wilson et al., 2015), and
+we linearly projected the inputs to a two-dimensional space using
+a linear transformation that is learned at training time, and used a
+grid of size 100.
+(a) AIRLINE
+Method ERR MNLL
+SWSGP -100kM-100H 0.210 ± 0.012 0.48 ± 0.015
+SVDKL 0.22 0.46
+DGP-RBF 0.21 0 .46
+(b) POWERPLANT
+Method RMSE MNLL
+SWSGP -64M-4H 4.095 ± 0.145 2 .371 ± 0.038
+KISS -GP 4.459 ± 0.355 3 .074 ± 0.037
+(c) PROTEIN
+Method RMSE MNLL
+SWSGP -64M-4H 0.773 ± 0.002 0 .702 ± 0.003
+KISS -GP 0.816 ± 0.001 0 .904 ± 0.017
+
+=== PDF PAGE 8 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+4.4. Comparison to Local GPs
+We ﬁnally demonstrate thatSWSGP behaves differently from
+other approaches that use local approximations of GPs. We
+consider two well-established approaches of local GPs pro-
+posed by Kim et al. (2005) and Urtasun & Darrell (2008).
+Following Liu et al. (2020), we refer to these methods as
+Inductive GPs and Transductive GPs, respectively. We run
+all methods on two regression data sets: POWERPLANT and
+KIN. We set the number of local experts to 64, and we use
+the same number of inducing points for SWSGP (with H
+either 4 or 8). As the size of POWERPLANT and KIN are
+approximately 7, 000, we set the number of training points
+governed by a local expert to 100. For the local GP ap-
+proaches, we choose 64 locations in the input space using
+the K-means algorithm, and for each location we choose
+100 neighboring points; we then train the corresponding
+local GP expert. For the testing phase, inductive GPs sim-
+ply rely on the nearest local experts to an unseen point x∗.
+For transductive GPs, we use 100 neighbors of x∗ and the
+nearest local expert to make predictions. In Table 3, we
+summarize RMSE and MNLL for all methods; SWSGP clearly
+outperforms the local GP approaches in terms of MNLL .
+Table 3. Comparison with Local GP approximations.
+Method POWERPLANT KIN
+RMSE | MNLL RMSE | MNLL
+SWSGP -64-4 4.27 | 2.41 0 .11 | −1.27
+SWSGP -64-8 4.24 | 2.40 0.10 | -1.38
+Inductive GPs 9.93 | 38.38 0 .13 | −0.40
+Transductive GPs 6.17 | 18.78 0.09 | −0.65
+4.5. Joint Predictive Covariances
+In this section, we propose an extension of SWSGP where
+the training procedure is modiﬁed by considering the union
+of nearest neighbors for training points within mini-batches.
+We refer to this asSWSGP -U, where U stands for “union”. In
+the experiments, we execute SWSGP -U-512M-128m where
+the total number of inducing points is 512, and the number
+of active inducing points in each training iteration is ﬁxed to
+128. To illustrate the effectiveness of the modiﬁcation, we
+compare SWSGP -U-512M-128m against SVGP -512M and full
+GPs. Due to the computational complexity of full GPs, we
+only use 2, 000 training samples and ﬁx the computational
+budget to six hours. In the evaluation phase, we randomly
+group the test set based on the speciﬁed mini-batch size.
+Next, the joint predictive distributions of each testing batch
+are obtained, which we use to compute RMSE and MNLL .
+The results in Figure 5 are averaged by repeating the process
+10 times. The results indicate that SWSGP -U works well
+1 2 4 8 16 32 64
+3.60
+3.80
+4.00RMSE
+1 2 4 8 16 32 64
+2.25
+2.30MNLL
+1 2 4 8 16 32 64
+0.00
+2.00
+4.00Cov-MSE
+POWERPLANT-4
+4H 8H 16H 32H 64H SVGP GPR
+Figure 5. SWSGP -U on POWERPLANT . The horizontal axis shows
+the mini-batch size of the testing set. We evaluate SWSGP -U with
+various numbers of nearest inducing points from 4 to 64, i.e. 4H,
+8H, 16H, 32H, and 64H. The green markers show SWSGP -U.
+For example, in order to plot the green squares 4H, we ﬁrstly ﬁnd
+the 4-nearest inducing points of each sample within a testing batch.
+Then, we use the union of these nearest inducing points to make a
+joint prediction for all samples in the testing batch.
+when using an adequate number of nearest inducing points.
+In the ﬁgure, we also assess the quality of the covariance
+approximation of SWSGP -U and SVGP by reporting the mean
+square error with respect to the covariance of fullGPs. These
+results show that SWSGP -U provides a good approximation
+of joint predictive covariances.
+5. Conclusions
+Sparse approaches that rely on inducing points have met
+with success in reducing the complexity of GP regression
+and classiﬁcation. However, these methods are limited by
+the number of inducing inputs that is required to obtain an
+accurate approximation of the true GP model. A large num-
+ber of inducing inputs is often necessary in cases of very
+large datasets, which marks the limits of practical applica-
+tions for most GP-based approaches.
+In this work, we further improve the computational gains
+of sparse GPs. We proposed SWSGP , a novel methodology
+that imposes a hierarchical and sparsity-inducing effect on
+the prior over the inducing variables. This has been realized
+as a conditional GP given a random subset of the inducing
+points, which is deﬁned as the nearest neighbors of random
+mini-batches of data. We have developed an appropriate
+variational bound which can be estimated in an unbiased
+way by means of mini-batches. We have performed an exten-
+sive experimental campaign that demonstrated the superior
+scalability properties of SWSGP compared to the state-of-
+the-art.
+Acknowledgments MF gratefully acknowledges support
+from the AXA Research Fund and the Agence Nationale
+de la Recherche (grant ANR-18-CE46-0002 and ANR-19-
+P3IA-0002).
+
+=== PDF PAGE 9 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+References
+Burt, D., Rasmussen, C. E., and Van Der Wilk, M. Rates
+of convergence for sparse variational Gaussian process
+regression. In Proceedings of the 36th International Con-
+ference on Machine Learning, volume 97 of Proceedings
+of Machine Learning Research , pp. 862–871. PMLR,
+2019.
+Csat´o, L. and Opper, M. Sparse on-line gaussian processes.
+Neural Computation, 14(3):641–668, 2002. ISSN 0899-
+7667.
+Cutajar, K., Bonilla, E. V ., Michiardi, P., and Filippone, M.
+Random feature expansions for deep Gaussian processes.
+In Proceedings of the 34th International Conference on
+Machine Learning, volume 70 ofProceedings of Machine
+Learning Research, pp. 884–893. PMLR, 2017.
+Datta, A., Banerjee, S., Finley, A., and Gelfand, A. On
+nearest-neighbor gaussian process models for massive
+spatial data: Nearest-neighbor gaussian process models.
+Wiley Interdisciplinary Reviews: Computational Statis-
+tics, 8, 08 2016.
+Hensman, J., Fusi, N., and Lawrence, N. D. Gaussian pro-
+cesses for big data. InProceedings of the 29th Conference
+on Uncertainty in Artiﬁcial Intelligence , pp. 282–290.
+AUAI Press, 2013.
+Hensman, J., Matthews, A., and Ghahramani, Z. Scalable
+Variational Gaussian Process Classiﬁcation. InProceed-
+ings of the 18th International Conference on Artiﬁcial
+Intelligence and Statistics, volume 38 of Proceedings of
+Machine Learning Research, pp. 351–360. PMLR, 2015.
+Kim, H.-M., Mallick, B., and Holmes, C. Analyzing nonsta-
+tionary spatial data using piecewise gaussian processes.
+Journal of the American Statistical Association, 100:653–
+668, 02 2005.
+Kingma, D. P. and Ba, J. Adam: A method for stochastic op-
+timization. In 3rd International Conference on Learning
+Representations, 2015.
+Lawrence, N. D., Seeger, M., and Herbrich, R. Fast Sparse
+Gaussian Process Methods: The Informative Vector Ma-
+chine. In Advances in Neural Information Processing
+Systems 15, pp. 625–632. MIT Press, 2002.
+Liu, H., Ong, Y ., Shen, X., and Cai, J. When gaussian
+process meets big data: A review of scalable gps. IEEE
+Transactions on Neural Networks and Learning Systems,
+31:4405–4423, 2020.
+Liu, L. and Liu, L. Amortized variational inference with
+graph convolutional networks for gaussian processes. In
+Proceedings of the 22nd International Conference on
+Artiﬁcial Intelligence and Statistics, volume 89 of Pro-
+ceedings of Machine Learning Research, pp. 2291–2300.
+PMLR, 2019.
+Louizos, C., Ullrich, K., and Welling, M. Bayesian com-
+pression for deep learning. In Advances in Neural Infor-
+mation Processing Systems 30, pp. 3288–3298. Curran
+Associates, Inc., 2017.
+Molchanov, D., Ashukha, A., and Vetrov, D. Variational
+dropout sparsiﬁes deep neural networks. In Proceed-
+ings of the 34th International Conference on Machine
+Learning, volume 70 of Proceedings of Machine Learn-
+ing Research, pp. 2498–2507. PMLR, 2017.
+Naish-Guzman, A. and Holden, S. The generalized FITC
+approximation. In Advances in Neural Information Pro-
+cessing Systems 20, pp. 1057–1064. Curran Associates
+Inc., 2007. ISBN 978-1-60560-352-0.
+Panos, A., Dellaportas, P., and Titsias, M. K. Fully scal-
+able gaussian processes using subspace inducing inputs.
+CoRR, abs/1807.02537, 2018.
+Park, C. and Apley, D. Patchwork kriging for large-scale
+gaussian process regression. Journal of Machine Learn-
+ing Research, 19, 01 2017.
+Park, C. and Huang, J. Z. Efﬁcient computation of gaussian
+process regression for large spatial data sets by patching
+local gaussian processes. J. Mach. Learn. Res. , 17(1):
+6071–6099, January 2016. ISSN 1532-4435.
+Pleiss, G., Gardner, J., Weinberger, K., and Wilson, A. G.
+Constant-time predictive distributions for Gaussian pro-
+cesses. In Proceedings of the 35th International Confer-
+ence on Machine Learning, volume 80 of Proceedings
+of Machine Learning Research, pp. 4114–4123. PMLR,
+2018.
+Pourhabib, A., Liang, F., and Ding, Y . Bayesian site se-
+lection for fast Gaussian process regression. Institute of
+Industrial Engineers Transactions, 46(5):543–555, 2014.
+Qui˜nonero Candela, J. and Rasmussen, C. E. A unifying
+view of sparse approximate Gaussian process regression.
+Journal of Machine Learning Research , 6:1939–1959,
+2005. ISSN 1532-4435.
+Rasmussen, C. E. and Williams, C. Gaussian Processes for
+Machine Learning. MIT Press, 2006.
+Rudi, A., Carratino, L., and Rosasco, L. FALKON: An
+Optimal Large Scale Kernel Method. In Advances in
+Neural Information Processing Systems 30 , pp. 3888–
+3898. Curran Associates, Inc., 2017.
+
+=== PDF PAGE 10 ===
+Sparse within Sparse Gaussian Processes using Neighbor Information
+Seeger, M., Williams, C. K. I., and Lawrence, N. D. Fast
+forward selection to speed up sparse Gaussian process re-
+gression. In Artiﬁcial Intelligence and Statistics 9, 2003.
+Snelson, E. and Ghahramani, Z. Sparse Gaussian Processes
+using Pseudo-inputs. In Advances in Neural Information
+Processing Systems 18, pp. 1257–1264. MIT Press, 2005.
+Titsias, M. K. Variational Learning of Inducing Variables in
+Sparse Gaussian Processes. In Proceedings of the 12th
+International Conference on Artiﬁcial Intelligence and
+Statistics, volume 5 of Proceedings of Machine Learning
+Research, pp. 567–574. PMLR, 2009.
+Urtasun, R. and Darrell, T. Sparse probabilistic regression
+for activity-independent human pose inference. In 2008
+IEEE Conference on Computer Vision and Pattern Recog-
+nition, pp. 1–8, 2008.
+Wilson, A. and Nickisch, H. Kernel Interpolation for Scal-
+able Structured Gaussian Processes (KISS-GP). In Pro-
+ceedings of the 32nd International Conference on Ma-
+chine Learning, volume 37 of Proceedings of Machine
+Learning Research, pp. 1775–1784. PMLR, 2015.
+Wilson, A., Dann, C., and Nickisch, H. Thoughts
+on massively scalable gaussian processes. ArXiv,
+abs/1511.01870, 2015.
+Wilson, A. G., Hu, Z., Salakhutdinov, R. R., and Xing, E. P.
+Stochastic Variational Deep Kernel Learning. In Lee,
+D. D., Sugiyama, M., Luxburg, U. V ., Guyon, I., and
+Garnett, R. (eds.), Advances in Neural Information Pro-
+cessing Systems 29, pp. 2586–2594. Curran Associates,
+Inc., 2016.

@@ -4,21 +4,20 @@ from __future__ import annotations
 
 import json
 import shutil
+import zipfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 from pwgp.data.download import download_file, file_checksum, safe_extract
-from pwgp.data.loaders import load_flight, load_oisst, load_spatial, prepare_flight
+from pwgp.data.loaders import load_flight, load_oisst, load_spatial, prepare_author_flight
 from pwgp.data.types import RegressionDataset
 
 PATCHWORK_BUNDLE_DRIVE_ID = "1gx6sJUKQgFHonbKlxrmrCEbDT_V5Xonu"
 ICETHICK_MD5 = "3e4be5375cbc63ede60839a6dbc9f8ad"
-FLIGHT_URLS = {
-    "2008.csv.bz2": "https://stat-computing.org/dataexpo/2009/2008.csv.bz2",
-    "plane-data.csv": "https://stat-computing.org/dataexpo/2009/plane-data.csv",
-}
+FLIGHT_URL = "https://www.dropbox.com/s/32lz1vnjx3bg9hd/airline.pickle.zip?dl=1"
+FLIGHT_REFERENCE = "https://github.com/jameshensman/VFF/tree/master/experiments/airline"
 
 
 @dataclass(frozen=True)
@@ -33,7 +32,7 @@ DESCRIPTIONS = {
         "oisst", "NOAA daily 0.25-degree sea-surface temperature v2.1", "automatic"
     ),
     "flight": DatasetDescription(
-        "flight", "2008 US airline delays from the 2009 Data Expo", "automatic"
+        "flight", "Author-prepared airline delay data used by Hensman's VFF/SVGP experiments", "author archive"
     ),
     "tco-l2": DatasetDescription(
         "tco-l2", "Total column ozone data from the Patchwork Kriging bundle", "automatic"
@@ -82,7 +81,8 @@ class DatasetManager:
                 raise ValueError(
                     f"ICETHICK MD5 mismatch: expected {ICETHICK_MD5}, got {actual}"
                 )
-        destination = self.dataset_directory(name) / "raw" / source.name
+        filename = "airline.pickle" if name == "flight" and source.suffix in {".pkl", ".pickle"} else source.name
+        destination = self.dataset_directory(name) / "raw" / filename
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
         self._write_manifest(
@@ -98,14 +98,13 @@ class DatasetManager:
         if name != "flight":
             raise ValueError(f"{name} does not require a separate preparation step")
         raw = self.dataset_directory("flight") / "raw"
-        output = self.dataset_directory("flight") / "prepared" / "flight-2008-800k.npz"
-        prepared = prepare_flight(
-            raw / "2008.csv.bz2", raw / "plane-data.csv", output
-        )
+        output = self.dataset_directory("flight") / "prepared" / "flight-author.npz"
+        prepared = prepare_author_flight(raw / "airline.pickle", output)
         self._write_manifest(
             "flight",
-            [raw / "2008.csv.bz2", raw / "plane-data.csv", prepared],
-            {"method": "prepare", "seed": 7, "maximum_rows": 800_000},
+            [raw / "airline.pickle", prepared, prepared.with_suffix(".json")],
+            {"method": "author-prepared", "reference": FLIGHT_REFERENCE,
+             "cleaning": json.loads(prepared.with_suffix(".json").read_text(encoding="utf-8"))},
         )
         return prepared
 
@@ -153,15 +152,17 @@ class DatasetManager:
         return [path]
 
     def _download_flight(self) -> list[Path]:
-        paths: list[Path] = []
-        sources: list[str] = []
-        for filename, url in FLIGHT_URLS.items():
-            path, source = download_file(
-                url, self.dataset_directory("flight") / "raw" / filename
-            )
-            paths.append(path)
-            sources.append(source)
-        self._write_manifest("flight", paths, {"method": "download", "sources": sources})
+        raw = self.dataset_directory("flight") / "raw"
+        archive, source = download_file(FLIGHT_URL, raw / "airline.pickle.zip")
+        if not zipfile.is_zipfile(archive):
+            raise ValueError("Author airline source did not return a ZIP archive; no raw-data fallback")
+        with zipfile.ZipFile(archive) as bundle:
+            if bundle.namelist() != ["airline.pickle"]:
+                raise ValueError("Author airline ZIP must contain exactly airline.pickle")
+        safe_extract(archive, raw)
+        paths = [archive, raw / "airline.pickle"]
+        self._write_manifest("flight", paths, {"method": "author archive", "source": source,
+                                               "reference": FLIGHT_REFERENCE})
         return paths
 
     def _download_patchwork_bundle(self) -> list[Path]:
@@ -189,7 +190,7 @@ class DatasetManager:
 
     def _default_data_file(self, name: str) -> Path:
         if name == "flight":
-            expected = self.dataset_directory(name) / "prepared" / "flight-2008-800k.npz"
+            expected = self.dataset_directory(name) / "prepared" / "flight-author.npz"
             if not expected.is_file():
                 raise FileNotFoundError("Run pwgp-data prepare flight before loading FLIGHT")
             return expected

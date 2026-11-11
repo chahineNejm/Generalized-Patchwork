@@ -10,9 +10,11 @@ from pwgp.config import DEFAULT_HYPERPARAMETER_BOUNDS, HyperparameterBounds
 
 def inverse_softplus(value: torch.Tensor) -> torch.Tensor:
     value = torch.as_tensor(value)
+    if not bool(torch.isfinite(value).all()):
+        raise ValueError("Parameter values must be finite")
     if bool((value <= 0).any()):
         raise ValueError("inverse_softplus requires strictly positive values")
-    return torch.log(torch.expm1(value))
+    return value + torch.log(-torch.expm1(-value))
 
 
 def inverse_bounded_sigmoid(
@@ -24,6 +26,8 @@ def inverse_bounded_sigmoid(
     device: torch.device,
 ) -> torch.Tensor:
     value = torch.as_tensor(value, dtype=dtype, device=device)
+    if not bool(torch.isfinite(value).all()):
+        raise ValueError("Parameter values must be finite")
     if bool(((value <= lower) | (value >= upper)).any()):
         raise ValueError(f"Value must be strictly inside ({lower}, {upper})")
     probability = (value - lower) / (upper - lower)
@@ -32,6 +36,8 @@ def inverse_bounded_sigmoid(
 
 def bounded_sigmoid(raw: torch.Tensor, bounds: tuple[float, float]) -> torch.Tensor:
     lower, upper = bounds
+    if not bool(torch.isfinite(raw).all()):
+        raise FloatingPointError("Raw hyperparameters must be finite")
     return lower + (upper - lower) * torch.sigmoid(raw)
 
 
@@ -40,6 +46,8 @@ class UnitCubeParameter(nn.Module):
 
     def __init__(self, initial: torch.Tensor, *, trainable: bool = True) -> None:
         super().__init__()
+        if not bool(torch.isfinite(initial).all()):
+            raise ValueError("Initial point coordinates must be finite")
         if bool(((initial <= 0) | (initial >= 1)).any()):
             raise ValueError("Trainable points must lie strictly inside the unit cube")
         raw = torch.log(initial) - torch.log1p(-initial)
@@ -50,6 +58,8 @@ class UnitCubeParameter(nn.Module):
         self.trainable = trainable
 
     def forward(self) -> torch.Tensor:
+        if not bool(torch.isfinite(self.raw).all()):
+            raise FloatingPointError("Raw point coordinates must be finite")
         return torch.sigmoid(self.raw)
 
 

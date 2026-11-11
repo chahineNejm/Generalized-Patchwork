@@ -1,0 +1,1782 @@
+=== PDF PAGE 1 ===
+Variational Nearest Neighbor Gaussian Process
+Luhuan Wu 1 Geoff Pleiss 2 John Cunningham 1 2
+Abstract
+Variational approximations to Gaussian processes
+(GPs) typically use a small set of inducing points
+to form a low-rank approximation to the co-
+variance matrix. In this work, we instead ex-
+ploit a sparse approximation of the precision ma-
+trix. We propose variational nearest neighbor
+Gaussian process (VNNGP), which introduces
+a prior that only retains correlations within
+K
+nearest-neighboring observations, thereby induc-
+ing sparse precision structure. Using the vari-
+ational framework, VNNGP’s objective can be
+factorized over both observations and inducing
+points, enabling stochastic optimization with a
+time complexity of
+O(K 3). Hence, we can arbi-
+trarily scale the inducing point size, even to the
+point of putting inducing points at every observed
+location. We compare VNNGP to other scalable
+GPs through various experiments, and demon-
+strate that VNNGP (1) can dramatically outper-
+form low-rank methods, and (2) is less prone to
+overfitting than other nearest neighbor methods.
+1. Introduction
+Gaussian processes (GPs) provide rich priors over func-
+tions (Rasmussen & Williams, 2006). While the GP poste-
+rior can be computed in closed form for regression models,
+variational posterior approximations (Titsias, 2009; Hens-
+man et al., 2013; van der Wilk et al., 2020) have become
+increasingly popular as they offer numerous advantages.
+First, variational methods can utilize stochastic minibatch-
+ing (Hensman et al., 2013), enabling inference for large-
+scale datasets. Second, variational methods are compati-
+ble with non-conjugate likelihoods (Hensman et al., 2015)
+and simplify inference for interdomain observation models
+(L´azaro-Gredilla & Figueiras-Vidal, 2009; ´Alvarez et al.,
+2010; van der Wilk et al., 2020; Wu et al., 2021). Finally,
+1Department of Statistics, Columbia University 2Zuckerman
+Institute, Columbia University. Correspondence to: Luhuan Wu
+<lw2827@columbia.edu>.
+Proceedings of the 39 th International Conference on Machine
+Learning, Baltimore, Maryland, USA, PMLR 162, 2022. Copy-
+right 2022 by the author(s).
+black box variational methods (Ranganath et al.,2014) make
+it possible to use GP as components of larger models, such
+as Deep Gaussian Processes (Damianou & Lawrence,2013).
+To apply variational methods to large-scale GP, it is often
+necessary to make additional approximations (Titsias, 2009;
+Hensman et al., 2017). This is because making GP inference
+with N observations incurs a O(N 3) computation. A popu-
+lar variational approach that aids this issue is the Stochastic
+Variational Gaussian Process method (SVGP) (Hensman
+et al., 2013), which essentially forms a low-rank approxi-
+mation to the prior covariance. These approximations offer
+well understood predictive properties (Bauer et al., 2016),
+probable performance guarantees (Burt et al., 2019), and
+competitive performance on numerous datasets. However,
+there are also many instances when low-rank approxima-
+tions are ill suited. For example, spatiotemporal datasets
+often have intrinsically low lengthscale, meaning that the
+data can vary rapidly with small changes in space and time.
+In these settings, low-rank approximations cannot capture
+fast variations, often resulting in low fidelity or “blurry” pre-
+dictions (e.g. Datta et al., 2016a; Pleiss et al., 2020; Wu
+et al., 2021).
+In this paper, we are interested in making variational GP
+methods more amenable to spatiotemporal data and other
+domains with intrinsically low lengthscale, while retain-
+ing (and even improving) scalability. To do so, we replace
+SVGP’s low-rank approximation of the prior covariance
+matrix with a sparse approximation of the prior precision
+matrix. Whereas a low-rank approximation assumes that
+observations are explained through a small number of global
+latent variables, a sparse precision approximation instead
+assumes that observations are conditionally independent
+given their nearest neighboring observations. Mathemat-
+ically, the joint GP prior is approximated by the product
+of one-dimensional conditionals, each of which only de-
+pends on a small subset of preceding observations based
+on some predetermined ordering. This assumption is quite
+reasonable in the context of spatiotemporal modeling. For
+example, it is reasonable to assume that the weather in Los
+Angeles and Maine are conditionally independent, given
+neighboring cities in California.
+Sparse precision approximations are common in spatiotem-
+poral modeling throughout the geostatisics literature (e.g.
+arXiv:2202.01694v4  [cs.LG]  21 Nov 2024
+good
+maine interesting for an 
+intro a bit more in detail 
+with the idea of d proche 
+en proche
+low quality
+
+=== PDF PAGE 2 ===
+Variational Nearest Neighbor Gaussian Process
+Vecchia, 1988; Stein et al., 2004; Datta et al., 2016a; Guin-
+ness, 2018; Finley et al., 2019; Katzfuss et al., 2021), where
+they often achieve higher predictive fidelity than low-rank
+approximations. However, most existing approaches target
+exact or MCMC inference and are not compatible with vari-
+ational methods. As a result, it is not straightforward to use
+sparse precision methods with non-conjugate or interdomain
+likelihoods, or as part of larger probabilistic models without
+resorting to sampling. Recently, Tran et al. (2021) made a
+first key step in this direction. They introduce Sparse Within
+Sparse Gaussian Processes (SWSGP), which combines a
+similar nearest neighbor approximation with SVGP. Instead
+of exploiting the sparse precision structure, SWSGP intro-
+duces sparsity by constructing a hierarchical prior. While
+successful, we will show an important technical opportunity
+remains, which we offer here.
+In this work, we propose a novel sparse precision approxi-
+mation that is compatible with stochastic variational infer-
+ence. Similar to SVGP, our proposed method—the Vari-
+ational Nearest Neighbor Gaussian Process (VNNGP) 1–
+formulates the variational objective and predictive distri-
+bution through a set of M inducing points. Unlike SVGP,
+our method applies 1) a sparse precision approximation to
+the inducing point distribution and 2) a sparse dependency
+approximation between observations and inducing points.
+These approximations enable the VNNGP objective to fac-
+torize over data and inducing points. Consequently, we can
+minibatch over data and inducing points when evaluating
+the variational objective, resulting in constant time compu-
+tational complexity with respect to both N and M. This sig-
+nificant reduction makes it possible to scale M well beyond
+the limits of SVGP, even to the point of placing inducing
+points at every observed location. Moreover, unlike SWSGP
+and other sparse approximations (Vecchia, 1988; Katzfuss
+et al., 2021), the VNNGP prior and variational distribution
+both constitute valid GPs, enabling it to more faithfully re-
+tain the features of the true GP prior. We compare VNNGP
+to SVGP, SWSGP, and other scalable methods on numerous
+toy experiments and benchmark datasets. Our results demon-
+strate that VNNGP can offer higher fidelity predictions than
+SVGP and is less prone to overfitting than SWSGP. These
+advantages are most pronounced on spatiotemporal datasets
+(including those with non-conjugate observational models),
+but hold for high dimensional datasets as well.
+2. Background
+2.1. Gaussian Processes
+Consider any finite dimensional realization f = {fi}N
+i=1 of
+1VNNGP is implemented in the GPyTorch library. See the
+example in https://docs.gpytorch.ai/en/stable/
+examples/04_Variational_and_Approximate_
+GPs/VNNGP.html
+a Gaussian process at locations x1, x2, · · · , xN ∈ RD:
+f (·) ∼ GP (0, k(·, ·))
+fi ≡ f (xi) for i = 1 : N (1)
+where k(·, ·) is a kernel function that encodes the properties
+of the prior. We can always factorize the joint probability
+of a GP realization into a chain of conditional probabilities
+subject to some ordering, for example
+p(f ) = p(f1)
+NY
+i=2
+p(fi|f1:i−1), (2)
+where p(f1) = N (f1|0, k1,1),
+p(fi|f1:i−1) = N (fi|k⊤
+1:i−1,iK−1
+1:i−1,1:i−1f1:i−1,
+ki,i − k⊤
+1:i−1,iK−1
+1:i−1,1:i−1k1:i−1,i)
+(3)
+and we define ki,i ≡ k(xi, xi), k1:i−1,i ≡ k(x1:i−1, xi),
+and K1:i−1,1:i−1 ≡ k(x1:i−1,i, x1:i−1). The following no-
+tations will apply this convention accordingly.
+2.2. Sparse Precision Approximations
+GP approximations based on sparse precision matrices re-
+main popular for years, largely in the geostatistics com-
+munity (Vecchia, 1988; Datta et al., 2016a; Finley et al.,
+2019; Katzfuss et al., 2021). They consider the following
+approximation to Eq 2
+p(f ) ≈ p(f1)
+NY
+i=2
+p(fi|fn(i)), (4)
+where p(f1) = N (f1|0, k1,1),
+p(fi|fn(i)) = N (fi|k⊤
+n(i),iK−1
+n(i),n(i)fn(i),
+ki,i − k⊤
+n(i),iK−1
+n(i),n(i)kn(i),i)
+(5)
+and n(i) denotes the indices of K nearest neighbors of xi
+in {xk}i−1
+k=1. Typically K is set to be much smaller than
+N, and when K = N Eq 4 recovers the original GP. This
+approximation results in a sparse Cholesky factor of the pre-
+cision matrix (Datta, 2021b). As a consequence, the model
+complexity scales O(N K3). It has seen many successful
+applications in spatiotemporal problems, e.g. predicting PM
+polutant levels arocss Europe (Datta et al., 2016b), predict-
+ing forest canopy height (Finley et al., 2017), estimating
+forest biomass (Taylor-Rodriguez et al., 2019), etc.
+2.3. Stochastic Variational Gaussian Processes
+Stochastic variational Gaussian process (SVGP) (Hensman
+et al., 2013) defines a small set of M inducing points u =
+gold
+
+=== PDF PAGE 3 ===
+Variational Nearest Neighbor Gaussian Process
+{uj}M
+j=1 which are GP latent variables at locations {zj}M
+j=1.
+It considers the joint latent generative process:
+p(u, f ) = N (
+u
+f
+
+|0,
+Kz,z Kz,x
+Kx,z Kx,x
+
+) (6)
+and an independent observation model
+p(y|f ) =
+NY
+i=1
+p(yi|fi) (7)
+where p(yi|fi) is an arbitrary likelihood function. SVGP is
+optimized by maximizing the evidence lower bound (ELBO)
+given below:
+LSVGP =
+NX
+i=1
+E
+q(fi)
+[log p(yi|fi)] − KL [q(u) ∥ p(u)] , (8)
+where q(u) is the variational posterior for u and q(fi) =R
+p(fi|u)q(u)du is the variational posterior for fi. The
+SVGP approximation relies on the low-rank matrix
+Kx,zK−1
+z,zKz,x instead of the full-rank matrix Kx,x to re-
+duce the size of any matrix inversion to M. Therefore, we
+refer to it as a low-rank approximation.
+SVGP has several advantages compared to exact GP and
+other scalable methods. First, as is shown in Eq 8, the ELBO
+is factorzied over data points. Therefore, it is amenable
+to stochastic optimization and the computational complex-
+ity reduces to O(M 3). Moreover, due to its variational
+inference nature, SVGP can be applied to problems with
+non-conjugate likelihoods, inter-domain observations or la-
+tent variable models based on GPs. However, since SVGP
+assumes M ≪ N, it may struggle to obtain accurate pre-
+dictions for large-scale data that are not inherently low-rank
+structured (Wu et al., 2021; Tran et al., 2021).
+2.4. Other Related Works
+Variational GP inference was first pursued by Csat´o et al.
+(2000) and Gibbs & MacKay (2000). More recent works
+connect variational inference with scalable methods. Titsias
+(2009) ties inducing point approximations and variational
+inference, and Hensman et al. (2013) extends this approach
+to be compatible with minibatched optimization. Recent
+extensions focus on inducing points in linearly transformed
+domains (L´azaro-Gredilla & Figueiras-Vidal, 2009; van der
+Wilk et al., 2020), inducing points with exploitable alge-
+braic kernel structures (Wilson & Nickisch, 2015; Wu et al.,
+2021), and inducing points with separable structure (Cheng
+& Boots, 2017; Salimbeni et al., 2018; Shi et al., 2020). Be-
+yond inducing point approximations, Hensman et al. (2017)
+and John & Hensman (2018) combine variational inference
+with finite basis approximations.
+Nearest neighbor approximations. In addition to the
+sparse precision approximations pursued by the geostatis-
+tics community (see introduction), the machine learning
+community has proposed nearest neighbor GP approxima-
+tions (Kim et al., 2005; Nguyen-Tuong et al., 2008; Gramacy
+& Apley, 2015; Park & Apley, 2018; Jankowiak & Pleiss,
+2021). Besides SWSGP which is introduced before, we re-
+view three methods that are most related to our method. Bui
+& Turner (2014) proposes a sparse prior by imposing a tree
+or chain structure over inducing points and calibrating the
+posterior approximation with a KL divergence minimization.
+This approach uses a message-passing inference algorithm
+and learns the hyperparameters by maximizing the marginal
+likelihood over inducing points. Stochastic gradient descent
+GP (sgGP) forms a (biased) stochastic GP objective that
+optimizes K-nearest-neighboring data points per iteration
+(Chen et al., 2020). This method is an approximation to
+exact GP inference, and therefore is limited to Gaussian
+likelihood. Liu & Liu (2019) use amortized variational in-
+ference for data points within a small neighborhood, where
+the variational covariance is constructed to have a sparse
+Cholesky factor. The latter two methods have computational
+complexity cubic in the number of nearest neighbors.
+3. Variational Nearest Neighbor GP
+In this section, we develop VNNGP, a highly scalable varia-
+tional GP method. VNNGP considers the same observation
+model in Eq 7 and makes the following nearest neighbor
+approximations to the latent generative process
+p(u) ≈
+MY
+j=1
+p(ui|un(j)), p (f |u) ≈
+NY
+i=1
+p(fi|un(i)) (9)
+where each conditional denotes a standard GP predictive
+distribution, n(j) denotes the inducing point indices cor-
+responding to zj’s (at most)K nearest neighbors selected
+from {z1, · · · , zj−1} (with a special case of n(1) = ∅), and
+we overload the notation n(i) to denote the inducing point
+indices of xi’sK nearest neighbors in all {zj}M
+j=1.
+Because of this construction, VNNGP forms a sparse ap-
+proximation to the prior precision matrix K−1
+z,z (Datta,
+2021b). Its Cholesky factor has at most K + 1 non-zero
+elements per row, corresponding to the K-nearest-neighbor
+dependency structure. Figure 1 plots the Cholesky factor of
+K−1
+z,z for M = 20 inducing points with varying number of
+nearest neighbors K. We further see that, as K increases,
+the Cholesky factor becomes denser and approaches the
+exact one. In this case, K = 10 yields a quality approxima-
+tion. Note that the sparsity pattern of the Cholesky factor
+depends on the ordering of inducing points and the nearest
+neighbor sets. In Figure 1 we use the coordinate ordering of
+1-dimensional inducing points, thereby rendering a banded
+sparsity pattern.
+
+=== PDF PAGE 4 ===
+Variational Nearest Neighbor Gaussian Process
+K=2
+ K=10
+ K=M
+1.0
+0.5
+0.0
+0.5
+1.0
+Figure 1. The Cholesky factor of prior precision matrix for M =
+20 inducing points (with even spacing of 1) by VNNGP with differ-
+ent number of nearest neighbors K. We use a squared exponential
+kernel with outputscale 1 and lengthscale 1. For each row of the
+Cholesky factor, at most K + 1 elements are non-zero, and when
+K = 10 the approximation is qualitatively close to the exact one.
+Ordering of inducing points. The nearest neighbor ap-
+proximation in Eq 9 is subject to a particular ordering of
+inducing points. In all following experiments, we apply
+random ordering and we find that different orderings do not
+lead substantial differences on VNNGP’s performance.
+Variational family. We consider a special choice of the
+variational distribution q(f , u) that will greatly simplify the
+computation without sacrificing much prediction accuracy.
+Specifically, we use a mean-field variational approximation
+for u and approximate the posterior for f with the nearest
+neighbor prior:
+q(u) =
+MY
+j=1
+q(uj) =
+MY
+j=1
+N (uj|mj, sj), (10)
+q(f ) =
+NY
+i=1
+q(fi) =
+NY
+i=1
+Z
+p(fi|un(i))q(un(i))dun(i). (11)
+The choice of mean-field or sparse variational approxima-
+tions are common for large-scale GP when full-rank ap-
+proximations are impractical (Liu & Liu, 2019; Wu et al.,
+2021; Tran et al., 2021). Empirically, we found that VN-
+NGP with a mean-field variational distribution outperforms
+SVGP with a full-rank one for most cases. However, we
+also discuss the extension to a more expressive variational
+family in appendix B.
+Optimization objective is to maximize the VNNGP’s
+ELBO as follows
+LVNNGP =
+NX
+i=1
+E
+q(fi)
+[log p(yi|fi)]
+| {z }
+data likehood
+− KL [q(u) ∥ p(u)]| {z }
+KL divergence
+,
+(12)
+Note that the ELBO breaks into a data likelihood term and
+a KL divergence term. In the following , we first discuss
+the computation of these two terms. After that, we present
+the advantages of VNNGP. Finally, we compare VNNGP to
+other related works based on nearest neighbor approxima-
+tions.
+3.1. Computing the Data Likelihood Term
+Similar to SVGP, the data likelihood term for VNNGP fac-
+torizes over data points. Unlike SVGP that considers all M
+inducing points in making the prediction for one data point,
+VNNGP makes use of the sparse prior in Eq 9 such that the
+prediction is based on only K nearest inducing points. As a
+result, VNNGP’s data likelihood term is reduced to
+NX
+i=1
+Z
+p(fi|un(i))q(un(i)) log p(yi|fi)d fidun(i) (13)
+where only K nearest inducing points are involved in com-
+puting the expected log likelihood for each data point.
+3.2. Computing the KL Divergence
+We now show how we can write KL divergence as a summa-
+tion over inducing points. Note that it is not possible for the
+standard SVGP: SVGP’s KL requires accessing parameters
+for all inducing points at the same time.
+We first break the prior into a chain of conditionals using
+the nearest neighbor assumption in Eq 9 and utilize the
+mean-field assumption in Eq 10:
+KL [q(u) ∥ p(u)] = KL
+
+
+MY
+j=1
+q(uj) ∥
+MY
+j=1
+p(uj|un(j))
+
+
+= E
+q(u)
+
+
+MX
+j=1
+log q(uj)
+p(uj|un(j))
+
+ (14)
+exchanging the order of summation and expectation and
+integrating out irrelevant variables
+=
+MX
+j=1
+E
+q(un(j))
+
+Eq(uj )
+
+log q(uj)
+p(uj|un(j))
+
+(15)
+=
+MX
+j=1
+E
+q(un(j))
+
+KL
+
+q(uj) ∥ p(uj|un(j))
+
+(16)
+where
+p(uj|un(j)) = N (uj|k⊤
+n(j),jK−1
+n(j),n(j)un(j), (17)
+kj,j − k⊤
+n(j),jK−1
+n(j),n(j)kn(j),j). (18)
+3.3. Advantages
+Having factorized the data likelihood term and KL diver-
+gence over data points and inducing points, we are now
+ready to present VNNGP’s key advantages as follows.
+Stochastic optimization. The summation structure of VN-
+NGP’s ELBO, as detailed in Eq13 and 16, makes it immedi-
+ately available for stochastic optimization: in every training
+3FAT
+self indulging
+mech heka
+
+=== PDF PAGE 5 ===
+Variational Nearest Neighbor Gaussian Process
+iteration, we randomly sample a mini-batch of training data
+indices I = {ik}Nb
+k=1 and a mini-batch of inducing point in-
+dices J = {jl}Mb
+l=1; we then optimize the unbiased estimate
+of the ELBO as follows
+LVNNGP ≈ N
+Nb
+X
+i∈I
+E
+q(fi)
+[log p(yi|fi)]
+− M
+Mb
+X
+j∈J
+E
+q(un(j))
+
+KL
+
+q(uj) ∥ p(uj|un(j))
+
+.
+(19)
+We include the exact computation of ELBO in Appendix A.
+Note that the sampling distributions for data points and
+inducing points can be arbitrary as long as both remain
+marginally a uniform distribution. We emphasize that this
+is a key advantage over SVGP: we are not able to perform
+stochastic optimization for inducing points with SVGP.
+Computational complexity. Once the nearest neighbor
+structure is computed, optimizing the objective in Eq 19
+requires O((Nb + Mb)K 3) computations for inverting K ×
+K kernel matrices induced by nearest neighbor mini-batches.
+See Appendix A for mathematical details.
+The computational overhead comes from determining near-
+est neighbor structures for observations and inducing points.
+The brute-force complexity of finding any point’sK nearest
+neighbors within M points is O(KM ). With the help of
+modern similarity search packages such as Johnson et al.
+(2017), we are able to dramatically speed up billion-scale
+similarity search with gpus. For example, for medium-sized
+datasets, e.g. Protein ( N = 25.6 K, D = 9 ), it takes no
+more than 30 seconds to build up nearest neighbor struc-
+tures with K = 256 and M = N on an NVIDIA RTX2080
+gpu; for the largest dataset we experiment with (Covtype:
+N = 372K and D = 54), it takes approximately 12 minutes
+with K = 256 and M = N.
+More inducing points. Since the training complexity is
+free of N and M, we are able to place inducing points at
+every observed location and scale M to N. We enjoy sev-
+eral benefits by doing so. First, we greatly boost the model
+capacity, as opposed to a low-rank approximation where
+several observations “share” one inducing point. Moreover,
+we avoid optimizing inducing point locations as the standard
+SVGP training procedure requires. This is a huge advantage
+since it saves training cost and the optimization of induc-
+ing locations is in general non-convex and more difficult.
+Finally, we only need to compute the nearest neighbor struc-
+ture once before training, or otherwise we need to recompute
+it frequently since inducing locations are being updated.
+3.4. Comparison to Related Methods
+The method most related to VNNGP is the Sparse Within
+Sparse Gaussian Process (SWSGP) method of Tran et al.
+(2021). SWSGP also builds upon SVGP and further im-
+poses sparsity over M inducing points u by defining a
+hierarchical prior. Essentially, in each training iteration,
+SWSGP randomly samples a minibatch of data point in-
+dices I = {ik}Nb
+k=1 and optimizes the following ELBO
+LSWSGP = N
+Nb
+X
+i∈I
+E
+q(fi)
+[log p(yi|fi)]
+− 1
+Nb
+X
+i∈I
+KL
+
+q(un(i)) ∥ p(un(i))
+
+),
+(20)
+where n(i) are indices of inducing point locations from
+{zj}M
+j=1 that are top-K nearest to xi. Similar to VNNGP,
+evaluating Eq. 20 requires O(NbK 3) computation.
+There are two key differences between VNNGP and SWSGP.
+First, the two methods introduce sparsity through a different
+generative process. SWSGP applies a hiearchical prior;
+Consequently, the marginal prior for either p(f ) or p(u) is
+no longer Gaussian. VNNGP, on the other hand, considers
+a sparse approximation to the prior precision matrix. The
+resulting process is still a GP but under an approximated
+kernel. While it is not immediately clear how these differing
+marginal distribution impact downstream performance, in
+this sense the VNNGP generative process more faithfully
+replicates the exact GP prior.
+The second difference is the training objective. As can be
+seen, the first term of Eq. 20 (data likelihood) is identical
+to that of VNNGP (Eq. 19). However, the KL divergence
+term is where two objectives differ. SWSGP optimizes
+a “local” KL divergence that only involves inducing points
+within a local neighborhood around current batch of training
+data. In fact, we prove (see appendix C) that SWSGP’s KL
+divergence always underestimates the SVGP KL divergence:
+KL
+
+q(un(i)) ∥ p(un(i))
+
+) ≤ KL [q(u) ∥ p(u)] , (21)
+for any subset n(i). Additionally, the amount of underesti-
+mation depends on size of n(i) .
+We hypothesize that SWSGP’s KL, due to its “local” char-
+acteristic, may not sufficiently regularize the variational
+distribution—especially when K ≪ M—which may make
+the model more prone to overfitting. Conversely, though
+VNNGP’s KL does not equal the exact KL, it does (in ex-
+pectation) consider the joint distribution over all inducing
+points. Optimizing this term will regularize the variational
+distribution towards the GP prior at all input locations. We
+investigate our hypotheses in the experiments section.
+Another method that also combines nearest neighbor approx-
+imations with variational inference is Amortized Inference
+GP (Liu & Liu, 2019). However, their method avoids com-
+puting certain terms of the KL divergence, and in doing
+so makes it impossible to simulatenously optimize kernel
+ok?
+
+=== PDF PAGE 6 ===
+Variational Nearest Neighbor Gaussian Process
+0.36
+0.37
+0.38
+0.39
+0.40RMSE
+Elevators
+0.35
+0.40
+0.45
+0.50
+0.55
+UKHousing
+50 100 150 200 250
+K
+0.40
+0.42
+0.44
+0.46
+0.48
+0.50
+0.52
+0.54NLL
+50 100 150 200 250
+K
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+Method
+VNNGP
+SVGP
+ExactGP
+Figure 2. Test set RMSE and NLL as a function of number of near-
+est neighbors K for VNNGP (green) on Elevators (left column)
+and UKHousing datasets (right column). Results for SVGP (blue
+dashed) and exact GP (purple dotted) are included as baselines.
+hyperparameters using the ELBO. By contrast, the VNNGP
+objective enables gradient-based kernel learning.
+4. Experiments
+We first demonstrate how sensitive our model is to the num-
+ber of nearest neighbors K. Recognizing that our method is
+similar to SWSGP, our next task is to characterize the differ-
+ences between two methods and investigate our hypotheses
+in Sec 3.4. Finally, we evaluate VNNGP and other methods
+on a wide range of real regression and classification datasets.
+Unless stated otherwise, for all experiments, VNNGP ap-
+plies a random ordering of inducing points, VNNGP and
+SWSGP set inducing points at observed locations and use a
+mean-field variational approximation, and SVGP uses 1024
+inducing points and a full-rank variational approximation.
+4.1. Sensitivity to number of nearest neighbors K
+Our first goal is to see how the number of nearest neighbors
+K impact VNNGP’s performance. We choose two datasets,
+Elevators with dimension D = 16 (Asuncion & Newman,
+2007), and UKHousing (https://landregistry.data.gov.uk/),
+a spatial dataset with D = 2 , as we expect low-rank ap-
+proximations to work better in high dimensional settings
+while nearest neighbor methods are more suitable for spatial
+problems that are sparse in nature. We fit VNNGP with
+K ∈ [32, 64, 128, 256]. Since these two datasets are mod-
+eled with Gaussian likelihood, we are able to fit exact GP
+(Wang et al., 2019) as a baseline. We also include SVGP as a
+low-rank variational alternative. We present their test set pre-
+dictive performance, the root mean squared error (RMSE)
+and negative log likelihood (NLL), in Figure 2. From the
+figure, we see that asK increases, both test RMSE and NLL
+for VNNGP decrease, suggesting a better performance. By
+comparing the three methods, we note that exact GP does
+not always yield the best RMSE or NLL. This result could
+be due to model misspecification, as observed in previous
+literature (Wang et al., 2019; Potapczynski et al., 2021).
+Moreover, SVGP performs better on the high-dimensional
+Elevators dataset, whereas VNNGP with K = 32 already
+outperforms SVGP and is less sensitive to K on the spatial
+UKHousing dataset.
+4.2. Comparison to SWSGP
+Building on the analysis in Section 3.4, we now aim to
+compare VNNGP to the related SWSGP method. Recall
+that the primary difference between these methods is the
+training objective (the KL divergence term in particular).
+We first empirically demonstrate how these two objectives
+differ, and then study its surprisingly significant impact on
+model fitting and selection.
+KL divergence comparison. We first investigate the dif-
+ference between the VNNGP and SWSGP KL divergence
+terms. Specifically, we are interested in how their KL terms
+change as we vary K. We initialize VNNGP and SWSGP
+with the same configuration: the inducing points are placed
+on a 1-dimensional grid with even spacing of 1, the varia-
+tional means {mi} are obtained by sampling a GP under
+a squared exponential kernel with lenghthscale 5 and out-
+putscale 1, and the variational variances {si} are set to 1.
+For both methods, we compute their KL terms by varying
+the kernel lengthscale parameter and # of nearest neighbors
+K. A special note is that when K = M, KL by either
+method should be equal to the KL by SVGP in Eq. 8.
+We plot the SWSGP and VNNGP KL terms as a function of
+K under different kernel lengthscales in Figure 3. From this
+figure, we first confirm that VNNGP and SWSGP recover
+the SVGP KL divergence (dotted blue line) at K = M.
+Morever, both methods tend to underestimate KL (recall
+from Section 3.4 that SWSGP provably underestimates this
+term). Notably, VNNGP converges rapidly to the true KL
+divergence, especially for small lengthscale settings. For
+example, when the lengthscale is 5, the VNNGP KL diver-
+gence is indistinguishable from the true KL divergence for
+all K ≥ 5. We include results under different settings in
+appendix D.1 and observe similar patterns.
+Fitting models in high observational noise setting. We
+now study the impact of KL divergence on the inferred
+posterior distribution. Recall that the KL term of the ELBO
+regularizes the variational distribution towards the GP prior.
+If the regularization is not sufficient, the ELBO will be
+dominated by the data likelihood term, which could overfit
+the predictive distribution to the observed data.
+Hence, we conduct a simulation experiment in the presence
+of high observational noise: We draw N = 50 observations
+from a GP under a squared exponential kernel with length-
+
+=== PDF PAGE 7 ===
+Variational Nearest Neighbor Gaussian Process
+5 10 15 20
+K
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2KL divergence
+1e1 Lengthscale = 1
+5 10 15 20
+K
+0
+1
+2
+3
+1e1 Lengthscale = 5
+5 10 15 20
+K
+0
+1
+2
+3
+4
+5
+6
+1e5 Lengthscale = 10
+5 10 15 20
+K
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1.50
+1e8 Lengthscale = 15
+5 10 15 20
+K
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8 Lengthscale = 20
+Method
+SVGP
+SWSGP
+VNNGP
+Figure 3. KL divergence computed by VNNGP (green) and SWSGP (orange) as a function of K for different prior kernel lengthscales.
+Both methods tend to underestimate the KL (SWSGP provably), and converges to the exact value computed by SVGP (blue dotted) as
+K → M. Morever, VNNGP’s KL is closer to the exact one compared to SWSGP for the sameK across all cases.
+ExactGP
+ SVGP
+VNNGP
+ SWSGP
+Figure 4. Posterior by Exact GP (purple), SVGP (blue), VNNGP
+(green) and SWSGP (orange), with 95% uncertainty interval. The
+grey line is to the true data generating process, and scattering black
+dots are highly noisy observations.
+scale 5 and outputscale 5, and add iid noise from N (0, 5).
+There are two dense clusters of observations around x = 0
+and x = 50 , and scarcely scattered observations in be-
+tween. We fit four models—exact GP, SVGP, VNNGP and
+SWSGP—to the observed data. We fix all hyperparameters
+corresponding to the true data generating process, and only
+optimize variational parameters. For the three variational
+methods, inducing points are set to the locations of observed
+data (M = N). All variational models use mean-field vari-
+ational approximations. Both VNNGP and SWSGP use
+K = 5 nearest neighbors.
+In Fig 4, we display the true data generating process, noisy
+observations and posteriors of all four models. The SVGP
+and VNNGP posteriors are qualitatively close to that of
+exact GP, whereas SWSGP’s posterior deviates from the
+underlying GP function in the data-sparse region. We sus-
+pect SWSGP’s behavior to be due to its underestimating
+local KL divergence. As we discuss in Section 3.4, the
+“local” KL divergence of SWSGP will not regularize the
+variational distribution towards a globally smooth distribu-
+tion. In particular, the SWSGP KL divergence concentrates
+on the data-dense regions, leading to a lack of regularization
+in the data-sparse region. By contrast, the VNNGP model
+is effectively regularized towards the GP prior throughout
+the input space.
+Model selection. Finally, we turn to model selection by
+maximizing the ELBO. Our goal is to see whether VNNGP
+or SWSGP is sensitive to different settings of hyperparame-
+ters, in particular, the likelihood noise.
+We first fit exact GP to the UKHousing dataset under a
+Matern 5/2 kernel and a Gaussian likelihood. We copy and
+fix the exact GP kernel hyperparameters to SVGP, VNNGP,
+and SWSGP models. However, we vary the value of like-
+lihood noise from 0.001 to 1.0. We then optimize only
+the variational parameters of these three methods for 300
+epochs. In Figure 5, we plot the negative training ELBO
+and test NLL as a function of likelihood noise for each
+method. We denote the noise parameters that maximize
+each method’s training objective, as well as the noise param-
+eter selected by the exact GP. In agreement with prior work
+(Bauer et al., 2016), we find that SVGP tends to overestimate
+the noise parameter. Both nearest neighbor methods tend
+to underestimate the likelihood noise. However, the ELBO
+of SWSGP monotonically decreases as likelihood noise de-
+creases, whereas the VNNGP ELBO achieves an optimum
+as a noise of 0.1. If we use the ELBO as a model selection
+criterion (as is often the case for variational methods), the
+resulting SWSGP model will have very low likelihood noise
+which results in poor test NLL. Conversely, the VNNGP
+training ELBO is highly predictive of the test NLL, as both
+are roughly optimized as the same likelihood noise value.
+We note that SWSGP’s behavior in this setting is likely due
+to having M = N. We repeat this experiment for SWSGP
+models that use M ≪ N inducing points in Appendix D.2,
+and find that these models favor more reasonable likelihood
+noise values. These observations suggest that the ELBO
+is a good model selection criteria for VNNGP; however,
+ELBO optimization may result in extreme hyperparameters
+for SWSGP with large M.
+4.3. Predictive performance on real datasets
+We conduct an extensive evaluation of our method on real
+datasets. We consider a wide range of high dimensional and
+spatiotemporal datasets from the UCI repository (Asuncion
+& Newman, 2007). In addition we include three spatial
+datasdets, UKHousing as mentioned in Section 4.1, Precipi-
+
+=== PDF PAGE 8 ===
+Variational Nearest Neighbor Gaussian Process
+NLL
+ExactGP sgGP SVGP SWSGP- M SWSGP-N VNNGP
+Dataset N D
+PoleTele 9.6K 26 −.509±.005 −.558±.016 −.708±.003 −.898±.029 −.962±.023 −1.160±.014
+Elevators 10.6K 16 .464±.011 .432±.013 .417±.017 .691±.049 .767±.026 .463±.020
+Bike 11.1K 17 −.744±.007 53.364±27.690 −1.849±.016 −1.684±.024 −1.405±.096 −1.690±.057
+Kin40K 25.6K 8 −.149±.001 .701±.139 −.399±.003 −.747±.016 −1.010±.005 −1.016±.004
+Protein 25.6K 9 1 .044±.003 .914±.004 .967±.005 .909±.006 1 .505±.080 .671±.009
+KEGG 31.2K 20 −.713±.004 −1.013±.035 −1.000±.011 −1.039±.010 14.925±.838 −1.039±.018
+KEGGU 40.7K 26 −.471±.003 −.673±.005 −.680±.002 −.719±.004 41.675±.427 −.715±.004
+Precipitation64.8K 3 — — .818±.004 .396±.001 1 .809±.224 .145±.002
+UKHousing116K 2 .703±.003 .598±.001 .879±.004 .455±.003 1 .050±.013 .367±.003
+3DRoad 278K 3 .993±.000 .712±.001 .325±.005 .584±.003 −1.476±.079 −.048±.406
+Covtype 372K 54 — — .234±.001 .172±.001 .069±.000 .132±.000
+Table 1. Test set NLL (mean ± 1 standard error over 3 random seeds) on high-dimensional datasets (top 7 ones) and spatial datasets
+(bottom 4 ones). VNNGP achieves lowest NLL for most datasets. The result for RMSE is included in Table 2 in appendix.
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+SVGP
+Neg Train ELBO
+T est NLL
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+VNNGP
+Neg Train ELBO
+T est NLL
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+SWSGP
+Neg Train ELBO
+T est NLL
+Figure 5. Negative training ELBO (solid line) and test NLL (dotted
+line) as a function of the likelihood noise by SVGP (blue), VNNGP
+(green) and SWSGP (orange) on UKHousing dataset. All ELBO
+and NLL values are scaled to [0, 1]. The x-axis is in log-scale.
+The noise value picked by maximizing ELBO for each method is
+indicated by the vertical dashed line with corresponding color. The
+vertical purple line indicates the value (0.28) learned by exact GP.
+tation (a monthly precipitation dataset with D = 3) (Lyon,
+2004; Lyon & Barnston, 2005) and Covtype (a tree cover
+dataset with D = 54) 2 (Blackard & Dean, 1999). Our goal
+is primarily to compare VNNGP to other variational meth-
+ods; however, we include the additional baselines of Exact
+GP—utilizing the methodology of Wang et al. (2019))—
+and sgGP (Chen et al., 2020)—which is a non-variational
+nearest neighbor benchmark. We do not compare to the
+Amortized Inference GP since it is not amenable to kernel
+learning. For VNNGP and SWSGP, we tune the number of
+nearest neighbors K in {32, 256}. Additionally, we include
+two variants of the SWSGP method: with SWSGP-N we set
+all inducing points at observed locations, and with SWSGP-
+M we allow using M < N inducing points – the latter is
+what Tran et al. (2021) originally experimented with. In
+particular for SWSGP-M, we recompute nearest neighbors
+every epoch and we tune M in {1024, 2048, 4096, 8192}.
+For sgGP, the subsampled datasets are constructed by select-
+ing a random point x, y and its 15 nearest neighbors as in
+2The task for Covtype is predicting whether the primary tree
+cover at a given location is pine trees or other types of trees. De-
+spite this dataset is not 2 or 3-dimensional, its features essentially
+codify location information. Therefore we categorize Covtype as a
+spatial dataset.
+Chen et al. (2020). Each dataset is randomly split to 64%
+training, 16% validation and 20% testing sets. Precipitation
+dataset uses a student-t likelihood and Covtype dataset uses
+a bernoulli likelihood, otherwise a Gaussian likelihood is
+used. All kernels are Matern 5/2 with a separate lengthscale
+per dimension. We run each model with three random seeds.
+For each random seed, VNNGP applies different random
+ordering of inducing points. See appendix D.3.1 for more
+details.
+We report test NLL in Table 1, and the result for test RMSE
+is included in Table 2 of appendix. From the tables, we make
+three key comparisons. (i) Exact GP and sgGP cannot run
+on problems with non-Gaussian likelihoods (Precipitation
+and Covtype) while variational methods are still viable. (ii)
+VNNGP substaintially outperforms other nearest neighbor
+methods. Specifically, we note that sgGP and SWSGP-N
+somtimes obtain a very high NLL, while SWSGP-M does
+not suffer from this issue. We suspect this result is attributed
+to that sgGP and SWSGP-N tend to learn a very small likeli-
+hood noise on certain datasets (we report the learned noise in
+Table 3 of appendix); Also recall from Section 4.2 that max-
+imizing the ELBO of SWSGP-N leads to extremely small
+noise values. (iii) While there are a few datasets (Elevators
+and Bike) where SVGP excels, VNNGP outperforms SVGP
+especially on large-scale, spatial datasets. SVGP’s perfor-
+mance is limited by using M = 1024 ≪ N inducing points,
+which is detrimental on these problems, while VNNGP has
+the ability to scale M to N with a sparse approximation.
+Finally, we note that both VNNGP and SWSGP- N use
+much more parameters than SVGP. It is natural to ask
+whether this fact will impede their convergence speeds.
+In Figure 6, we plot the training loss versus number of
+training iterations for SVGP, VNNGP and SWSGP-N on
+Bike and UKHousing. We observe that all three methods
+reach convergence by the end of training. Moreover, VN-
+NGP’s convergence speed is comparable to SVGP. This
+result demonstrates that the larger number of model param-
+eters does not hurt VNNGP’s optimization process, making
+
+=== PDF PAGE 9 ===
+Variational Nearest Neighbor Gaussian Process
+0 50 100 150 200
+x100 iterations
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Loss
+Bike
+SVGP
+VNNGP
+SWSGP-N
+0 200 400 600 800 1000 1200 1400
+x100 iterations
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Loss
+UKHousing
+SVGP
+VNNGP
+SWSGP-N
+Figure 6. Training loss versus iterations on Bike and UKhousing.
+The training loss is averaged over every 100 iterations and all loss
+values are standardized. Despite VNNGP has more parameters, its
+convergence speed is comparable to SVGP.
+it a practical model to use.
+5. Discussion
+In this work, we propose VNNGP, a scalable GP method
+that combines a sparse precision approximation with varia-
+tional inference. This sparse approximation allows VNNGP
+to use orders of magnitude more inducing points than other
+variational methods. We perform an extensive empirical
+evaluation and show that VNNGP obtains strong perfor-
+mance compared to other baselines.
+We consider two extensions for future works. Similar to
+Liu & Liu (2019) and Jafrasteh et al. (2021), we can apply
+amortized learning to variational parameters. This could
+greatly reduce the number of parameters and potentially ac-
+celerate optimization. Another extension is to select nearest
+neighbors using metrics other than Euclidean distance. For
+example, Kang & Katzfuss (2021) suggest that the prior
+covariance function can be a metric to select the nearest
+neighbor set. This could enhance VNNGP’s accuracy on
+problems with anisotropic or periodic covariance structure.
+References
+´Alvarez, M., Luengo, D., Titsias, M., and Lawrence, N. D.
+Efficient multioutput Gaussian processes through vari-
+ational inducing kernels. In Artificial Intelligence and
+Statistics, pp. 25–32, 2010.
+Asuncion, A. and Newman, D. Uci machine learning repos-
+itory, 2007.
+Bauer, M., van der Wilk, M., and Rasmussen, C. E. Under-
+standing probabilistic sparse gaussian process approxi-
+mations. In Advances in Neural Information Processing
+Systems, 2016.
+Blackard, J. A. and Dean, D. J. Comparative accuracies
+of artificial neural networks and discriminant analysis in
+predicting forest cover types from cartographic variables.
+Computers and electronics in agriculture, 24(3):131–151,
+1999.
+Bui, T. D. and Turner, R. E. Tree-structured gaussian pro-
+cess approximations. Advances in Neural Information
+Processing Systems, 27, 2014.
+Burt, D., Rasmussen, C. E., and Van Der Wilk, M. Rates
+of convergence for sparse variational gaussian process re-
+gression. In International Conference on Machine Learn-
+ing, pp. 862–871, 2019.
+Chen, H., Zheng, L., Al Kontar, R., and Raskutti, G. Stochas-
+tic gradient descent in correlated settings: A study on
+gaussian processes. Advances in Neural Information Pro-
+cessing Systems, 33, 2020.
+Cheng, C.-A. and Boots, B. Variational inference for Gaus-
+sian process models with linear complexity. Advances in
+Neural Information Processing Systems, 2017.
+Csat´o, L., Fokou´e, E., Opper, M., Schottky, B., and Winther,
+O. Efficient approaches to gaussian process classification.
+In Advances in neural information processing systems ,
+pp. 251–257. Citeseer, 2000.
+Damianou, A. and Lawrence, N. D. Deep gaussian pro-
+cesses. In Artificial intelligence and statistics, pp. 207–
+215. PMLR, 2013.
+Datta, A. Nearest-neighbor sparse cholesky matrices in
+spatial statistics. Wiley Interdisciplinary Reviews: Com-
+putational Statistics, pp. e1574, 2021a.
+Datta, A. Sparse cholesky matrices in spatial statistics.
+arXiv preprint arXiv:2102.13299, 2021b.
+Datta, A., Banerjee, S., Finley, A. O., and Gelfand, A. E.
+Hierarchical nearest-neighbor gaussian process models
+for large geostatistical datasets. Journal of the American
+Statistical Association, 111(514):800–812, 2016a.
+Datta, A., Banerjee, S., Finley, A. O., Hamm, N. A., and
+Schaap, M. Nonseparable dynamic nearest neighbor gaus-
+sian process models for large spatio-temporal data with
+an application to particulate matter analysis. The annals
+of applied statistics, 10(3):1286, 2016b.
+Finley, A. O., Datta, A., Cook, B. C., Morton, D. C., An-
+dersen, H. E., and Banerjee, S. Applying nearest neigh-
+bor gaussian processes to massive spatial data sets: For-
+est canopy height prediction across tanana valley alaska.
+arXiv preprint arXiv:1702.00434, 535, 2017.
+Finley, A. O., Datta, A., Cook, B. D., Morton, D. C., An-
+dersen, H. E., and Banerjee, S. Efficient algorithms for
+bayesian nearest neighbor gaussian processes. Journal of
+Computational and Graphical Statistics, 28(2):401–414,
+2019.
+
+=== PDF PAGE 10 ===
+Variational Nearest Neighbor Gaussian Process
+Gibbs, M. N. and MacKay, D. J. Variational gaussian pro-
+cess classifiers. IEEE Transactions on Neural Networks,
+11(6):1458–1464, 2000.
+Gramacy, R. B. and Apley, D. W. Local gaussian process
+approximation for large computer experiments. Journal
+of Computational and Graphical Statistics , 24(2):561–
+578, 2015.
+Guinness, J. Permutation and grouping methods for sharp-
+ening gaussian process approximations. Technometrics,
+60(4):415–429, 2018.
+Hensman, J., Fusi, N., and Lawrence, N. D. Gaussian
+processes for big data. In Uncertainty in Artificial Intelli-
+gence, 2013.
+Hensman, J., Matthews, A. G. d. G., Filippone, M., and
+Ghahramani, Z. Mcmc for variationally sparse gaussian
+processes. arXiv preprint arXiv:1506.04000, 2015.
+Hensman, J., Durrande, N., Solin, A., et al. Variational
+fourier features for gaussian processes. J. Mach. Learn.
+Res., 18(1):5537–5588, 2017.
+Jafrasteh, B., Villacampa-Calvo, C., and Hern´andez-Lobato,
+D. Input dependent sparse gaussian processes. arXiv
+preprint arXiv:2107.07281, 2021.
+Jankowiak, M. and Pleiss, G. Scalable cross validation
+losses for gaussian process models. arXiv preprint
+arXiv:2105.11535, 2021.
+John, S. and Hensman, J. Large-scale cox process infer-
+ence using variational fourier features. In International
+Conference on Machine Learning, pp. 2362–2370, 2018.
+Johnson, J., Douze, M., and J´egou, H. Billion-scale similar-
+ity search with gpus. arXiv preprint arXiv:1702.08734,
+2017.
+Kang, M. and Katzfuss, M. Correlation-based sparse inverse
+cholesky factorization for fast gaussian-process inference.
+arXiv preprint arXiv:2112.14591, 2021.
+Katzfuss, M., Guinness, J., et al. A general framework for
+vecchia approximations of gaussian processes. Statistical
+Science, 36(1):124–141, 2021.
+Kim, H.-M., Mallick, B. K., and Holmes, C. C. Analyzing
+nonstationary spatial data using piecewise gaussian pro-
+cesses. Journal of the American Statistical Association,
+100(470):653–668, 2005.
+L´azaro-Gredilla, M. and Figueiras-Vidal, A. R. Inter-
+domain gaussian processes for sparse inference using
+inducing features. In NIPS, volume 22, pp. 1087–1095.
+Citeseer, 2009.
+Liu, L. and Liu, L. Amortized variational inference with
+graph convolutional networks for gaussian processes. In
+The 22nd International Conference on Artificial Intelli-
+gence and Statistics, pp. 2291–2300. PMLR, 2019.
+Lyon, B. The strength of el ni ˜no and the spatial extent of
+tropical drought. Geophysical Research Letters, 31(21),
+2004.
+Lyon, B. and Barnston, A. G. Enso and the spatial extent of
+interannual precipitation extremes in tropical land areas.
+Journal of Climate, 18(23):5095–5109, 2005.
+Nguyen-Tuong, D., Peters, J., and Seeger, M. Local gaus-
+sian process regression for real time online model learn-
+ing and control. In Proceedings of the 21st International
+Conference on Neural Information Processing Systems,
+pp. 1193–1200, 2008.
+Park, C. and Apley, D. Patchwork kriging for large-scale
+gaussian process regression. The Journal of Machine
+Learning Research, 19(1):269–311, 2018.
+Pleiss, G., Jankowiak, M., Eriksson, D., Damle, A., and
+Gardner, J. Fast matrix square roots with applications to
+gaussian processes and bayesian optimization. Advances
+in Neural Information Processing Systems, 2020.
+Potapczynski, A., Wu, L., Biderman, D., Pleiss, G., and
+Cunningham, J. P. Bias-free scalable gaussian pro-
+cesses via randomized truncations. arXiv preprint
+arXiv:2102.06695, 2021.
+Ranganath, R., Gerrish, S., and Blei, D. Black box varia-
+tional inference. In Artificial intelligence and statistics,
+pp. 814–822. PMLR, 2014.
+Rasmussen, C. E. and Williams, C. K. Gaussian processes
+for machine learning, volume 2. MIT press Cambridge,
+MA, 2006.
+Salimbeni, H., Eleftheriadis, S., and Hensman, J. Natural
+gradients in practice: Non-conjugate variational infer-
+ence in gaussian process models. In International Confer-
+ence on Artificial Intelligence and Statistics, pp. 689–697.
+PMLR, 2018.
+Shi, J., Titsias, M., and Mnih, A. Sparse orthogonal varia-
+tional inference for Gaussian processes. In International
+Conference on Artificial Intelligence and Statistics , pp.
+1932–1942, 2020.
+Stein, M. L., Chi, Z., and Welty, L. J. Approximating
+likelihoods for large spatial data sets.Journal of the Royal
+Statistical Society: Series B (Statistical Methodology), 66
+(2):275–296, 2004.
+
+=== PDF PAGE 11 ===
+Variational Nearest Neighbor Gaussian Process
+Taylor-Rodriguez, D., Finley, A. O., Datta, A., Babcock,
+C., Andersen, H.-E., Cook, B. D., Morton, D. C., and
+Banerjee, S. Spatial factor models for high-dimensional
+and large spatial data: An application in forest variable
+mapping. Statistica Sinica, 29:1155, 2019.
+Titsias, M. K. Variational learning of inducing variables
+in sparse Gaussian processes. In International Confer-
+ence on Artificial Intelligence and Statistics, pp. 567–574,
+2009.
+Tran, G.-L., Milios, D., Michiardi, P., and Filippone, M.
+Sparse within sparse gaussian processes using neighbor
+information. In International Conference on Machine
+Learning, pp. 10369–10378. PMLR, 2021.
+van der Wilk, M., Dutordoir, V ., John, S., Artemev, A.,
+Adam, V ., and Hensman, J. A framework for interdo-
+main and multioutput gaussian processes. arXiv preprint
+arXiv:2003.01115, 2020.
+Vecchia, A. V . Estimation and model identification for
+continuous spatial processes. Journal of the Royal Statis-
+tical Society: Series B (Methodological), 50(2):297–312,
+1988.
+Wang, K., Pleiss, G., Gardner, J., Tyree, S., Weinberger,
+K. Q., and Wilson, A. G. Exact gaussian processes on a
+million data points. In Advances in Neural Information
+Processing Systems, pp. 14648–14659, 2019.
+Wilson, A. and Nickisch, H. Kernel interpolation for scal-
+able structured gaussian processes (kiss-gp). In Interna-
+tional Conference on Machine Learning, pp. 1775–1784,
+2015.
+Wu, L., Miller, A., Anderson, L., Pleiss, G., Blei, D., and
+Cunningham, J. Hierarchical inducing point gaussian
+process for inter-domian observations. In International
+Conference on Artificial Intelligence and Statistics , pp.
+2926–2934. PMLR, 2021.
+
+=== PDF PAGE 12 ===
+Variational Nearest Neighbor Gaussian Process
+A. Computing the ELBO for VNNGP
+In this section, we derive the exact computation of the ELBO for VNNGP and analyze the computational complexity.
+Following Eq 12, and using the derivations from Eq 13 and Eq 16, we have
+LVNNGP =
+NX
+i=1
+Eq(f ,u)[log p(yi|fi)]
+| {z }
+data likehood
+− KL [q(u) ∥ p(u)]| {z }
+KL divergence
+, (22)
+=
+NX
+i=1
+Z
+q(fi) log p(yi|fi)d fi
+| {z }
+data likelihood
+−
+MX
+j=1
+Eq(un(j))
+
+KL
+
+q(uj) ∥ p(uj|un(j))
+
+| {z }
+kl divergence
+. (23)
+where
+q(fi) = Eq(u)
+
+p(fi|un(i))
+
+(24)
+= N (fi|k⊤
+n(i),iK−1
+n(i),n(i)mn(i), ki,i − k⊤
+n(i),iK−1
+n(i),n(i)kn(i),i + k⊤
+n(i),iK−1
+n(i),n(i)Sn(i)K−1
+n(i),n(i)kn(i),i), (25)
+and Sn(i) is a diagonal matrix with diagonal elements being sn(i).
+• The data likelihood term is tractable for Gaussian likelihood; otherwise, techniques such as MCMC sampling are
+required. The major complexity in evaluating each expected likelihood term comes from computing q(fi), which
+essentially resides at inverting the K × K matrix Kn(i),n(i) which takes O(K 3) time.
+• To compute the KL divergence term, we first compute each conditional KL term. Given fixedun(j),
+KL [q(uj) ∥ p(uj|uj)] = KL
+
+N (uj|mj, sj) ∥ N (uj|b⊤
+j un(j), fj)
+
+(26)
+= 1
+2
+
+log fj − log sj − 1 + f −1
+j sj + f −1
+j (mj − b⊤
+j un(j))2
+, (27)
+where fj = kj,j − k⊤
+n(j),jK−1
+n(j),n(j)kn(j),j and bj = K−1
+n(j),n(j)kn(j),j. Integrating over q(un(j)) and summing over
+inducing points we obtain,
+kl divergence = 1
+2
+MX
+j=1
+log fj − log sj − 1 + f −1
+j
+
+sj + (b2
+j )⊤sn(j) + (mj − b⊤
+j mn(j))2
+, (28)
+where b2
+j denotes the element-wise squared of vector bj. Computing each summation term in the KL divergence
+requires inverting an K × K matrix, i.e. Kn(j),n(j), which is O(K 3) complexity.
+Therefore, the overall complexity of estimating the ELBO using a mini-batch of Nb data points and a mini-batch of Mb
+inducing points is O(NbK 3 + MbK 3).
+B. Extension to more expressive variational family
+We now consider more expressive variational approximations and discuss how to mini-batch the VNNGP’s ELBO computa-
+tion. We assume the following variational family:
+q(u) = N (u|m, ˜L˜L⊤) (29)
+q(f |u) =
+NY
+i=1
+p(fi|un(i)) (30)
+where ˜L is the lower-triangular Cholesky factor for variational posterior covariance (potentially full-rank). The mean-field
+case discussed in appendix A is a special case where we make ˜L diagonal.
+
+=== PDF PAGE 13 ===
+Variational Nearest Neighbor Gaussian Process
+Similarly, the ELBO under this variational family decomposes into the data likelihood term and the KL divergence term as
+in Eq 23 with the modification that
+q(fi) = Eq(u)
+
+p(fi|un(i))
+
+(31)
+= N (fi|k⊤
+n(i),iK−1
+n(i),n(i)mn(i), ki,i − k⊤
+n(i),iK−1
+n(i),n(i)kn(i),i + k⊤
+n(i),i ˜Ln(i) ˜L⊤
+n(i)kn(i),i). (32)
+• The likelihood computation is similar to the mean-field case in appendix A, except that we are now integrating over
+q(fi) in Eq 32 instead of q(fi) in Eq 25. The former involves a potentially full-rank K × K variational covariance
+˜Ln(i) ˜L⊤
+n(i) while the latter involves a diagonal one.
+• KL divergence.
+For mathematical convenicence, we consider the Cholesky composition of prior precision for inducing points K−1
+z,z =
+L⊤L where L is a lower triangular matrix. Each row of L could be separately computed at O(K 3) cost (see Datta
+(2021a) for details). The KL divergence can be computed as follows:
+KL [q(u) ∥ p(u)] = KL
+h
+N (m, ˜L˜L⊤) ∥ N (0, (L⊤L)−1)
+i
+(33)
+= 1
+2 [−2 log |L| − 2 log |˜L| − M + tr(L⊤L˜L˜L⊤) + m⊤L⊤Lm] (34)
+Here we take a special treatment of the trace term:
+tr(L⊤L˜L˜L⊤) = tr(L˜L(L˜L)⊤) (by cyclic property of trace) (35)
+=
+MX
+i=1
+MX
+j=1
+(L˜L)2
+ij (by definition of trace) (36)
+=
+MX
+i=1
+MX
+j=1
+MX
+k=1
+L2
+ij ˜L2
+jk (expanding the (L˜Lij) terms) (37)
+=
+MX
+i=1
+MX
+j=1
+X
+k∈n(i)∪{i}
+L2
+ik ˜L2
+kj (using row-sparsity of L) (38)
+Now we re-write the KL by decomposing each term:
+KL [q(u) ∥ p(u)] = 1
+2 [−2
+MX
+i=1
+log Lii − 2
+MX
+i=1
+˜Lii − M +
+MX
+i=1
+MX
+j=1
+X
+k∈n(i)∪{i}
+L2
+ik ˜L2
+kj +
+MX
+i=1
+(
+X
+k∈n(i)∪{i}
+Likmk)2]
+(39)
+= 1
+2
+MX
+i=1
+[−2 log Lii − 2 ˜Lii − 1 +
+X
+k∈n(i)∪{i}
+L2
+ik
+MX
+j=1
+˜L2
+kj + (
+X
+k∈n(i)∪{i}
+Likmk)2], (40)
+which again factorizes over inducing points i = 1 : M. However, one should note that computing each KL term now
+scales O(M K3) due to the complexity in trace termP
+k∈n(i)∪{i}
+PM
+j=1 L2
+ik ˜L2
+kj. One can alleviate this issue by (i)
+obtaining a stochastic estimate for the trace term (i.e. sub-sample j) (ii) introduce sparsity structure in ˜L / variational
+posterior.
+In summary, we explore the possibility of extending VNNGP to more expressive variational family. We show that under the
+full-rank variational family, the VNNGP’s ELBO still factorizes over data points and inducing points. Computing each term
+now takes more computations and but techniques can be applied to improve the scalability.
+C. KL divergence for SWSGP
+Here we re-state and prove the two claims about KL divergence for SWSGP in Section 3.4.
+Consider a fixed prior p(u) and a fixed variational posterior q(u) over M inducing points u. Then we claim that
+
+=== PDF PAGE 14 ===
+Variational Nearest Neighbor Gaussian Process
+1. SWSGP’s KL divergence is always underestimating, if not equal to, SVGP’s KL divergence. That is, for any subset
+S ∈ { 1, 2, · · · , M}.
+KL [q(uS ) ∥ p(uS )] ≤ KL [q(u) ∥ p(u)] , (41)
+2. The amount of underestimation depends on the size of the nearest neighbor set. More precisely, for any two subsets S1
+and S2 such that S1 ⊂ S 2 ⊂ {1, · · · , M},
+KL [q(uS1 ) ∥ p(uS1 )] ≤ KL [q(uS1 ) ∥ p(uS2 )] . (42)
+The proof for the above claims will immediately follow once we prove the following proposition.
+Proposition C.1. Let p(u) and q(u) be two distributions for an M-dimensional random variable u, and let u1 be any
+sub-vector of u, then
+KL [q(u1) ∥ p(u1)] ≤ KL [q(u) ∥ p(u)] . (43)
+Proof. The proof relies on the chain rule of probability distribution, and the fact that the KL divergence is non-negative.
+Denote u2 as the remaining sub-vector by taking u1 out of u. It follows that
+KL [q(u) ∥ p(u)] (44)
+=
+Z
+q(u) log q(u)
+p(u) du (45)
+=
+Z Z
+q(u1)q(u2|u1) log q(u1)q(u2|u1)
+p(u1)p(u2|u1) du1du2 (46)
+= I + II, (47)
+where
+I ≡
+Z
+q(u1) log q(u1)
+p(u1)
+Z
+q(u2|u1)du2
+
+du1 = KL [q(u1) ∥ p(u1)] , (48)
+II ≡
+Z
+q(u1)
+Z
+q(u2|u1) log q(u2|u1)
+p(u2|u1)
+
+du1 =
+Z
+q(u1) KL [q(u2|u1) ∥ p(u2|u1)] du1. (49)
+Note that for each u1 fixed, KL [q(u2|u1) ∥ p(u2|u1)] defines a (conditional) KL divergence and is non-negative. Therefore,
+KL [q(u) ∥ p(u)] = I + II ≥ I, i.e. Eq 43 holds.
+D. Experiment details and additional results
+D.1. KL divergence comparison
+In Figure 7, we vary the setting in Section 4.2: different orderings of inducing points, different kernel functions, and real
+data v.s. synthetic data. From this figure, we observe similar patterns as from Figure 3.
+D.2. Model selection
+We include additional results for the model selection experiment in Section 4.2. We refer the models in Section 4.2 by
+VNNGP-N and SWSGP-N that set inducing points on observed locations. Here, we consider the alternative versions,
+VNNGP-M and SWSGP-M, which use M ≪ N inducing points for M ∈ {1024, 8192}, and the inducing point locations
+are learned during optimization. Correspondingly, the nearest neighbors are updated every training epoch for VNNGP and
+SWSGP. The other configurations are the same as Section 4.2 (especially, SVGP uses1024 inducing points for all times).
+All inducing point locations are initialized by k-means clustering of observed locations.
+Comparing Figure 8 to Figure 5, we can see that (1) VNNGP- M and VNNGP-N have consistent behaviors in model
+selection. (2) While maximizing the ELBO of SWSGP-N tends to favor a model with small likelihood noise, this is not
+the case for SWSGP-M. As the noise parameter becomes extremely small, the training ELBO of SWSGP-M decreases.
+As a result, optimizing SWSGP- M leads to a model that has a “medium” likelihood noise and a low test NLL. These
+observations suggest that maximizing the ELBO for SWSGP-N (and potentially for SWSGP-M with M close to N) can
+lead to undesired model selection outcome, while this does not hold for SWSGP-M with a medium size of inducing points.
+
+=== PDF PAGE 15 ===
+Variational Nearest Neighbor Gaussian Process
+5 10 15 20
+K
+0.2
+0.4
+0.6
+0.8
+1.0KL divergence
+1e1 Lengthscale = 1
+5 10 15 20
+K
+0
+1
+2
+3
+1e1 Lengthscale = 5
+5 10 15 20
+K
+0
+1
+2
+3
+4
+5
+6
+1e5 Lengthscale = 10
+5 10 15 20
+K
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1.50
+1e8 Lengthscale = 15
+5 10 15 20
+K
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8 Lengthscale = 20
+Method
+SVGP
+SWSGP
+VNNGP
+5 10 15 20
+K
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2KL divergence
+1e1 Lengthscale = 1
+5 10 15 20
+K
+0
+1
+2
+3
+1e1 Lengthscale = 5
+5 10 15 20
+K
+0
+1
+2
+3
+4
+5
+6
+1e5 Lengthscale = 10
+5 10 15 20
+K
+0.0
+0.5
+1.0
+1.5
+1e8 Lengthscale = 15
+5 10 15 20
+K
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+1e8 Lengthscale = 20
+Method
+SVGP
+SWSGP
+VNNGP
+5 10 15 20
+K
+0.2
+0.4
+0.6
+0.8
+1.0KL divergence
+1e1 Lengthscale = 1
+5 10 15 20
+K
+0.0
+0.5
+1.0
+1.5
+1e1 Lengthscale = 5
+5 10 15 20
+K
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1e2 Lengthscale = 10
+5 10 15 20
+K
+0
+2
+4
+6
+1e2 Lengthscale = 15
+5 10 15 20
+K
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+1e3 Lengthscale = 20
+Method
+SVGP
+SWSGP
+VNNGP
+0 100 200 300 400 500
+K
+0
+1
+2
+3
+4KL divergence
+1e3 Dataset: 3D Road
+SVGP
+SWSGP
+VNNGP
+Figure 7. KL comparison under different settings than the setting of Figure 3. Row 1: A different random ordering of induing points. Row
+2: Coordinate ordering of inducing points. Row 3: Matern (2.5) kernel. Row 4: Real dataset (3DRoad).
+
+=== PDF PAGE 16 ===
+Variational Nearest Neighbor Gaussian Process
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+SVGP
+Neg Train ELBO
+T est NLL
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+VNNGP-M
+Neg Train ELBO
+T est NLL
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+SWSGP-M
+Neg Train ELBO
+T est NLL
+M=1024
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+SVGP
+Neg Train ELBO
+T est NLL
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+VNNGP-M
+Neg Train ELBO
+T est NLL
+10 3
+ 10 2
+ 10 1
+ 100
+Noise
+SWSGP-M
+Neg Train ELBO
+T est NLL
+M=8192
+Figure 8. Negative ELBO in the last training iteration (solid line) and test set NLL (dotted line) as a function of the likelihood noise
+parameter by SVGP (blue), VNNGP (green) and SWSGP (orange) on UKHousing dataset. All ELBO and NLL values are scaled to [0, 1].
+The x-axis (Noise) is in log-scale. The best noise parameter picked by maximizing ELBO for each method is indicated by the vertical
+dashed line with corresponding color. The vertical purple line indicates the noise parameter (= 0.28) learned by exact GP. Left: both
+VNNGP and SWSGP use M = 1024 inducing points. Right: both VNNGP and SWSGP use M = 8192 inducing point. For all cases,
+SVGP use 1024 inducing points.
+D.3. Predictive performance on real dataset
+Here we provide training details and additional results for Section 4.3.
+D.3.1. T RAINING DETAILS
+For all methods, we use an Adam optimizer and a MultiStepLR scheduler dropping the learning rate by a factor of 10 at the
+75% and 90% of the optimization iterations; all kernels are Matern 5/2 kernel with separate lengthscale per dimension; the
+kernel lengthscales, outputscale and likelihood noise parameter (if any) are all initialized as 0.6931, except that exact GP is
+initiliazed with lengthscale = 0.01 on 3DRoad dataset. All hyperparameters are picked by the best validation NLL.
+All methods are trained with {300, 500} iterations and learning rate of {0.005, 0.01} for datasets of size below 50K, and
+with {100, 300} iterations and learning rate of {0.005, 0.001} for above 50K.
+For sgGP, we train using minibatches of 16 data points. As suggested by Chen et al. (2020), the minibatches are constructed
+by sampling one training data point and selecting its 15 nearest neighbors. To accelerate optimization, we accumulate the
+gradients of 1,024 minibatches before per- forming an optimization step (these 1,024 minibatch updates can be performed in
+parallel, enabling GPU acceleration).
+For SVGP, we use M = 1024 inducing points and a full-rank variational approximation. The inducing point locations are
+initilaized by k-means clustering of observed locations
+VNNGP, SWSGP- M and SWSGP- N use a mean-field variational approximation. SWSGP- M chooses M ∈
+{1024, 2048, 4096, 8192}, and the inducing point locations are initilaized by k-means clustering of observed locations. All
+three methods tune K in {32, 256}.
+D.3.2. P REDICTIVE RMSE TABLE
+The test set RMSE results for reported in Table 2. From the table, we observe that VNNGP obtains comparable RMSE
+values to other state-of-the-arts and excels at some datasets.
+
+=== PDF PAGE 17 ===
+Variational Nearest Neighbor Gaussian Process
+RMSE
+ExactGP sgGP SVGP SWSGP- M SWSGP-N VNNGP
+Dataset N D
+PoleTele 9.6K 26 .095±.000 .092±.002 .113±.000 .101±.002 .098±.003 .091±.002
+Elevators 10.6K 16 .360±.006 .358±.006 .366±.006 .399±.008 .456±.001 .373±.004
+Bike 11.1K 17 .054±.003 .400±.153 .028±.001 .037±.002 .042±.006 .043±.003
+Kin40K 25.6K 8 .099±.001 .458±.076 .145±.001 .118±.002 .097±.001 .096±.001
+Protein 25.6K 9 .533±.002 .534±.006 .633±.003 .600±.004 .592±.005 .565±.003
+KEGG 31.2K 20 .085±.002 .087±.003 .089±.001 .086±.001 .085±.002 .085±.001
+KEGGU 40.7K 26 .117±.000 .122±.001 .122±.000 .118±.001 .116±.001 .118±.000
+Precipitation64.8K 3 — — .635±.004 .485±.001 .506±.001 .432±.002
+UKHousing 116K 2 .402±.001 .359±.001 .582±.003 .382±.001 .498±.000 .346±.002
+3DRoad 278K 3 .165±.000 .187±.001 .329±.001 .432±.001 .097±.017 .298±.064
+Covtype 372K 54 — — .671±.001 .657±.001 .670±.001 .671±.001
+Table 2. Test set RMSE (mean ± 1 standard error over 3 random seeds) on high-dimensional datasets (top 8 ones) and spatial datasets
+(bottom 4 ones).
+D.3.3. L EARNED LIKELIHOOD NOISE TABLE
+We report the learned value of likelihood noise for all models in Table 3. Note that Covtype dataset uses Bernoulli likelihood
+which does not have noise parameter, therefore it is not included.
+We observe in Table 1 that sgGP and SWSGP-N can sometimes obtain a very high NLL values. We suspect that is due to
+they learn a particularly small likelihood noise on corresponding datasets. For example, sgGP’s NLL is approximately 53 on
+Bike, and its learned noise is around 0; SWSGP-N’s NLL is approximately 41 on KEGGU, and its learned noise is around 0.
+noise
+ExactGP sgGP SVGP SWSGP- M SWSGP-N VNNGP
+Dataset N D
+PoleTele 9.6K 26 .020±.000 .002±.000 .015±.000 .005±.000 .000±.000 .002±.000
+Elevators 10.6K 16 .166±.001 .102±.001 .132±.001 .062±.000 .000±.000 .067±.000
+Bike 11.1K 17 .016±.000 .000±.000 .002±.000 .002±.000 .000±.000 .001±.000
+Kin40K 25.6K 8 .020±.000 .000±.000 .031±.000 .009±.000 .000±.000 .001±.000
+Protein 25.6K 9 .182±.003 .022±.002 .417±.001 .339±.001 .000±.000 .018±.000
+KEGG 31.2K 20 .019±.000 .006±.000 .008±.000 .007±.000 .000±.000 .005±.000
+KEGGU 40.7K 26 .023±.000 .013±.000 .015±.000 .014±.000 .000±.000 .013±.000
+Precipitation 64.8K 3 — — .182±.001 .030±.000 .000±.000 .005±.000
+UKHousing 116K 2 .280±.001 .112±.000 .345±.002 .144±.000 .015±.000 .070±.003
+3DRoad 278K 3 .584±.000 .001±.000 .126±.000 .203±.001 .000±.000 .001±.000
+Covtype 372K 54 — — .000±.000 .000±.000 .000±.000 .000±.000
+Table 3. The learned likelihood noise (mean ± 1 standard error over 3 random seeds) on high-dimensional datasets (top 8 ones) and spatial
+datasets (bottom 3 ones).

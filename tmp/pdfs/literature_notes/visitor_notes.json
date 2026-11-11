@@ -1,0 +1,308 @@
+[
+  {
+    "file": "CPOE.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "gold due to the high number of hyperparameters we do not pretend to give justce b trying out a few and opt out of this. my general opinion on this paper is that it could be good general baseline but it has a lot of hyperparameters and uses the same kernel in all of the submodels, \n thus it s not necessarily very good? maybe a goo mention is enough and no note necessarily full comparision"
+      },
+      {
+        "page": 2,
+        "text": "somewhere around that"
+      },
+      {
+        "page": 3,
+        "text": "this creates a sense of separation between the two? this is nice"
+      },
+      {
+        "page": 4,
+        "text": "maybe ??? same same"
+      },
+      {
+        "page": 6,
+        "text": "gen of POE and Sparse?"
+      },
+      {
+        "page": 7,
+        "text": "good point to look at, discontinuities \n as told in the PW paper re the inducig points trained at all??? what is an inducing point here? selected as a fraction of the data???? as you add correlation structure you add more info ok"
+      },
+      {
+        "page": 10,
+        "text": "not relevant to me"
+      },
+      {
+        "page": 11,
+        "text": "bof? naturel non?"
+      },
+      {
+        "page": 12,
+        "text": "asically the idea is a sliding windiw of models."
+      },
+      {
+        "page": 13,
+        "text": "self indulgent, insititing on itself bull"
+      }
+    ]
+  },
+  {
+    "file": "GP for big data.pdf",
+    "notes": []
+  },
+  {
+    "file": "GP2scale.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "this is a \n nice observation not sure what \n this  means"
+      },
+      {
+        "page": 2,
+        "text": "this is cool"
+      },
+      {
+        "page": 6,
+        "text": "looks like an \n awesome dataset"
+      },
+      {
+        "page": 7,
+        "text": "is this possible for me? I don t think I have infinit scalability?"
+      },
+      {
+        "page": 13,
+        "text": "1 2 3 4 1 2 3 4 Dataset divided into  equal chunks Dataset divided  into equal chunks 1,1  1,2  1,3  1,4 2,2  2,3  2,4 3,3  3,4 4,4 Send to DASK worker"
+      }
+    ]
+  },
+  {
+    "file": "GPOE.pdf",
+    "notes": [
+      {
+        "page": 2,
+        "text": "that is kind \n of the point?"
+      },
+      {
+        "page": 3,
+        "text": "VERY COOL VERY SIMPLE"
+      }
+    ]
+  },
+  {
+    "file": "NK annotated.pdf",
+    "notes": [
+      {
+        "page": 3,
+        "text": "this is very light"
+      },
+      {
+        "page": 4,
+        "text": "this is light too easy prop might use same thing works well he4y tnajam tkoun l formule i4a ken nhotha mba3ed as a proposition"
+      },
+      {
+        "page": 5,
+        "text": "potentially??? this seems stupid? would it fit my construction??? same as before???"
+      },
+      {
+        "page": 11,
+        "text": "Bof Bof"
+      },
+      {
+        "page": 12,
+        "text": "adding a hyperparameter to whatever"
+      },
+      {
+        "page": 13,
+        "text": "could be a very nice tool to comparaision will add if doesn t clash too much fama bzeyed litterature is this still true for newer methods??? not so sure????"
+      },
+      {
+        "page": 15,
+        "text": "throw away"
+      }
+    ]
+  },
+  {
+    "file": "patchwork kriging.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "this is gold always site the same thing"
+      },
+      {
+        "page": 2,
+        "text": "same same I should have something like this gut waw???"
+      },
+      {
+        "page": 3,
+        "text": "or for the optimization process that is derived after that gold"
+      },
+      {
+        "page": 4,
+        "text": "I should have similar structure"
+      },
+      {
+        "page": 5,
+        "text": "basicaly the general setting"
+      },
+      {
+        "page": 6,
+        "text": "barcha equationet bech yhotou equationet w bara could be nice to add somewhere the rate of fullnss of this matrix as a nice remark\n comb2,n * 2 / comb2,n *comb2,n approximatif "
+      },
+      {
+        "page": 7,
+        "text": "maybe good entry point"
+      },
+      {
+        "page": 9,
+        "text": "should be mentioned I m not sure why looking at the cholesky decomposition is even interesting??? should be skipped non? should check"
+      },
+      {
+        "page": 10,
+        "text": "maybe??? I did not focus on this? so this is very good indeed \n maybe I would need to \n mention it as is and not \n worry too much about it for now also this is true for time\n  complexity what about \n memory??"
+      },
+      {
+        "page": 11,
+        "text": "to read thouroughly very good justification point a simple visual example I could\n  have is 2 anisotropic regions \n one with absis and the other wth ordonn\u00e9 this should be one of the baselines I use????"
+      },
+      {
+        "page": 12,
+        "text": "our choce of optimized ponts makes\n the boundaryy not necessarily a hyperplane aswell"
+      },
+      {
+        "page": 19,
+        "text": "how is this related to me\n maybe worth a mention"
+      },
+      {
+        "page": 24,
+        "text": "good"
+      }
+    ]
+  },
+  {
+    "file": "product of sparse GPs.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "ight be very interesting??? maybe good dataset?"
+      },
+      {
+        "page": 2,
+        "text": "good for intro"
+      },
+      {
+        "page": 3,
+        "text": "maybe that s a direction??"
+      },
+      {
+        "page": 7,
+        "text": "ok maybe in the appendix \n add a point about this \n nonstationarity issue? ok they do synthetic data to show the need for \n non stationarity , abblation can be just as good I think???\n  show that fixed GP hyperparameter \n over all s not great, could be an appendix result"
+      },
+      {
+        "page": 8,
+        "text": "gold"
+      },
+      {
+        "page": 12,
+        "text": "this is very important Notation hurt my eyes needs to check more but looks like a special case for my formulation???"
+      },
+      {
+        "page": 13,
+        "text": "horrible horrible notations Bon this is a choice ??? why would I care?"
+      },
+      {
+        "page": 17,
+        "text": "weak ydour 3al mahbas"
+      },
+      {
+        "page": 18,
+        "text": "is this useful at all?? kind of an easy result tbfh why??? this seems v interesting but I don t know I think this could be added as a sentence if we really care about it??? as a side note?"
+      },
+      {
+        "page": 19,
+        "text": "why??? I m not understanding exactly which hyperparameters? is this even true? why ????? good sentence"
+      },
+      {
+        "page": 23,
+        "text": "they take one size"
+      },
+      {
+        "page": 27,
+        "text": "math paper??? \n whashignton post???"
+      }
+    ]
+  },
+  {
+    "file": "rates of convergence for SVGP.pdf",
+    "notes": [
+      {
+        "page": 2,
+        "text": "must read"
+      },
+      {
+        "page": 3,
+        "text": "this is a good idea norm de y non null w en moyenne kima sigma donc..."
+      }
+    ]
+  },
+  {
+    "file": "sparse within sparse GP.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "good sentence is this the firtst \n instance of NN? NN is interesting but it s orthogonal \n to what I have it s interesting  either way??? \n i DONT KNOW IF IT SHOULD BE \n IN THE BENCHMARK HOWEVER"
+      },
+      {
+        "page": 2,
+        "text": "may add this somewhere???"
+      },
+      {
+        "page": 3,
+        "text": "donc binary variables wrong? should look into that"
+      },
+      {
+        "page": 4,
+        "text": "is this correct? it s linear good???"
+      }
+    ]
+  },
+  {
+    "file": "titsias2009.pdf",
+    "notes": [
+      {
+        "page": 2,
+        "text": "this is all so interesting,\n took me 2 months to arrive \n to the same conclusion one could say that , the original worinvolving variatioanl ptimization had in mind to keep the same prior during the optimizaiton ie not affect the original kernel and not bias it\n making the kernel used indepenedt of the inducing points chosen.  So introducing inducing variables leaves the original model unchanged. Choosing their locations changes how well the variational regression approximates its exact posterior.\n although this is very good our objectives here are differetn inducing points used here have the role of domain definintion and thus including them in the model make sense."
+      },
+      {
+        "page": 3,
+        "text": "look up technical report"
+      }
+    ]
+  },
+  {
+    "file": "VNNGP.pdf",
+    "notes": [
+      {
+        "page": 1,
+        "text": "good maine interesting for an \n intro a bit more in detail \n with the idea of d proche \n en proche low quality"
+      },
+      {
+        "page": 2,
+        "text": "gold"
+      },
+      {
+        "page": 4,
+        "text": "3FAT self indulging mech heka"
+      },
+      {
+        "page": 5,
+        "text": "ok?"
+      },
+      {
+        "page": 7,
+        "text": "5  10  15  20 K 0.2 0.4 0.6 0.8 1.0 1.2 KL divergence 1e1  Lengthscale = 1 5  10  15  20 K 0 1 2 3 1e1  Lengthscale = 5 5  10  15  20 K 0 1 2 3 4 5 6 1e5  Lengthscale = 10 5  10  15  20 K 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1e8  Lengthscale = 15 5  10  15  20 K 0.0 0.5 1.0 1.5 2.0 2.5 3.0 1e8  Lengthscale = 20 Method SVGP SWSGP VNNGP"
+      },
+      {
+        "page": 15,
+        "text": "5  10  15  20 K 0.2 0.4 0.6 0.8 1.0 KL divergence 1e1  Lengthscale = 1 5  10  15  20 K 0 1 2 3 1e1  Lengthscale = 5 5  10  15  20 K 0 1 2 3 4 5 6 1e5  Lengthscale = 10 5  10  15  20 K 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1e8  Lengthscale = 15 5  10  15  20 K 0.0 0.5 1.0 1.5 2.0 2.5 3.0 1e8  Lengthscale = 20 Method SVGP SWSGP VNNGP 5  10  15  20 K 0.2 0.4 0.6 0.8 1.0 1.2 KL divergence 1e1  Lengthscale = 1 5  10  15  20 K 0 1 2 3 1e1  Lengthscale = 5 5  10  15  20 K 0 1 2 3 4 5 6 1e5  Lengthscale = 10 5  10  15  20 K 0.0 0.5 1.0 1.5 1e8  Lengthscale = 15 5  10  15  20 K 0.0 0.5 1.0 1.5 2.0 2.5 3.0 1e8  Lengthscale = 20 Method SVGP SWSGP VNNGP 5  10  15  20 K 0.2 0.4 0.6 0.8 1.0 KL divergence 1e1  Lengthscale = 1 5  10  15  20 K 0.0 0.5 1.0 1.5 1e1  Lengthscale = 5 5  10  15  20 K 0.00 0.25 0.50 0.75 1.00 1.25 1e2  Lengthscale = 10 5  10  15  20 K 0 2 4 6 1e2  Lengthscale = 15 5  10  15  20 K 0.0 0.5 1.0 1.5 2.0 2.5 1e3  Lengthscale = 20 Method SVGP SWSGP VNNGP"
+      }
+    ]
+  }
+]
