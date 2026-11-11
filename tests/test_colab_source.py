@@ -20,15 +20,32 @@ from experiments.default_hyperparameters import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def normalized_code(source):
+    tree = ast.parse(source)
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id in ("OVERRIDES", "DATA_OVERRIDES")):
+            node.value = ast.Dict(keys=[], values=[])
+    return ast.dump(tree, include_attributes=False)
+
+
 @pytest.mark.parametrize("builder", [build_oisst, build_heaton, build_heat, build_uk])
-def test_notebook_calls_github_and_matches_generator(builder, tmp_path):
+def test_notebook_calls_github_and_matches_generator_except_explicit_overrides(builder, tmp_path):
     (tmp_path / "notebooks").mkdir()
     path = builder(tmp_path)
-    assert path.read_bytes() == (ROOT / "notebooks" / path.name).read_bytes()
     notebook = json.loads(path.read_text())
+    saved = json.loads((ROOT / "notebooks" / path.name).read_text())
+    assert len(saved["cells"]) == len(notebook["cells"])
+    for generated, actual in zip(notebook["cells"], saved["cells"], strict=True):
+        assert actual["cell_type"] == generated["cell_type"]
+        left, right = "".join(generated["source"]), "".join(actual["source"])
+        if actual["cell_type"] == "code":
+            assert normalized_code(left) == normalized_code(right)
+        else:
+            assert left == right
     assert notebook["metadata"]["gpw_source"]["repository"] == REPOSITORY
     assert notebook["metadata"]["gpw_source"]["branch"] == "main"
-    for cell in notebook["cells"]:
+    for cell in saved["cells"]:
         assert not cell.get("outputs")
         source = "".join(cell["source"])
         assert "SOURCE_B64" not in source

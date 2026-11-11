@@ -12,6 +12,10 @@
 - Verification: 126 tests pass, including mocked cold-start/requested-device
   ordering and loud initialization failure. Ruff, compileall and whitespace
   checks pass. Actual Colab GPU execution remains unverified locally.
+- Preserved the newer Colab save on GitHub, including the user's two-epoch /
+  one-warm-up overrides, by merging rather than overwriting it. Notebook tests
+  compare executable structure while allowing explicit override values and
+  Colab JSON formatting; defaults and model code are unchanged.
 
 ## 2026-11-11 - OISST comparison, GitHub launchers and centralized defaults
 
