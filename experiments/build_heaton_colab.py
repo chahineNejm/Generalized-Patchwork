@@ -1,15 +1,14 @@
-"""Package the current model source into a self-contained Colab notebook."""
+"""Build the GitHub-backed Heaton Colab launcher."""
 
 from __future__ import annotations
 
 import ast
-import base64
 import hashlib
-import io
 import json
 import textwrap
-import zipfile
 from pathlib import Path
+
+from experiments.colab_source import github_bootstrap, source_metadata
 
 
 def cell(kind: str, source: str) -> dict:
@@ -42,41 +41,7 @@ def cell(kind: str, source: str) -> dict:
 
 
 def build_notebook(root: Path) -> Path:
-    paths = [Path("pyproject.toml"), Path("README.md"), Path("experiments/heaton_benchmark.py")]
-    paths += sorted(path.relative_to(root) for path in (root / "src/pwgp").rglob("*.py"))
-    stream = io.BytesIO()
-    with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-        for relative in paths:
-            info = zipfile.ZipInfo(relative.as_posix(), date_time=(2026, 10, 19, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            bundle.writestr(info, (root / relative).read_bytes())
-    payload = stream.getvalue()
-    digest = hashlib.sha256(payload).hexdigest()
-    encoded = base64.b64encode(payload).decode("ascii")
-    literals = "\n".join(f'    "{encoded[i : i + 100]}"' for i in range(0, len(encoded), 100))
-    unpack = f'''import base64, hashlib, importlib, io, os, sys, zipfile
-from pathlib import Path
-
-ROOT = Path("/content/gpw_heaton")
-os.environ["MPLCONFIGDIR"] = str(ROOT / "results/.matplotlib")
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-SOURCE_B64 = (
-{literals}
-)
-SOURCE_ZIP = base64.b64decode(SOURCE_B64)
-assert hashlib.sha256(SOURCE_ZIP).hexdigest() == "{digest}", "Source snapshot checksum mismatch"
-ROOT.mkdir(parents=True, exist_ok=True)
-with zipfile.ZipFile(io.BytesIO(SOURCE_ZIP)) as bundle:
-    for member in bundle.namelist():
-        destination = (ROOT / member).resolve()
-        if not destination.is_relative_to(ROOT.resolve()):
-            raise ValueError("Source archive contains an unsafe path")
-    bundle.extractall(ROOT)
-os.chdir(ROOT)
-sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
-importlib.invalidate_caches()
-print("Embedded source verified:", "{digest}")
-'''
+    unpack = github_bootstrap("/content/gpw_heaton")
     cells = [
         cell(
             "markdown",
@@ -85,8 +50,8 @@ print("Embedded source verified:", "{digest}")
 
         Upload this notebook to Google Colab, select a GPU runtime, then Run all.
         Restart the runtime first if you previously ran an older notebook copy.
-        No GitHub access, separate source upload, or code edits are required.
-        The exact model source is embedded in this notebook and checksum-verified.
+        Code loads from the latest main of chahineNejm/Generalized-Patchwork.
+        The resolved commit and source archive are saved with the results.
 
         Runs, in order: **GPW 8 x 60**, **SVGP 480**, **GPW 4 x 120**.
         Each uses **100 total epochs**, with kernel/noise parameters frozen for
@@ -122,9 +87,9 @@ print("Embedded source verified:", "{digest}")
         cell(
             "markdown",
             """
-        ## 1. Embedded source and dependencies
+        ## 1. GitHub source and dependencies
         Uses Colab's installed CUDA-enabled PyTorch. Other dependencies are installed
-        from the embedded package declaration. No local GPU driver installation.
+        from the repository package declaration. No local GPU driver installation.
         """,
         ),
         cell("code", unpack),
@@ -192,16 +157,8 @@ subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable",
         del probe_model, probe_objective, probe_mean, probe_variance
         print("Full-covariance GPW weights, residual variance and gradients passed.", flush=True)
 
-        COMMON = HeatonConfig(
-            inducing_points=480, epochs=100, warmup_epochs=20,
-            batch_size=2048, prediction_batch_size=2048,
-            patches=8, stitches_per_edge=8, neighbors=2, q_rank=32,
-            lengthscale=0.1, outputscale=1.0, noise_std=0.1,
-            learning_rate_q=0.002, learning_rate_supports=0.001,
-            learning_rate_stitches=0.001, learning_rate_hyperparameters=0.001,
-            weight_epsilon=0.01, seed=31, threads=2, snapshot_every=10,
-            device=DEVICE,
-        )
+        from experiments.default_hyperparameters import heaton_defaults
+        COMMON = replace(heaton_defaults(device=DEVICE))  # Add explicit overrides here.
         RUNS = [
             ("GPW 8 x 60", replace(COMMON, model="patchwork", patches=8)),
             ("SVGP 480", replace(COMMON, model="svgp")),
@@ -210,6 +167,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable",
         RUN_ROOT = ROOT / "results/heaton" / datetime.now(UTC).strftime("colab_%Y%m%dT%H%M%S%fZ")
         RUN_ROOT.mkdir(parents=True, exist_ok=False)
         (RUN_ROOT / "source_snapshot.zip").write_bytes(SOURCE_ZIP)
+        (RUN_ROOT / "source_provenance.json").write_text(json.dumps(SOURCE_PROVENANCE, indent=2))
         display(pd.DataFrame([{"run": name, **asdict(config)} for name, config in RUNS]))
         print("Existing parameter bounds:", asdict(HyperparameterBounds()))
         print("Numerical settings:", asdict(NumericalConfig(weight_epsilon=COMMON.weight_epsilon)))
@@ -341,7 +299,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable",
             "colab": {"name": "GPW_Heaton_Colab.ipynb", "provenance": [], "gpuType": "T4"},
             "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
             "language_info": {"name": "python", "version": "3.12"},
-            "gpw_source_sha256": digest,
+            "gpw_source": source_metadata(),
         },
         "nbformat": 4,
         "nbformat_minor": 5,

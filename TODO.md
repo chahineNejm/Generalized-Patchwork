@@ -4,6 +4,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Make user ownership of every methodological choice explicit in AGENTS.md;
+  require approval for unspecified choices and reinforce the no-fallback policy.
+- [x] Convert Colab notebooks to GitHub-backed launchers, using the user-approved
+  latest main from https://github.com/chahineNejm/Generalized-Patchwork and
+  recording the resolved commit for each run; preserve experiment settings.
 - [x] Verify fail-fast runner records, Colab stage blocking, checked subprocesses,
   and uncapped graph-neighbor validation.
 - [x] Implement approved finite-value errors and FLIGHT row removal without
@@ -23,6 +28,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 - [x] Fail-loudly policy with no fallback or silent value changes.
 
 ## Model Evaluation
+
+- [x] OISST five-model runner, centralized default hyperparameters with notebook
+  overrides, separate exploratory analysis and per-run visuals/optional positions.
+- [x] Approve OISST ProSpar prior_jitter=0: learned nuggets alone, no extra fixed
+  prior regularizer; retain an explicit required choice in the model class.
 
 - [x] Implement paper-derived ProSpar-GP using the SVGP foundation; verify dense
   values/gradients, explicit initialization/jitter, and Heaton/UKHousing runners.

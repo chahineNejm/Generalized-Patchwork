@@ -1,7 +1,4 @@
 import ast
-import base64
-import hashlib
-import io
 import json
 import subprocess
 import sys
@@ -180,7 +177,7 @@ def test_archive_run_includes_artifacts_and_shared_provenance(tmp_path):
     (run / "status.json").write_text('{"state": "complete"}')
     (run / "model.pt").write_bytes(b"checkpoint")
     shared = ["source_snapshot.zip", "split.npz", "preprocessing.json",
-              "data_manifest.json", "comparison.csv"]
+              "data_manifest.json", "comparison.csv", "source_provenance.json"]
     for name in shared:
         (root / name).write_bytes(name.encode())
     archive = archive_run(run)
@@ -195,16 +192,10 @@ def test_archive_run_includes_artifacts_and_shared_provenance(tmp_path):
         archive_run(run)
 
 
-def test_ukhousing_notebook_embeds_current_sources_and_four_models():
+def test_ukhousing_notebook_calls_github_and_keeps_four_models():
     notebook = json.loads((ROOT / "notebooks/UKHousing_Colab.ipynb").read_text())
-    tree = ast.parse("".join(notebook["cells"][2]["source"]))
-    assignment = next(node for node in tree.body if isinstance(node, ast.Assign)
-                      and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "SOURCE_B64")
-    payload = base64.b64decode(ast.literal_eval(assignment.value))
-    assert hashlib.sha256(payload).hexdigest() == notebook["metadata"]["gpw_source_sha256"]
-    with zipfile.ZipFile(io.BytesIO(payload)) as bundle:
-        for path in bundle.namelist():
-            assert bundle.read(path) == (ROOT / path).read_bytes(), path
+    assert "SOURCE_B64" not in "".join(notebook["cells"][2]["source"])
+    assert notebook["metadata"]["gpw_source"]["branch"] == "main"
     for cell in notebook["cells"]:
         assert not cell.get("outputs")
         if cell["cell_type"] == "code":
@@ -236,14 +227,9 @@ def test_target_standardization_uses_training_only():
     assert initial["target_std"] == changed["target_std"]
 
 
-def test_ukhousing_embedded_source_imports_in_fresh_interpreter(tmp_path):
+def test_ukhousing_github_source_imports_in_fresh_interpreter(tmp_path, github_checkout):
     notebook = json.loads((ROOT / "notebooks/UKHousing_Colab.ipynb").read_text())
-    tree = ast.parse("".join(notebook["cells"][2]["source"]))
-    assignment = next(node for node in tree.body if isinstance(node, ast.Assign)
-                      and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "ROOT")
-    assignment.value.args[0] = ast.Constant(str(tmp_path / "embedded"))
-    ast.fix_missing_locations(tree)
-    script = ast.unparse(tree) + """
+    script = github_checkout("".join(notebook["cells"][2]["source"])) + """
 from experiments.ukhousing_benchmark import UKConfig, build_model, prepare_split
 from pwgp.models.standard_patchwork import StandardPatchworkGP
 from pwgp.models.vnngp import VNNGP

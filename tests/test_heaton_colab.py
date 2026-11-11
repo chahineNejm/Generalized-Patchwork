@@ -1,11 +1,7 @@
 import ast
-import base64
-import hashlib
-import io
 import json
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,30 +43,22 @@ def test_noise_sensitivity_reuses_saved_predictions(tmp_path) -> None:
         diagnostic([], [1.0])
 
 
-def test_colab_bootstrap_imports_embedded_package_in_active_interpreter(tmp_path) -> None:
+def test_colab_bootstrap_imports_github_package_in_active_interpreter(tmp_path, github_checkout) -> None:
     notebook = json.loads((ROOT / "notebooks/GPW_Heaton_Colab.ipynb").read_text())
-    tree = ast.parse("".join(notebook["cells"][2]["source"]))
-    assignment = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.Assign)
-        and isinstance(node.targets[0], ast.Name)
-        and node.targets[0].id == "ROOT"
-    )
-    assignment.value.args[0] = ast.Constant(str(tmp_path / "snapshot"))
-    ast.fix_missing_locations(tree)
     script = (
-        ast.unparse(tree)
+        github_checkout("".join(notebook["cells"][2]["source"]))
         + """
 import importlib.util
 spec = importlib.util.find_spec("pwgp")
-assert spec is not None, "Embedded pwgp package is not importable"
+assert spec is not None, "GitHub pwgp package is not importable"
 assert Path(spec.origin).resolve() == (ROOT / "src/pwgp/__init__.py").resolve(), spec.origin
 from experiments.heaton_benchmark import HeatonConfig, run_heaton
 from pwgp import GeneralizedPatchworkGP, SVGP
 assert HeatonConfig().epochs == 100
 assert HeatonConfig().warmup_epochs == 20
-print("Embedded runner and models imported without a kernel restart")
+assert SOURCE_PROVENANCE['commit'] == COMMIT
+assert len(COMMIT) == 40
+print("GitHub runner and models imported without a kernel restart")
 """
     )
     process = subprocess.run(
@@ -84,29 +72,14 @@ print("Embedded runner and models imported without a kernel restart")
     assert process.returncode == 0, process.stdout + process.stderr
 
 
-def test_colab_source_snapshot_matches_current_code() -> None:
+def test_colab_calls_github_instead_of_embedding_source() -> None:
     notebook = json.loads((ROOT / "notebooks/GPW_Heaton_Colab.ipynb").read_text())
     assert notebook["metadata"]["accelerator"] == "GPU"
     assert notebook["nbformat"] == 4
     source = "".join(notebook["cells"][2]["source"])
-    tree = ast.parse(source)
-    assignment = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.Assign)
-        and isinstance(node.targets[0], ast.Name)
-        and node.targets[0].id == "SOURCE_B64"
-    )
-    payload = base64.b64decode(ast.literal_eval(assignment.value))
-    assert hashlib.sha256(payload).hexdigest() == notebook["metadata"]["gpw_source_sha256"]
-    with zipfile.ZipFile(io.BytesIO(payload)) as bundle:
-        for name in bundle.namelist():
-            assert bundle.read(name) == (ROOT / name).read_bytes(), f"Rebuild snapshot: {name}"
-            if name.endswith(".py"):
-                compile(bundle.read(name), name, "exec")
-        assert "src/pwgp/models/patchwork.py" in bundle.namelist()
-        assert "src/pwgp/models/svgp.py" in bundle.namelist()
-        assert "experiments/heaton_benchmark.py" in bundle.namelist()
+    assert "SOURCE_B64" not in source
+    assert '"clone"' in source and '"sparse-checkout"' in source
+    assert notebook["metadata"]["gpw_source"]["branch"] == "main"
 
 
 def test_colab_cells_compile_and_keep_requested_schedule() -> None:
@@ -134,10 +107,12 @@ def test_colab_cells_compile_and_keep_requested_schedule() -> None:
                         if isinstance(item.value, ast.Constant)
                     }
                 )
-    assert len(configurations) == 1
-    assert configurations[0]["inducing_points"] == 480
-    assert configurations[0]["epochs"] == 100
-    assert configurations[0]["warmup_epochs"] == 20
+    from experiments.default_hyperparameters import heaton_defaults
+
+    assert not configurations
+    config = heaton_defaults(device="cuda:0")
+    assert (config.inducing_points, config.epochs, config.warmup_epochs) == (480, 100, 20)
+    assert "heaton_defaults(device=DEVICE)" in "".join(notebook["cells"][5]["source"])
 
 
 def test_colab_preflight_covers_batched_solver_shapes() -> None:

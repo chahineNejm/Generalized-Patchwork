@@ -1,5 +1,52 @@
 # Evolution Log
 
+## 2026-11-11 - OISST comparison, GitHub launchers and centralized defaults
+
+- User approved ProSpar prior_jitter=0 for the OISST comparison: learned nuggets
+  alone, without an extra fixed prior term. The model API still requires this
+  argument explicitly; no numerical fallback or global default was introduced.
+- Added default_hyperparameters.py, explicit notebook overrides and an OISST
+  runner calling the existing five model implementations. Protocol: daily
+  2025-01-15 ROI (-80,-30,20,50), seed 31, 64/16/20 random split, declared-ROI
+  input normalization and training-only target standardization. Proposed model
+  settings are recorded in the defaults file, not paper-reproduction claims.
+- Added separate exploratory_analysis.py: dataset summary/maps/histogram,
+  saved-run metrics, loss/kernel evolution and optional initial/final inducing
+  positions. Per-model visuals/ and raw motion snapshots are separate from code.
+  Standard Patchwork is correctly labeled as having no inducing variables.
+- Four main Colab notebooks now import latest main from the user's GitHub repo,
+  record resolved commit and source archive, and use explicit sparse code-only
+  checkout to exclude unrelated dataset files. Kept historical
+  Heaton/UKHousing/heat experiment budgets and GPU checks unchanged.
+- Comparisons stop after errors with tracebacks; each completed OISST run is
+  archived with shared provenance and model/GPU memory released. Added tqdm for
+  prediction, weighting, exploration and sequential comparison, alongside training.
+- User authorized committing/pushing this work to main after verification.
+- User separately authorized removing airline.pickle from the prior unpublished
+  commit, preserving its local file and ignoring it, before normal main push.
+  No published history is rewritten; all other prior commit content is preserved.
+- Verification: 123 tests pass; Ruff, compileall and diff whitespace checks pass.
+  Includes real local Git clone/import/latest-main checks, five-model synthetic
+  end-to-end artifacts, explicit overrides, optional positions, memory release
+  and fail-fast comparison. Cached OISST preparation verified 21,370 usable rows:
+  13,676 training / 3,419 validation / 4,275 test; SHA-256 recorded.
+  Four dependency warnings remain. No full OISST training or Colab GPU run claimed.
+
+## 2026-11-11 - User-owned methodology and GitHub notebook decision
+
+- Explicitly require user approval before implementing any unspecified
+  methodological choice, including data protocols, model equations, training,
+  hyperparameters and numerical regularization. Recommendations, paper/library
+  defaults and silence do not constitute approval. Unresolved choices must not
+  receive invented defaults; approved decisions must be preserved and recorded.
+- Reinforced the user's preference for errors over fallbacks, including hidden
+  changes of solver, device, data source, model or configuration after failure.
+- User selected GitHub installation for thin notebooks and latest main from
+  https://github.com/chahineNejm/Generalized-Patchwork. Conversion remains
+  pending; resolved commits must be recorded rather than claiming a fixed pin.
+- Verification: reviewed documentation changes and git diff --check. No model,
+  dataset, numerical setting or experiment behavior changed in this rules update.
+
 ## 2026-11-11 - ProSpar-GP implementation and benchmark adapters
 
 - Added ProSparGP on the SVGP foundation: local ARD RBF experts, independent

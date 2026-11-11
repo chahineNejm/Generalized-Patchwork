@@ -1,27 +1,16 @@
-import ast
-import base64
-import hashlib
-import io
 import json
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_heat_colab_embeds_current_sources_and_compiles_cells():
+def test_heat_colab_calls_github_and_compiles_cells():
     notebook = json.loads((ROOT / "notebooks/GPW_Periodic_Heat_Colab.ipynb").read_text())
-    bootstrap = next(c for c in notebook["cells"] if "SOURCE_B64 =" in "".join(c["source"]))
-    tree = ast.parse("".join(bootstrap["source"]))
-    assignment = next(n for n in tree.body if isinstance(n, ast.Assign)
-                      and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "SOURCE_B64")
-    payload = base64.b64decode(ast.literal_eval(assignment.value))
-    assert hashlib.sha256(payload).hexdigest() == notebook["metadata"]["gpw_source_sha256"]
-    with zipfile.ZipFile(io.BytesIO(payload)) as bundle:
-        for name in bundle.namelist():
-            assert bundle.read(name) == (ROOT / name).read_bytes(), name
+    bootstrap = "".join(notebook["cells"][2]["source"])
+    assert "SOURCE_B64" not in bootstrap
+    assert notebook["metadata"]["gpw_source"]["branch"] == "main"
     for cell in notebook["cells"]:
         assert not cell.get("outputs")
         source = "".join(cell["source"])
@@ -37,15 +26,9 @@ def test_heat_colab_embeds_current_sources_and_compiles_cells():
     assert 'folder / "kernel_evolution.png"' in run_cell
 
 
-def test_embedded_heat_imports_without_git_in_fresh_interpreter(tmp_path):
+def test_github_heat_imports_in_fresh_interpreter(tmp_path, github_checkout):
     notebook = json.loads((ROOT / "notebooks/GPW_Periodic_Heat_Colab.ipynb").read_text())
-    bootstrap = next(c for c in notebook["cells"] if "SOURCE_B64 =" in "".join(c["source"]))
-    tree = ast.parse("".join(bootstrap["source"]))
-    assignment = next(n for n in tree.body if isinstance(n, ast.Assign)
-                      and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "ROOT")
-    assignment.value.args[0] = ast.Constant(str(tmp_path / "embedded"))
-    ast.fix_missing_locations(tree)
-    script = ast.unparse(tree) + """
+    script = github_checkout("".join(notebook["cells"][2]["source"])) + """
 import pwgp
 from dataclasses import replace
 from experiments.stitch_line_heat import RunConfig, build_model

@@ -8,6 +8,47 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## OISST Comparison
+
+Open `notebooks/OISST_Colab.ipynb` in Colab, select a GPU runtime and Run all.
+The notebook loads the latest `main` from
+https://github.com/chahineNejm/Generalized-Patchwork and records its resolved
+commit. Model/data implementations are imported, not embedded. Code-only sparse
+checkout excludes unrelated dataset files. The local airline pickle is ignored.
+Changes must be pushed to GitHub before Colab can use them.
+
+Approved defaults are in `experiments/default_hyperparameters.py`:
+OISST 2025-01-15, ROI (-80,-30,20,50), shared 64/16/20 split, seed 31;
+SVGP 512, GPW 8x64, ProSpar 8x64, VNNGP K32 with all training locations,
+and standard Patchwork max 256 observations/region with 5 stitches/boundary.
+ProSpar starts with T=1, c=1, nuggets=0.01 and explicit prior_jitter=0.
+Variational runs use 100 epochs/20 warm-up, batch 512, q LR 0.002 and other
+learned-parameter LR 0.001. Exact Patchwork retains its existing LR 0.01,
+100 full-data updates and no variational warm-up. Targets use training-only
+standardization; input normalization uses the declared geographic ROI.
+
+The notebook's `OVERRIDES` accepts per-model settings, for example:
+
+```python
+OVERRIDES = {"GPW": {"epochs": 150, "warmup_epochs": 30}}
+DATA_OVERRIDES = {"save_inducing_positions": True}
+```
+
+No override changes the defaults file. To override ProSpar settings, provide a
+complete `ProSparConfig` through that model's `prospar` field. Actual settings,
+source/data provenance, shared split, history and checkpoints are saved.
+Each completed model is archived/downloaded and its GPU memory released before
+the next. A failed run saves its traceback and stops the comparison.
+
+`experiments/exploratory_analysis.py` contains data summaries and plotting,
+separate from fitting. Comparison-level `exploratory/` contains target maps,
+histograms and split maps. Each run's `visuals/` contains metrics, loss,
+hyperparameter evolution, predictions/uncertainty, and initial/final inducing
+positions when enabled. GPW/ProSpar also save weight maps. Raw positions and
+snapshot epochs are in `inducing_positions.npz`; standard Patchwork has no
+inducing positions. `analyze_run(path)` regenerates saved-run summary plots
+without retraining. Training, prediction, analysis and model comparisons use tqdm.
+
 Heaton and UKHousing runs record failures and re-raise the original exception.
 Colab notebooks stop downstream cells after a failed stage; restart the runtime
 before retrying. Installation/test commands check exit codes. Requested patch
@@ -173,8 +214,8 @@ This is a correctness-first baseline with pointwise variance, not arbitrary
 multi-layer aggregation or the authors' optimized R/C++ implementation. Prediction
 uses covariance blocks without storing the full training covariance, but still
 accounts for all cross-group covariances. LOO currently recomputes local factors;
-large-data performance and CUDA are not verified. Existing Colab notebooks embed
-the class but their default comparison lists are unchanged.
+large-data performance and CUDA are not verified. Existing Colab notebooks import
+the class from GitHub but their default comparison lists are unchanged.
 
 ## Dataset manager
 
@@ -188,8 +229,8 @@ Lines initialize stitches only; no collinearity is imposed. Defaults: 28 support
 40 kernel warm-up epochs. Full configurations, motion, checkpoints and scores
 are saved under `results/stitch_line_heat/`.
 
-`notebooks/GPW_Periodic_Heat_Colab.ipynb` embeds the complete experiment. Select
-a GPU runtime and Run all; no GitHub checkout or extra source uploads are needed.
+`notebooks/GPW_Periodic_Heat_Colab.ipynb` imports the experiment from latest main.
+Select a GPU runtime and Run all; no separate source upload is needed.
 Change `STITCH_LEARNING_RATES = [0.003]` to one or several values in the settings
 cell. Every value repeats the four approved starts with matched seeds/data.
 Live figures, per-layout downloads and memory cleanup are included; CPU FEM
@@ -208,7 +249,7 @@ held-out scores, checkpoints and complete provenance. Override values through
 
 `notebooks/UKHousing_Colab.ipynb` compares SVGP 1,024, GPW 8 x 128, direct-observation
 standard Patchwork Kriging, and GPyTorch VNNGP (all training locations, K=32).
-Select a Colab GPU and Run all; source is embedded and data downloads automatically.
+Select a Colab GPU and Run all; source loads from GitHub and data downloads automatically.
 All use ARD RBF/Gaussian models and one seeded 64/16/20 split. The 185,254-row
 2018-flats reconstruction follows the HIP-GP authors' documented filters using
 checksum-pinned Land Registry and postcode sources, but is NOT the verified
@@ -228,11 +269,11 @@ the model and CUDA cache, then archives and downloads that run with shared
 provenance. The final combined archive is also available.
 Local verification of these optional baselines requires `pip install -e ".[dev,ukhousing]"`.
 
-`notebooks/GPW_Heaton_Colab.ipynb` is a self-contained GPU Colab notebook:
-upload it, select a GPU runtime, and Run all. It embeds the current source and
+`notebooks/GPW_Heaton_Colab.ipynb` is a GitHub-backed GPU Colab notebook:
+upload it, select a GPU runtime, and Run all. It imports the current source and
 runs GPW 8 x 60, SVGP 480, and GPW 4 x 120 with 100 epochs / 20 warm-up.
-No GitHub access or separate source upload is needed.
-The notebook registers its embedded `src/` package in the active kernel, so
+GitHub access is required; no separate source upload is needed.
+The notebook registers the checked-out `src/` package in the active kernel, so
 setup does not require a runtime restart after installation.
 Cholesky solves use two explicit triangular solves. The notebook validates
 representative batched solves and gradients on the selected GPU before training.

@@ -11,8 +11,20 @@ variational precision. The current phase is the algorithm and data foundation.
 
 ## Non-Negotiable Rules
 
+- All methodological choices belong to the user. Do not infer approval from
+  silence, a paper's defaults, library defaults, or a recommendation. Before
+  implementing any unspecified choice affecting the model, objective, kernels,
+  uncertainty, initialization, data cleaning/preprocessing, splits, optimization,
+  hyperparameters, numerical regularization, or evaluation protocol, ask the user
+  and wait for explicit approval. Preserve already approved choices; record new
+  decisions in docs/EVOLUTION.md. Unresolved choices must remain explicit and
+  must not receive an invented default. Routine implementation details may be
+  chosen only when they do not change the method or experimental behavior.
 - Fail loudly. Do not add fallbacks, silent substitutions, parser guessing,
   model downgrades, pseudoinverses, alternate URLs, or implicit value changes.
+- The user explicitly prefers an error to any fallback. A failure must never
+  trigger a different model, data source, solver, device, parameter value, or
+  experimental configuration. Do not disguise recovery as robustness.
 - Do not use `try/except` to continue after an error. Let the original error
   surface. Validation errors should name the failed invariant.
 - Never switch to a base model or change requested values to make a run succeed.
@@ -30,6 +42,14 @@ variational precision. The current phase is the algorithm and data foundation.
 - Every training loop displays `tqdm` progress with the current loss.
 - Dataset files, checkpoints, and generated results stay outside Git.
 - Preserve complete configuration and provenance with every saved result.
+- Colab launchers load the latest main from the user-supplied GitHub repository;
+  record the resolved commit and source archive for each comparison. Never embed
+  model or dataset implementations in notebooks. Approved experiment defaults
+  live in experiments/default_hyperparameters.py; notebook overrides are explicit
+  and saved as the effective configuration, never silently merged with replacements.
+- Keep exploratory analysis in experiments/exploratory_analysis.py. OISST runs
+  save plots under visuals/ and optionally record actual inducing positions;
+  standard Patchwork has no inducing variables and must not be labeled as such.
 
 ## Mathematical Invariants
 

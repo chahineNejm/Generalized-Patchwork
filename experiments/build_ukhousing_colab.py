@@ -1,57 +1,22 @@
-"""Build a self-contained four-model UKHousing Colab notebook."""
+"""Build a GitHub-backed UKHousing Colab launcher."""
 
-import base64
-import hashlib
-import io
 import json
-import zipfile
 from pathlib import Path
 
 from experiments.build_heaton_colab import cell
+from experiments.colab_source import github_bootstrap, source_metadata
 
 
 def build_notebook(root: Path) -> Path:
-    paths = [Path("pyproject.toml"), Path("README.md"), Path("experiments/ukhousing_benchmark.py")]
-    paths += sorted(path.relative_to(root) for path in (root / "src/pwgp").rglob("*.py"))
-    stream = io.BytesIO()
-    with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-        for path in paths:
-            info = zipfile.ZipInfo(path.as_posix(), date_time=(2026, 10, 19, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            bundle.writestr(info, (root / path).read_bytes())
-    payload = stream.getvalue()
-    digest = hashlib.sha256(payload).hexdigest()
-    encoded = base64.b64encode(payload).decode("ascii")
-    literals = "\n".join(f'    "{encoded[i:i + 100]}"' for i in range(0, len(encoded), 100))
-    unpack = f'''import base64, hashlib, importlib, io, os, sys, zipfile
-from pathlib import Path
-
-ROOT = Path("/content/gpw_ukhousing")
-os.environ["MPLCONFIGDIR"] = str(ROOT / "results/.matplotlib")
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-SOURCE_B64 = (
-{literals}
-)
-SOURCE_ZIP = base64.b64decode(SOURCE_B64)
-assert hashlib.sha256(SOURCE_ZIP).hexdigest() == "{digest}", "Embedded source checksum mismatch"
-ROOT.mkdir(parents=True, exist_ok=True)
-with zipfile.ZipFile(io.BytesIO(SOURCE_ZIP)) as bundle:
-    for member in bundle.namelist():
-        if not (ROOT / member).resolve().is_relative_to(ROOT.resolve()):
-            raise ValueError("Unsafe archive member")
-    bundle.extractall(ROOT)
-os.chdir(ROOT)
-sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
-importlib.invalidate_caches()
-print("Embedded source verified:", "{digest}")
-'''
+    unpack = github_bootstrap("/content/gpw_ukhousing")
     cells = [
         cell("markdown", """
         # UKHousing: SVGP, GPW, standard Patchwork and VNNGP
 
         Upload to Colab, select a GPU runtime and Run all. Restart the runtime
         first if an older copy has already loaded model classes.
-        No GitHub checkout, source upload, API keys or code changes are required.
+        Code loads from the latest main of chahineNejm/Generalized-Patchwork.
+        The resolved commit and source archive are saved with the results.
 
         This reconstructs the 2018 flats task from HM Land Registry transactions
         and FreeMapTools postcode centroids using the HIP-GP authors' region and
@@ -95,7 +60,7 @@ print("Embedded source verified:", "{digest}")
         Numerical failures raise; no retries, jitter escalation, CPU substitution,
         variance clipping or automatic configuration changes are implemented here.
         """),
-        cell("markdown", "## 1. Embedded source and pinned VNNGP dependencies"),
+        cell("markdown", "## 1. GitHub source and pinned VNNGP dependencies"),
         cell("code", unpack),
         cell("code", '''import subprocess, sys
 subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable", "/content/gpw_ukhousing[ukhousing]"], check=True)'''),
@@ -179,17 +144,8 @@ subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable",
         torch.cuda.empty_cache()
         print("All four model GPU checks passed")
 
-        COMMON = UKConfig(
-            epochs=100, warmup_epochs=20, inducing_points=1024, patches=8,
-            stitches_per_edge=8, q_rank=32, patch_neighbors=2,
-            vnngp_neighbors=32, vnngp_batch_size=512,
-            exact_maximum_points=512, exact_stitches_per_edge=2,
-            batch_size=1024, prediction_batch_size=256,
-            lengthscale=0.1, outputscale=1.0, noise_std=0.1,
-            learning_rate_q=0.002, learning_rate_structure=0.001,
-            learning_rate_hyperparameters=0.001, exact_learning_rate=0.01,
-            weight_epsilon=0.01, seed=31, snapshot_every=10, device=DEVICE,
-        )
+        from experiments.default_hyperparameters import ukhousing_defaults
+        COMMON = replace(ukhousing_defaults(device=DEVICE))  # Add explicit overrides here.
         RUNS = [("SVGP 1024", replace(COMMON, model="svgp")),
                 ("GPW 8 x 128", replace(COMMON, model="gpw")),
                 ("Standard Patchwork", replace(COMMON, model="patchwork")),
@@ -197,6 +153,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable",
         RUN_ROOT = ROOT / "results/ukhousing" / datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         RUN_ROOT.mkdir(parents=True, exist_ok=False)
         (RUN_ROOT / "source_snapshot.zip").write_bytes(SOURCE_ZIP)
+        (RUN_ROOT / "source_provenance.json").write_text(json.dumps(SOURCE_PROVENANCE, indent=2))
         display(pd.DataFrame([{"run": name, **asdict(config)} for name, config in RUNS]))
         """),
         cell("markdown", "## 3. Download, validate and prepare one shared dataset"),
@@ -271,7 +228,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--editable",
     notebook = {"cells": cells, "metadata": {
         "accelerator": "GPU", "colab": {"name": "UKHousing_Colab.ipynb", "provenance": [], "gpuType": "T4"},
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
-        "language_info": {"name": "python", "version": "3.12"}, "gpw_source_sha256": digest},
+        "language_info": {"name": "python", "version": "3.12"}, "gpw_source": source_metadata()},
         "nbformat": 4, "nbformat_minor": 5}
     target = root / "notebooks/UKHousing_Colab.ipynb"
     target.write_text(json.dumps(notebook, indent=1), encoding="utf-8")

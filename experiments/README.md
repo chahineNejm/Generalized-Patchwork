@@ -9,6 +9,36 @@ provenance, show training progress, and write outputs under ignored `results/`.
 
 See `TODO.md` for planned runners and visual studies.
 
+## Defaults, OISST And Analysis
+
+`default_hyperparameters.py` supplies approved experiment defaults. All notebooks
+allow explicit overrides through `dataclasses.replace`; OISST exposes per-model
+`OVERRIDES` and `DATA_OVERRIDES`. Effective settings are saved, not just defaults.
+
+`notebooks/OISST_Colab.ipynb` runs SVGP, GPW, ProSpar, VNNGP and standard
+Patchwork on the approved OISST ROI/split. It imports `oisst_benchmark.py`, which
+calls existing model builders/trainers and the dataset manager. Defaults include
+the approved ProSpar prior_jitter=0. No training/data/model code is embedded.
+
+`exploratory_analysis.py` is separate from training: `explore_dataset(split,
+directory=...)` saves summaries/maps/histograms; `analyze_run(directory)`
+regenerates training/metric/point figures from saved outputs. Each model has a
+`visuals/` folder and optional `inducing_positions.npz`; disable position saving
+with `DATA_OVERRIDES={"save_inducing_positions": False}`. This does not freeze
+positions or alter training. Standard Patchwork has no inducing variables.
+
+All four main Colab launchers load latest main from the configured GitHub repo,
+using sparse code-only checkout and recording the resolved commit/source archive.
+Source changes take effect after pushing; no notebook rebuild is needed for a
+model or default change. Rebuild a launcher only after editing its cells:
+
+```powershell
+python -m experiments.build_oisst_colab
+python -m experiments.build_heaton_colab
+python -m experiments.build_ukhousing_colab
+python -m experiments.build_stitch_line_colab
+```
+
 Heaton and UKHousing also accept `model="prospar"`, with a required
 `pwgp.config.ProSparConfig` specifying initial `temperatures`, `exponent`,
 `inducing_nuggets` and explicit `prior_jitter`. No values are inferred and the
@@ -37,12 +67,12 @@ residual `R` contribution; the latter is an ablation, not another trained model.
 
 ## Heaton MODIS
 
-`notebooks/GPW_Heaton_Colab.ipynb` is self-contained. Upload that single notebook
-to Colab, select a GPU runtime, and Run all. It contains the current source
-snapshot and needs no repository URL or extra source upload. It runs GPW 8 x 60,
+`notebooks/GPW_Heaton_Colab.ipynb` imports source from GitHub. Upload that notebook
+to Colab, select a GPU runtime, and Run all. The repository URL is configured
+and no extra source upload is needed. It runs GPW 8 x 60,
 SVGP 480, then GPW 4 x 120, each for 100 epochs with 20 warm-up epochs.
 
-Rebuild the embedded source after changing models or the runner:
+Rebuild the launcher after changing its cells:
 
 ```powershell
 python -m experiments.build_heaton_colab

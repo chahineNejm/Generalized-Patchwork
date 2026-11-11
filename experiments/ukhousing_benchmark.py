@@ -372,7 +372,7 @@ def archive_run(directory):
         raise ValueError("Only completed UKHousing runs can be archived")
     root = directory.parent
     shared = [root / name for name in ("source_snapshot.zip", "split.npz",
-              "preprocessing.json", "data_manifest.json", "comparison.csv")]
+              "preprocessing.json", "data_manifest.json", "comparison.csv", "source_provenance.json")]
     for path in shared:
         if not path.is_file():
             raise FileNotFoundError(path)
