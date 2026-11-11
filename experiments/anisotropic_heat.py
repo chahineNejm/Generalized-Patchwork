@@ -167,7 +167,8 @@ def run(config: HeatConfig, *, directory=None):
             "dataset_sha256": _file_digest(output / "data.npz"), "target_mean": center, "target_std": scale,
             "physics": "dimensionless equal heat capacity; insulated edges; perfect thermal contact",
             "solver": "conservative finite volumes, harmonic face diffusivity, scipy expm_multiply",
-            "objective": "posterior-adaptive expected Gaussian likelihood minus KL, not a fixed-model ELBO"})
+            "fusion_covariance": "Cov(local_functions | U, Delta_S=0)",
+            "objective": "ELBO"})
         x, y = torch.from_numpy(xy[train]), torch.from_numpy(observations)
         stitches = torch.stack((torch.full((config.stitches,), 0.5, dtype=torch.float64),
                                 torch.linspace(0.05, 0.95, config.stitches, dtype=torch.float64)), -1)[None]

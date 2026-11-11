@@ -48,9 +48,9 @@ def build_notebook(root: Path) -> Path:
         Training timings include live diagnostics/checkpoints; prediction timings
         cover validation and test inference, excluding plots and scoring.
 
-        GPW weights use C = A S A^T + R, and latent variance includes alpha^T R alpha.
-        Its weights depend on S: the expected-likelihood-minus-KL objective is
-        posterior-adaptive, without a fixed-model ELBO claim.
+        GPW weights use the local covariance conditional on inducing values and
+        stitching, independent of q(U). Latent variance includes alpha^T R alpha
+        and propagated inducing uncertainty. Training uses the Gaussian ELBO.
         VNNGP uses GPyTorch 1.15.2 with exact CPU FAISS neighbor searches and GPU
         GP calculations. CPU search is an explicit design choice, not a fallback.
         Prediction uses the same mean-field conditional equations with two

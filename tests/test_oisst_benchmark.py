@@ -73,6 +73,9 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
     assert json.loads((result / "exploratory/summary.json").read_text())["observations"] == 100
     for (name, config), (path, archive, metrics) in zip(runs, completed, strict=True):
         assert metrics["model"] == name and np.isfinite(metrics["nlpd"])
+        environment = json.loads((path / "environment.json").read_text())
+        assert environment["fusion_covariance"] == (
+            "Cov(local_functions | U, Delta_S=0)" if config.model == "gpw" else None)
         for filename in ("training.png", "metrics.png", "progress.png", "maps.png", "hyperparameters.png"):
             assert (path / "visuals" / filename).stat().st_size > 0
         if config.model != "patchwork":

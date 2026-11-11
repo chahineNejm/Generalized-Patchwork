@@ -81,13 +81,14 @@ variational precision. The current phase is the algorithm and data foundation.
 - Patchwork uses `q(U) = N(m, (D + VV^T)^-1)` with block-diagonal `D`.
 - Stitching conditions exactly on `Delta_S = 0` using one coherent regularized
   prior. Do not add independent jitter to the Schur complement.
-- Posterior-adaptive agreement weights use A S A^T + R and sum to one.
-  Singular systems raise an error.
+- Agreement weights use R = Cov(local functions | U, Delta_S=0), independent
+  of q(U), and sum to one. Preserve the explicit weight_epsilon regularization;
+  singular regularized systems raise an error.
 - Patchwork latent variance is w^T S w + alpha^T R alpha, with the full stitched
   local conditional residual covariance R. Observation noise is added only once.
-- Weights depend on q through S; training uses the Gaussian expected-likelihood
-  minus KL objective with gradients through weights. Do not claim a fixed-model
-  ELBO guarantee for this posterior-adaptive objective.
+- Weights depend on inducing/stitch locations and local kernels, not q(U).
+  Training uses the Gaussian ELBO with gradients through these model parameters
+  and the variational predictive moments. Preserve both variance terms.
 - Algebra changes require small dense-reference tests.
 - Use `pwgp.linalg.cholesky_solve` for two explicit triangular solves; do not
   restore the native batched POTRS call that fails on some Colab CUDA builds.

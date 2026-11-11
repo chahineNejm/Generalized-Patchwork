@@ -4,6 +4,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Use agreement weights conditional on U and stitching, independent of q(U),
+  preserving full predictive variance; dense references and all 152 tests pass.
 - [x] OISST partial reruns: explicit stage retry, verified prepared-data reuse,
   selected-model fresh batches and saved-prediction reanalysis without training.
 - [x] Expose explicit notebook model selection/order separately from per-model

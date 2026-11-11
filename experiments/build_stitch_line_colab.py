@@ -27,8 +27,9 @@ def build_notebook(root: Path) -> Path:
         Each stitch then moves independently; there is no line constraint. Kernels are two
         ARD RBFs, and uncertainty includes the full stitched residual R.
 
-        This is a posterior-adaptive likelihood-minus-KL objective, not a
-        fixed-model ELBO guarantee. The learned stitches need not recover the material
+        Weights use the local covariance conditional on inducing values and
+        stitching, independent of q(U). Training uses the Gaussian ELBO.
+        The learned stitches need not recover the material
         boundary. Heating is spatially repeating; the exterior is insulated.
         Finite-element heat simulation runs on CPU; GP training uses float64 GPU.
         No CPU fallback, solver retries or automatic parameter changes.

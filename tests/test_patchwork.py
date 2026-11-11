@@ -65,14 +65,14 @@ def test_agreement_weights_regularizes_semidefinite_covariance() -> None:
     )
 
 
-def test_no_stitch_limit_uses_full_local_posterior_covariance() -> None:
+def test_no_stitch_limit_uses_local_conditional_residual() -> None:
     torch.manual_seed(4)
     supports = torch.rand(2, 3, 2, dtype=torch.float64)
     stitches = torch.empty(0, 0, 2, dtype=torch.float64)
     model = GeneralizedPatchworkGP(supports, stitches, [], q_rank=0)
     x = torch.rand(5, 2, dtype=torch.float64)
     prior = model.prior()
-    covariance = model.local_prediction_terms(x, prior, model.q.state())["predictive_covariance"]
+    covariance = model.local_query_terms(x, prior)["residual"]
     contrasts = torch.tensor([[1.0, -1.0]], dtype=torch.float64)
     identity = torch.eye(2, dtype=torch.float64)
     delta = contrasts @ covariance @ contrasts.T + 1e-8
@@ -83,7 +83,7 @@ def test_no_stitch_limit_uses_full_local_posterior_covariance() -> None:
 
 
 @pytest.mark.parametrize("rank", [0, 3, 6])
-def test_full_posterior_weights_and_residual_match_dense_reference(rank) -> None:
+def test_conditional_weights_and_full_variance_match_dense_reference(rank) -> None:
     model = _model(rank=rank)
     with torch.no_grad():
         model.q.raw_inverse_d_cholesky.mul_(0.8)
@@ -104,8 +104,9 @@ def test_full_posterior_weights_and_residual_match_dense_reference(rank) -> None
     torch.testing.assert_close(efficient["inducing_covariance"], inducing)
     torch.testing.assert_close(efficient["predictive_covariance"], covariance)
     contrasts = eye[0][None] - eye[1:]
-    system = contrasts @ covariance @ contrasts.T + model.numerical.weight_epsilon * torch.eye(2, dtype=x.dtype)
-    b = torch.linalg.solve(system, contrasts @ covariance[..., :, 0, None]).squeeze(-1)
+    residual = terms["residual"]
+    system = contrasts @ residual @ contrasts.T + model.numerical.weight_epsilon * torch.eye(2, dtype=x.dtype)
+    b = torch.linalg.solve(system, contrasts @ residual[..., :, 0, None]).squeeze(-1)
     alpha = eye[0] - b @ contrasts
     torch.testing.assert_close(model.fusion_weights(x, prior), alpha)
     local_mean = a @ model.q.mean.flatten()
@@ -124,8 +125,53 @@ def test_full_posterior_weights_and_residual_match_dense_reference(rank) -> None
     torch.testing.assert_close(predicted_mean, expected_mean)
     torch.testing.assert_close(observed_variance, expected_variance + noise)
     gradient = torch.autograd.grad((alpha[:, 0] * torch.arange(len(x), dtype=x.dtype)).sum(),
-                                   model.q.raw_inverse_d_cholesky)[0]
-    assert torch.isfinite(gradient).all() and gradient.abs().max() > 1e-8
+                                   model.q.raw_inverse_d_cholesky, allow_unused=True)[0]
+    assert gradient is None
+
+
+def test_conditional_residual_matches_independent_dense_conditioning() -> None:
+    model = _model(rank=3)
+    prior = model.prior()
+    x = torch.rand(5, 2, dtype=torch.float64)
+    terms = model.local_query_terms(x, prior)
+    local = torch.block_diag(*prior["local_covariance"].unbind(0))
+    cross = prior["support_constraint"].reshape(12, -1)
+    joint = torch.cat((torch.cat((local, cross), 1),
+                       torch.cat((cross.T, prior["constraint_covariance"]), 1)), 0)
+    query_support = torch.zeros(len(x), 3, 12, dtype=x.dtype)
+    for patch in range(3):
+        query_support[:, patch, patch * 4:(patch + 1) * 4] = terms["phi"][:, patch]
+    query_joint = torch.cat((query_support, terms["h"]), -1)
+    expected = torch.diag(prior["outputscales"]) - query_joint @ torch.linalg.solve(
+        joint, query_joint.transpose(-2, -1))
+    torch.testing.assert_close(terms["residual"], expected, rtol=1e-9, atol=1e-10)
+    torch.testing.assert_close(model.fusion_weights(x, prior), agreement_weights(
+        expected, epsilon=model.numerical.weight_epsilon))
+
+
+def test_weights_ignore_q_but_predictions_propagate_q() -> None:
+    model = _model(rank=3)
+    x = torch.rand(6, 2, dtype=torch.float64)
+    before = model.fusion_weights(x).detach().clone()
+    mean_before, variance_before = model.latent(x)
+    with torch.no_grad():
+        model.q.mean.fill_(0.3)
+        model.q.raw_inverse_d_cholesky.mul_(0.7)
+        model.q.v.mul_(1.5)
+    torch.testing.assert_close(model.fusion_weights(x), before, rtol=0, atol=0)
+    mean_after, variance_after = model.latent(x)
+    assert not torch.allclose(mean_before, mean_after)
+    assert not torch.allclose(variance_before, variance_after)
+    gradients = torch.autograd.grad(model.fusion_weights(x)[:, 0].sum(),
+                                    tuple(model.parameters()), allow_unused=True)
+    for parameter, gradient in zip(model.parameters(), gradients, strict=True):
+        if any(parameter is q for q in model.q.parameters()):
+            assert gradient is None
+    for parameter in (model.support.raw, model.stitch.raw,
+                      model.hyp.raw_lengthscales, model.hyp.raw_outputscales):
+        index = next(i for i, p in enumerate(model.parameters()) if p is parameter)
+        assert gradients[index] is not None
+        assert gradients[index].abs().max() > 0
 
 
 def test_single_patch_retains_conditional_residual_far_from_supports() -> None:

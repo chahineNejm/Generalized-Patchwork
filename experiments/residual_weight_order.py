@@ -119,7 +119,7 @@ def run(
               "noise_std": noise_std, "seed": seed, "numerical": asdict(numerical),
               "optimizer": asdict(optimizer), "device": "cpu", "dtype": "float64",
               "torch": torch.__version__, "comparison": "Two post-hoc weight rules on one fitted q",
-              "training_weight_rule": "Production rule uses C_U+R, including residual variance in training",
+              "training_weight_rule": "Production weights use Cov(local_functions | U, Delta_S=0); training retains C_U+R",
               "evaluation_weight_rules": "agreement_weights(C_U) vs agreement_weights(C_U+R)",
               "final_covariance_both": "C_U+R"}
     (output / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")

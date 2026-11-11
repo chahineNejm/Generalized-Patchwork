@@ -70,14 +70,13 @@ def build_notebook(root: Path) -> Path:
         Training uses float64 and the complete official MODIS split:
         105,569 training observations / 42,740 held-out observations.
 
-        GPW agreement weights now use the full local posterior covariance
-        C(x) = A(x) S A(x)^T + R(x,x), including stitched residual correlations.
+        GPW agreement weights use R(x,x), the local covariance conditional on
+        inducing values and stitching, including stitched residual correlations.
         Latent variance is w(x)^T S w(x) + alpha(x)^T R(x,x) alpha(x).
         Both terms enter training and prediction. Measurement variance adds the
         learned observation noise once; SVGP is unchanged.
-        This is posterior-adaptive aggregation: weights depend on S and receive
-        gradients. Its expected-log-likelihood minus KL objective is not claimed
-        to be an ELBO for a fixed generative model.
+        Weights depend on inducing/stitch locations and kernels, not q(U).
+        Training uses the Gaussian ELBO, with gradients through model parameters.
 
         Cholesky solves use two explicit triangular solves, not the batched
         POTRS kernel. GPU setup checks representative batched solves and their

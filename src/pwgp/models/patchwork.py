@@ -47,7 +47,7 @@ def agreement_weights(
     reference: int = 0,
     epsilon: float = 1e-8,
 ) -> torch.Tensor:
-    """Compute exact Nested-Kriging coefficients for local agreement."""
+    """Compute regularized unit-sum coefficients for local agreement."""
     patches = local_residual.shape[-1]
     if local_residual.shape[-2] != patches or not 0 <= reference < patches:
         raise ValueError("Invalid local covariance shape or reference index")
@@ -78,7 +78,7 @@ def agreement_weights(
 
 
 class GeneralizedPatchworkGP(nn.Module):
-    """Stitched predictors with posterior-adaptive full-covariance fusion."""
+    """Stitched predictors with agreement conditional on inducing values."""
 
     kind = "patchwork"
 
@@ -275,8 +275,8 @@ class GeneralizedPatchworkGP(nn.Module):
 
     def fusion_weights(self, x: torch.Tensor, prior: dict[str, Any] | None = None) -> torch.Tensor:
         prior = prior or self.prior()
-        terms = self.local_prediction_terms(x, prior, self.q.state())
-        return agreement_weights(terms["predictive_covariance"], epsilon=self.numerical.weight_epsilon)
+        terms = self.local_query_terms(x, prior)
+        return agreement_weights(terms["residual"], epsilon=self.numerical.weight_epsilon)
 
     def regression_weights(
         self,
@@ -286,8 +286,8 @@ class GeneralizedPatchworkGP(nn.Module):
         return_fusion: bool = False,
         q_state: dict[str, torch.Tensor] | None = None,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        terms = self.local_prediction_terms(x, prior, q_state or self.q.state())
-        fusion = agreement_weights(terms["predictive_covariance"], epsilon=self.numerical.weight_epsilon)
+        terms = self.local_query_terms(x, prior)
+        fusion = agreement_weights(terms["residual"], epsilon=self.numerical.weight_epsilon)
         projected = torch.einsum("bp,bpq->bq", fusion, terms["solved_cross"])
         weights = fusion[:, :, None] * terms["phi0"] - torch.einsum(
             "bq,pmq->bpm", projected, prior["w"]
@@ -302,8 +302,8 @@ class GeneralizedPatchworkGP(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         prior = prior or self.prior()
         q_state = q_state or self.q.state()
-        terms = self.local_prediction_terms(x, prior, q_state)
-        fusion = agreement_weights(terms["predictive_covariance"], epsilon=self.numerical.weight_epsilon)
+        terms = self.local_query_terms(x, prior)
+        fusion = agreement_weights(terms["residual"], epsilon=self.numerical.weight_epsilon)
         projected = torch.einsum("bp,bpq->bq", fusion, terms["solved_cross"])
         weights = fusion[:, :, None] * terms["phi0"] - torch.einsum(
             "bq,pmq->bpm", projected, prior["w"]

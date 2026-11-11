@@ -202,7 +202,8 @@ def run(config: RunConfig, *, directory=None, capture_git=True, on_snapshot=None
             "source_sha256": {str(p): _file_digest(p) for p in [Path(__file__),
                 Path("experiments/periodic_heat_preview.py"), Path("experiments/stitch_line_preview.py"),
                 *Path("src/pwgp").rglob("*.py")]},
-            "objective": "posterior-adaptive expected log likelihood minus KL; no fixed-model ELBO guarantee"})
+            "fusion_covariance": "Cov(local_functions | U, Delta_S=0)",
+            "objective": "ELBO"})
         cases = len(config.layouts.line_angles)
         point_fig, point_axes = plt.subplots(cases, 2, figsize=(9, 4 * cases), squeeze=False, constrained_layout=True)
         fit_fig, fit_axes = plt.subplots(cases, 4, figsize=(16, 3.7 * cases), squeeze=False, constrained_layout=True)

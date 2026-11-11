@@ -320,11 +320,10 @@ def _execute_heaton(config, output, data_root, numerical, bounds, optimizer,
         "cuda_available": torch.cuda.is_available(),
         "cuda_runtime": torch.version.cuda,
         "cholesky_solver": "two_triangular_solves",
-        "fusion_covariance": "A S A^T + R" if config.model == "patchwork" else None,
+        "fusion_covariance": "Cov(local_functions | U, Delta_S=0)" if config.model == "patchwork" else None,
         "latent_variance": "w^T S w + alpha^T R alpha" if config.model == "patchwork"
         else "conditional_residual + inducing_posterior",
-        "training_objective": "posterior_adaptive_expected_log_likelihood_minus_KL"
-        if config.model == "patchwork" else "ELBO",
+        "training_objective": "ELBO",
         "gpu_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
         "gpu_memory_bytes": torch.cuda.get_device_properties(device).total_memory
         if device.type == "cuda"

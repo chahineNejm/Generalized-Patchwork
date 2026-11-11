@@ -269,6 +269,7 @@ def _execute_ukhousing(config, split, *, output, on_snapshot):
                    "kernel": "ARD RBF", "likelihood": "Gaussian",
                    "dtype": "float64", "bounds": asdict(HyperparameterBounds()),
                    "numerical": asdict(NumericalConfig(weight_epsilon=config.weight_epsilon)),
+                   "fusion_covariance": "Cov(local_functions | U, Delta_S=0)" if config.model == "gpw" else None,
                    "source_sha256": {str(path): file_checksum(path) for path in Path("src/pwgp").rglob("*.py")},
                    "runner_sha256": file_checksum(Path(__file__))}
     (output / "config.json").write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")

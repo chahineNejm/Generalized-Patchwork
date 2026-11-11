@@ -1,5 +1,25 @@
 # Evolution Log
 
+## 2026-11-11 - Agreement weights independent of the variational posterior
+
+- User explicitly selected Cov(local functions | U, Delta_S=0) for agreement:
+  inducing locations, local kernels and stitches define the weights before q(U).
+  This supersedes the earlier posterior-adaptive A S A^T + R weight rule.
+- Production fusion, regression maps and prediction now use the full stitched
+  conditional residual covariance for weights. Retain the existing explicit
+  weight_epsilon, prior jitter, initialization, optimization and noise settings.
+- Predictive variance still includes w^T S w + alpha^T R alpha; observation
+  noise is added once. q(U) affects predictions, not weights. The expected
+  Gaussian log likelihood minus KL is now the fixed-model Gaussian ELBO.
+- Keep historical experiment records unchanged. Update active runner provenance,
+  launcher descriptions and documentation to distinguish the new construction.
+- Verification: all 152 tests pass, including independent dense residual
+  conditioning, weighted prediction/objective references at q ranks 0/3/6,
+  q-independence, retained support/stitch/kernel gradients and saved provenance.
+  Notebook generators match saved launchers; notebook execution settings are
+  unchanged. Ruff, compileall and whitespace checks pass. Four third-party
+  deprecation warnings remain; no benchmark training or Colab GPU run performed.
+
 ## 2026-11-11 - Explicit OISST partial reruns
 
 - User requested all three workflows: retry a failed stage, retrain selected

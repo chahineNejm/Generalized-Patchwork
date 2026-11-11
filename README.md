@@ -97,7 +97,7 @@ The current foundation provides:
 - standalone two-layer Nested Kriging with correlated exact submodels and shared
   RBF or Matern-5/2 kernels;
 - a generalized Patchwork GP with local ARD kernels, trainable supports,
-  trainable stitching locations, posterior-adaptive agreement weights, and a
+  trainable stitching locations, agreement weights conditional on inducing values, and a
   block-plus-low-rank variational precision;
 - shared minibatch ELBO training and batched prediction;
 - hierarchical support and patch-graph initialization;
@@ -315,14 +315,15 @@ Cholesky solves use two explicit triangular solves. The notebook validates
 representative batched solves and gradients on the selected GPU before training.
 Restart the runtime when replacing an older notebook with updated model source.
 
-GPW now computes agreement weights from the full local posterior covariance
-`C = A S A^T + R`, retaining stitching-induced cross-covariances. Its latent
+GPW computes agreement weights from `R = Cov(local functions | U, Delta_S=0)`,
+retaining stitching-induced cross-covariances. Weights depend on inducing/stitch
+locations and kernels, not the variational distribution. Its latent
 variance is `w^T S w + alpha^T R alpha`; observation noise is added once for
 measurement predictions and NLPD. Both terms enter training, with gradients
-through the weights. Since weights depend on `S`, the Gaussian expected-likelihood
-minus KL training objective is posterior-adaptive, not a justified fixed-model
-ELBO. SVGP is unchanged. Historical results using residual-only weights and
-omitting residual predictive variance describe a different implementation.
+through the model-dependent weights. Training uses the fixed-model Gaussian
+ELBO. The explicit weight regularizer is unchanged. SVGP is unchanged.
+Historical posterior-weighted runs, and older runs omitting residual predictive
+variance, describe different implementations and are not recomputed automatically.
 
 For a compact synthetic check of that decomposition, run
 `python -m experiments.two_phase_sine`. It fits two sine frequencies separated

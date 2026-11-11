@@ -496,7 +496,7 @@ def plot_regression(
 
 
 def plot_training(output: Path, losses: list[float]) -> None:
-    """Save the posterior-adaptive training-objective trace."""
+    """Save the Gaussian ELBO training-objective trace."""
     figure, axis = plt.subplots(figsize=(7, 3.4), constrained_layout=True)
     axis.plot(np.arange(1, len(losses) + 1), losses, color="#D95F02", linewidth=1.3)
     axis.set(
