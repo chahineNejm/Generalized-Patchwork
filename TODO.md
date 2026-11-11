@@ -4,6 +4,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] OISST without reconnects: verified checkout reuse and fresh stage workers,
+  live progress/visuals, preserved user settings/data/results and loud failures.
 - [x] Use agreement weights conditional on U and stitching, independent of q(U),
   preserving full predictive variance; dense references and all 152 tests pass.
 - [x] OISST partial reruns: explicit stage retry, verified prepared-data reuse,
@@ -41,10 +43,13 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 - [x] Match Standard Patchwork equation (8) joint-likelihood training; dense
   objective/gradient checks pass. Retain separate regional kernels as approved.
-- [ ] Resolve the notebook-cleanliness test failure caused by execution outputs
-  in the Colab-saved OISST notebook; preserve the user's saved notebook meanwhile.
+- [x] Preserve the Colab-saved OISST notebook in results/notebook_backups before
+  regenerating its output-free launcher, retaining explicit notebook settings.
 - [ ] Replace data-adaptive Standard Patchwork regions with a user-specified
   regular geometric grid; grid dimensions and empty-region handling need approval.
+- [ ] Match Standard Patchwork's observed training locations to GPW's initial
+  inducing locations, exposing comparison controls; grid dimensions and the
+  reported RMSE trend are being clarified before implementation.
 - [x] OISST five-model runner, centralized default hyperparameters with notebook
   overrides, separate exploratory analysis and per-run visuals/optional positions.
 - [x] Approve OISST ProSpar prior_jitter=0: learned nuggets alone, no extra fixed

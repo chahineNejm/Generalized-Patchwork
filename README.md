@@ -16,11 +16,16 @@ https://github.com/chahineNejm/Generalized-Patchwork and records its resolved
 commit. Model/data implementations are imported, not embedded. Code-only sparse
 checkout excludes unrelated dataset files. The local airline pickle is ignored.
 Changes must be pushed to GitHub before Colab can use them.
-To load a source update, use Colab's **Disconnect and delete runtime**, reconnect
-with a GPU, then Run all. Download any results/prepared-data folders you need
-before deleting a runtime. A Python-only restart keeps the old checkout, which
-setup intentionally refuses to reuse. Ordinary OISST stage failures can instead
-be retried in the same session as described below; no reinstall is required.
+To load a source update, rerun setup, dependencies and settings. No kernel
+restart, reconnect or runtime deletion is required. Setup verifies the existing
+checkout and fast-forwards to latest main; local source edits, a wrong repository
+or divergent history raise instead of being overwritten. Data/results stay.
+Every package-dependent stage runs in a fresh Python worker, with live progress
+and visuals in the notebook. Workers verify the setup commit and source archive.
+To reuse earlier prepared data after setup, choose DATA_ACTION="load" and its
+exact PREPARED_PATH. Ordinary model-setting changes need only settings/training.
+Worker requests/logs/failures are saved under results/worker_jobs. Errors block
+dependent stages; there is no automatic skipping, retry or checkpoint resumption.
 
 Approved defaults are in `experiments/default_hyperparameters.py`:
 OISST 2025-01-15, ROI (-80,-30,20,50), shared 64/16/20 split, seed 31;
@@ -45,7 +50,8 @@ duplicate or empty selections raise; deselected models are not initialized.
 Overrides for known deselected models may remain in the notebook for later use.
 
 No override changes the defaults file. To override ProSpar settings, provide a
-complete `ProSparConfig` through that model's `prospar` field. Actual settings,
+complete dictionary of `ProSparConfig` fields through that model's `prospar`
+field; the worker constructs the configuration. Actual settings,
 source/data provenance, shared split, history and checkpoints are saved.
 Each completed model is archived/downloaded and its GPU memory released before
 the next. A failed run saves its traceback and stops the comparison.

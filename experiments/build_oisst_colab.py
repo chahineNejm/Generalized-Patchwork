@@ -20,37 +20,37 @@ def build_notebook(root, *, preserve_settings=False):
         below, not model definitions. No model or dataset implementation is embedded.
         Then rerun only the stage you want. Failed stages block their dependents;
         rerunning a failed stage is an explicit retry, never an automatic recovery.
+        Setup can be rerun without restarting or reconnecting: it verifies and
+        updates the checkout, preserving data/results. Each stage uses a fresh
+        Python worker, so updated source never mixes with old notebook imports.
         """),
         cell("markdown", "## 1. Load code and dependencies"),
-        cell("code", github_bootstrap("/content/gpw_oisst"), stage="checkout",
+        cell("code", github_bootstrap("/content/gpw_oisst", isolated=True), stage="checkout",
              invalidates=("install", "settings", "data", "training", "analysis", "download")),
         cell("code", '''subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
-    "--editable", str(ROOT) + "[data,ukhousing]"], check=True)''', stage="install",
+    "--editable", str(ROOT) + "[data,ukhousing]"], check=True)
+import runpy
+run_worker = runpy.run_path(str(ROOT / "experiments/colab_client.py"))["run_worker"]
+
+def call_worker(action, *, on_event=None, **values):
+    return run_worker(ROOT, {"action": action, "source_provenance": SOURCE_PROVENANCE, **values},
+                      on_event=on_event)''', stage="install",
              requires=("checkout",), invalidates=("settings", "data", "training", "analysis", "download")),
         cell("markdown", "## 2. Defaults and explicit overrides"),
         cell("code", """
-        from dataclasses import replace
         from datetime import UTC, datetime
         from IPython.display import Image, display
         from google.colab import files
         import pandas as pd
-        import torch
-        from experiments.default_hyperparameters import oisst_defaults
-        from experiments.oisst_benchmark import (
-            archive_directory, completed_run_directories, load_prepared,
-            prepare_experiment, run_prepared_comparison,
-        )
-        from experiments.run_selection import select_runs
-
-        DATA, RUNS = oisst_defaults(device="cuda:0")
         MODELS = ["SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork"]
         # Optional overrides, e.g. {"GPW": {"epochs": 150, "warmup_epochs": 30}}.
         OVERRIDES = {}
         DATA_OVERRIDES = {}  # e.g. {"save_inducing_positions": False}
-        RUNS = select_runs(RUNS, models=MODELS, overrides=OVERRIDES)
-        DATA = replace(DATA, **DATA_OVERRIDES)
+        settings = call_worker("settings", device="cuda:0", models=MODELS,
+                               overrides=OVERRIDES, data_overrides=DATA_OVERRIDES)
+        DATA, RUNS = settings["data"], settings["runs"]
         WORK_ROOT = ROOT / "results/oisst"
-        display(pd.DataFrame([{"run": name, **config.__dict__} for name, config in RUNS]))
+        display(pd.DataFrame([{"run": row["name"], **row["config"]} for row in RUNS]))
         print(DATA)
         """, stage="settings", requires=("install",), invalidates=("training", "analysis", "download")),
         cell("markdown", """
@@ -65,13 +65,12 @@ def build_notebook(root, *, preserve_settings=False):
         PREPARED_PATH = None  # Exact directory for DATA_ACTION="load".
         if DATA_ACTION == "prepare":
             PREPARED_DIRECTORY = WORK_ROOT / datetime.now(UTC).strftime("prepared_%Y%m%dT%H%M%S%fZ")
-            prepare_experiment(DATA, directory=PREPARED_DIRECTORY, data_root=ROOT / "data",
-                               source_provenance=SOURCE_PROVENANCE, source_zip=SOURCE_ZIP)
+            call_worker("prepare", data=DATA, directory=str(PREPARED_DIRECTORY))
         elif DATA_ACTION == "load":
             if PREPARED_PATH is None:
                 raise ValueError("Set PREPARED_PATH explicitly before loading prepared data")
             PREPARED_DIRECTORY = Path(PREPARED_PATH)
-            load_prepared(PREPARED_DIRECTORY, data_config=DATA)
+            call_worker("load", data=DATA, directory=str(PREPARED_DIRECTORY))
         else:
             raise ValueError("DATA_ACTION must be prepare or load")
         print("Prepared data:", PREPARED_DIRECTORY)
@@ -103,12 +102,19 @@ def build_notebook(root, *, preserve_settings=False):
                 display(Image(filename=str(path / "visuals/inducing_positions.png")))
             files.download(str(archive))
 
+        def show_worker_event(event):
+            if event["kind"] == "snapshot":
+                show_progress(Path(event["directory"]), event["epoch"])
+            elif event["kind"] == "complete":
+                show_completed(Path(event["directory"]), Path(event["archive"]), event["metrics"])
+            else:
+                raise ValueError(f"Unknown worker event: {event['kind']}")
+
         BATCH_DIRECTORY = WORK_ROOT / datetime.now(UTC).strftime("batch_%Y%m%dT%H%M%S%fZ")
-        result = run_prepared_comparison(
-            DATA, RUNS, prepared_directory=PREPARED_DIRECTORY, directory=BATCH_DIRECTORY,
-            source_provenance=SOURCE_PROVENANCE, source_zip=SOURCE_ZIP,
-            on_snapshot=show_progress, on_complete=show_completed,
-        )
+        completed = call_worker("train", data=DATA, runs=RUNS,
+            prepared_directory=str(PREPARED_DIRECTORY), directory=str(BATCH_DIRECTORY),
+            on_event=show_worker_event)
+        result = Path(completed["directory"])
         display(pd.read_json(result / "comparison.json"))
         print("Results:", result)
         """, stage="training", requires=("install", "settings", "data"), invalidates=("analysis", "download")),
@@ -123,8 +129,6 @@ def build_notebook(root, *, preserve_settings=False):
         """),
         cell("code", """
         from datetime import UTC, datetime
-        from experiments.exploratory_analysis import recompute_saved_runs
-        from experiments.oisst_benchmark import completed_run_directories
         from IPython.display import Image, display
         import pandas as pd
 
@@ -133,13 +137,14 @@ def build_notebook(root, *, preserve_settings=False):
         if ANALYSIS_SOURCE == "latest_batch":
             if not _OISST_STAGES.get("training", False):
                 raise RuntimeError("Latest training stage failed or has not run; explicitly select saved_runs instead")
-            analysis_runs = completed_run_directories(BATCH_DIRECTORY)
+            analysis_batch = str(BATCH_DIRECTORY)
         elif ANALYSIS_SOURCE == "saved_runs":
-            analysis_runs = SAVED_RUNS
+            analysis_batch = None
         else:
             raise ValueError("ANALYSIS_SOURCE must be latest_batch or saved_runs")
         ANALYSIS_DIRECTORY = ROOT / "results/oisst" / datetime.now(UTC).strftime("analysis_%Y%m%dT%H%M%S%fZ")
-        recompute_saved_runs(analysis_runs, destination=ANALYSIS_DIRECTORY)
+        call_worker("analysis", analysis_source=ANALYSIS_SOURCE, batch_directory=analysis_batch,
+                    saved_runs=SAVED_RUNS, directory=str(ANALYSIS_DIRECTORY))
         analysis_table = pd.read_json(ANALYSIS_DIRECTORY / "comparison.json")
         display(analysis_table)
         for path in analysis_table["analysis_directory"]:
@@ -150,7 +155,6 @@ def build_notebook(root, *, preserve_settings=False):
         cell("markdown", "## 6. Download a batch, analysis or explicitly named directory"),
         cell("code", """
         from datetime import UTC, datetime
-        from experiments.oisst_benchmark import archive_directory
         from google.colab import files
 
         DOWNLOAD_SOURCE = "latest_batch"  # "latest_batch", "analysis" or "saved_directory"
@@ -169,8 +173,9 @@ def build_notebook(root, *, preserve_settings=False):
             download_directory = Path(SAVED_DIRECTORY)
         else:
             raise ValueError("Unknown DOWNLOAD_SOURCE")
-        archive = archive_directory(download_directory, destination=ROOT / "results/oisst" /
-                                    datetime.now(UTC).strftime("download_%Y%m%dT%H%M%S%fZ.zip"))
+        archived = call_worker("archive", directory=str(download_directory), destination=str(
+            ROOT / "results/oisst" / datetime.now(UTC).strftime("download_%Y%m%dT%H%M%S%fZ.zip")))
+        archive = Path(archived["archive"])
         files.download(str(archive))
         """, stage="download", requires=("install",)),
     ]
@@ -181,6 +186,11 @@ def build_notebook(root, *, preserve_settings=False):
         "gpw_source": source_metadata()}, "nbformat": 4, "nbformat_minor": 5}
     target = Path(root) / "notebooks/OISST_Colab.ipynb"
     if preserve_settings and target.exists():
+        original = target.read_bytes()
+        backup = Path(root) / "results/notebook_backups" / (hashlib.sha256(original).hexdigest() + ".ipynb")
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        if not backup.exists():
+            backup.write_bytes(original)
         controls = {"MODELS", "OVERRIDES", "DATA_OVERRIDES", "DATA_ACTION", "PREPARED_PATH",
                     "ANALYSIS_SOURCE", "SAVED_RUNS", "DOWNLOAD_SOURCE", "SAVED_DIRECTORY"}
         saved_values = {}

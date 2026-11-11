@@ -1,5 +1,34 @@
 # Evolution Log
 
+## 2026-11-11 - OISST reruns without reconnecting
+
+- User explicitly requested no kernel restart or reconnect. OISST setup now
+  verifies an existing checkout's root, remote, branch and clean tracked source,
+  rejects untracked Python source, fetches latest main and fast-forwards only.
+  No reset, deletion, fallback to old code or module-reload guessing.
+- Settings, preparation/reuse, training, saved-result analysis and archives use
+  fresh Python workers. The parent notebook imports no experiment/model/Torch
+  modules. Existing model equations, settings, data splits and runners are reused.
+  Old imports from a previous notebook execution do not affect new workers.
+- Each worker verifies the setup commit and source archive checksum, records its
+  JSON request, PID, streamed log and full failures. Parent checks exit status,
+  streams tqdm and snapshot/completion events, and terminates on interruption.
+  Failed stages still block downstream work; retries remain explicit actions.
+- Notebook regeneration backs up its original bytes and saved outputs under
+  ignored results/notebook_backups, preserving explicit model/data/rerun controls.
+  Other launchers retain their existing in-kernel execution policy.
+- Verification: all 160 tests pass. Real local Git fixtures verify repeated setup
+  with loaded parent modules, latest-source fast-forward, preserved data/results,
+  distinct worker processes and new defaults despite stale parent imports.
+  Damaged/wrong checkouts and stale source identities fail loudly. A small CPU
+  worker training run streams snapshots/completion and reproduces saved metrics
+  in a separate analysis worker. Callback acknowledgement preserves synchronous
+  snapshot handling. Ruff, compileall and whitespace checks pass; four dependency
+  warnings remain. No real-data benchmark or Colab GPU run launched.
+- The user additionally requested Standard Patchwork use GPW's initial observed
+  points instead of all targets. Its grid dimensions and the meaning of the RMSE
+  trend are pending clarification; this execution-only change does not alter it.
+
 ## 2026-11-11 - Standard Patchwork paper training objective
 
 - User requested the paper's training after review identified conditional versus

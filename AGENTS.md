@@ -57,6 +57,11 @@ variational precision. The current phase is the algorithm and data foundation.
 - Keep exploratory analysis in experiments/exploratory_analysis.py. OISST runs
   save plots under visuals/ and optionally record actual inducing positions;
   standard Patchwork has no inducing variables and must not be labeled as such.
+- OISST setup reuses only a verified clean checkout and fast-forwards to latest
+  main, preserving data/results. Run package-dependent stages in fresh Python
+  workers; never reload models into a stale notebook kernel or require reconnects.
+  Check source commit/archive identity and worker exit status; stream progress
+  and snapshot events, save full failures, and terminate workers on interruption.
 
 ## Mathematical Invariants
 
