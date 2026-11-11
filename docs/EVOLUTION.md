@@ -1,5 +1,18 @@
 # Evolution Log
 
+## 2026-11-11 - OISST cold-CUDA memory-statistics initialization
+
+- Colab reported Invalid device argument from reset_peak_memory_stats before
+  the first model initialized CUDA. PyTorch's reset function does not call lazy
+  initialization. Added synchronize(requested_device) immediately before reset,
+  matching the shared trainer, which initializes CUDA and validates that device.
+- No model, data, hyperparameter, numerical regularizer or device changes.
+  CUDA initialization errors still propagate, save tracebacks and stop the run;
+  there is no CPU substitution, retry or skipped memory measurement.
+- Verification: 126 tests pass, including mocked cold-start/requested-device
+  ordering and loud initialization failure. Ruff, compileall and whitespace
+  checks pass. Actual Colab GPU execution remains unverified locally.
+
 ## 2026-11-11 - OISST comparison, GitHub launchers and centralized defaults
 
 - User approved ProSpar prior_jitter=0 for the OISST comparison: learned nuggets

@@ -16,6 +16,10 @@ https://github.com/chahineNejm/Generalized-Patchwork and records its resolved
 commit. Model/data implementations are imported, not embedded. Code-only sparse
 checkout excludes unrelated dataset files. The local airline pickle is ignored.
 Changes must be pushed to GitHub before Colab can use them.
+After a failed run or a source update, use Colab's **Disconnect and delete
+runtime**, reconnect with a GPU, then Run all. A Python-only restart keeps the
+old checkout directory, which setup intentionally refuses to reuse. Keep your
+notebook override edits; no hyperparameter change is needed for a code update.
 
 Approved defaults are in `experiments/default_hyperparameters.py`:
 OISST 2025-01-15, ROI (-80,-30,20,50), shared 64/16/20 split, seed 31;

@@ -172,6 +172,7 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
         torch.manual_seed(config.seed)
         np.random.seed(config.seed)
         if device.type == "cuda":
+            torch.cuda.synchronize(device)
             torch.cuda.reset_peak_memory_stats(device)
         write_json(output / "environment.json", {
             "python": platform.python_version(), "platform": platform.platform(),

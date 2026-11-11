@@ -4,6 +4,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Fix OISST cold-CUDA allocator reset order; verify requested-device
+  initialization and loud initialization failures before publishing the fix.
 - [x] Make user ownership of every methodological choice explicit in AGENTS.md;
   require approval for unspecified choices and reinforce the no-fallback policy.
 - [x] Convert Colab notebooks to GitHub-backed launchers, using the user-approved

@@ -106,3 +106,47 @@ def test_optional_positions_and_failure_stops_subsequent_runs(tmp_path, monkeypa
                                  source_provenance={"mode": "fixture"}, source_zip=b"fixture")
     assert reached == ["svgp"]
     assert "original training failure" in json.loads((tmp_path / "failed/failure.json").read_text())["traceback"]
+
+
+@pytest.mark.parametrize("requested", ["cuda:0", "cuda:2"])
+def test_cold_cuda_initializes_requested_device_before_memory_reset(tmp_path, monkeypatch, requested):
+    _, runs = oisst_defaults(device=requested)
+    calls = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    def synchronize(device):
+        assert device == torch.device(requested)
+        calls.append("initialized")
+
+    def reset(device):
+        assert calls == ["initialized"]
+        assert device == torch.device(requested)
+        calls.append("reset")
+        raise RuntimeError("test stops after initialized allocator reset")
+
+    monkeypatch.setattr(torch.cuda, "synchronize", synchronize)
+    monkeypatch.setattr(torch.cuda, "reset_peak_memory_stats", reset)
+    with pytest.raises(RuntimeError, match="test stops after initialized allocator reset"):
+        benchmark.run_model(runs[0][1], {}, directory=tmp_path / "run",
+                            save_inducing_positions=False)
+    assert calls == ["initialized", "reset"]
+
+
+def test_cuda_initialization_failure_is_loud_and_does_not_reset_or_build(tmp_path, monkeypatch):
+    _, runs = oisst_defaults(device="cuda:0")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    def fail(device):
+        raise RuntimeError("original CUDA initialization failure")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Memory reset/model build must not follow failed initialization")
+
+    monkeypatch.setattr(torch.cuda, "synchronize", fail)
+    monkeypatch.setattr(torch.cuda, "reset_peak_memory_stats", forbidden)
+    monkeypatch.setattr(benchmark, "build_model", forbidden)
+    with pytest.raises(RuntimeError, match="original CUDA initialization failure"):
+        benchmark.run_model(runs[0][1], {}, directory=tmp_path / "failed",
+                            save_inducing_positions=False)
+    failure = json.loads((tmp_path / "failed/failure.json").read_text())
+    assert "original CUDA initialization failure" in failure["traceback"]
