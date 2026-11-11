@@ -41,7 +41,7 @@ def build_notebook(root: Path) -> Path:
 
         Each model trains for 100 epochs. Variational models freeze kernel/noise
         parameters for 20 epochs; exact Patchwork has no variational warm-up and
-        performs 100 full conditional-likelihood updates. No early stopping or
+        performs 100 full joint-likelihood updates. No early stopping or
         test-based selection. All runs have tqdm and live diagnostics every 10
         epochs, then metrics and maps. Final metrics use standardized log prices;
         scores in unstandardized log GBP are saved separately. No GBP-scale claims.

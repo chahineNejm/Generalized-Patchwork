@@ -39,6 +39,12 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Match Standard Patchwork equation (8) joint-likelihood training; dense
+  objective/gradient checks pass. Retain separate regional kernels as approved.
+- [ ] Resolve the notebook-cleanliness test failure caused by execution outputs
+  in the Colab-saved OISST notebook; preserve the user's saved notebook meanwhile.
+- [ ] Replace data-adaptive Standard Patchwork regions with a user-specified
+  regular geometric grid; grid dimensions and empty-region handling need approval.
 - [x] OISST five-model runner, centralized default hyperparameters with notebook
   overrides, separate exploratory analysis and per-run visuals/optional positions.
 - [x] Approve OISST ProSpar prior_jitter=0: learned nuggets alone, no extra fixed

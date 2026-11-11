@@ -190,6 +190,8 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
             "bounds": asdict(HyperparameterBounds()),
             "numerical": asdict(NumericalConfig(weight_epsilon=config.weight_epsilon)),
             "fusion_covariance": "Cov(local_functions | U, Delta_S=0)" if config.model == "gpw" else None,
+            "standard_patchwork_objective": "joint_negative_log_likelihood(Y, Delta_S=0)"
+            if config.model == "patchwork" else None,
             "active_prior_jitter": config.prospar.prior_jitter if config.model == "prospar"
             and config.prospar is not None else NumericalConfig().prior_jitter,
             "optimizer": {"method": "Adam", "learning_rate": config.exact_learning_rate,

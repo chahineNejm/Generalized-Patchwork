@@ -1,5 +1,24 @@
 # Evolution Log
 
+## 2026-11-11 - Standard Patchwork paper training objective
+
+- User requested the paper's training after review identified conditional versus
+  joint likelihood. Implement equation (8): -log p(Y, Delta_S=0), retaining the
+  existing per-observation scaling in loss(). Remove the stitch-marginal
+  normalization subtraction and include the Gaussian stitch dimension constant.
+- Predictions remain conditional on the same observations and stitch differences.
+  Fixed jitter, bounds, initial values, Adam settings and partition are unchanged.
+  User explicitly chose to retain separate regional kernel parameters and change
+  only the likelihood, rather than reproduce the real-data shared-kernel setting.
+- User requested a predefined regular geometric partition for future work;
+  do not invent a patch count, grid aspect ratio or empty-cell policy.
+- Verification: dense joint objective values/gradients and conditional predictions
+  pass with stitches and in the single-region limit. Full suite: 152 passed,
+  one failed because the Colab-saved OISST notebook already contains execution
+  outputs, violating the existing output-free launcher check. Confirmed those
+  outputs exist in HEAD; did not delete user content or weaken the test. Ruff,
+  compileall and whitespace checks pass. No benchmark training or GPU run.
+
 ## 2026-11-11 - Agreement weights independent of the variational posterior
 
 - User explicitly selected Cov(local functions | U, Delta_S=0) for agreement:

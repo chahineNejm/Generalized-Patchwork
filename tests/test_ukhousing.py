@@ -22,11 +22,12 @@ from pwgp.models.vnngp import VNNGP, strict_gpytorch
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_direct_patchwork_matches_dense_conditioning():
+@pytest.mark.parametrize("maximum_points", [7, 32])
+def test_direct_patchwork_matches_dense_joint_likelihood_and_conditioning(maximum_points):
     torch.manual_seed(8)
     x = 0.05 + 0.9 * torch.rand(20, 2, dtype=torch.float64)
     y = torch.sin(8 * x[:, 0])
-    model = StandardPatchworkGP(x, y, maximum_points=7, stitches_per_edge=2)
+    model = StandardPatchworkGP(x, y, maximum_points=maximum_points, stitches_per_edge=2)
     state = model.conditioned_state()
     n, q = len(x), len(model.stitch_points)
     ky = (model.hyp.noise_std().square() + model.jitter) * torch.eye(n, dtype=x.dtype)
@@ -38,12 +39,21 @@ def test_direct_patchwork_matches_dense_conditioning():
         signs = model.coefficients[patch]
         g = g + model.kernel(model.stitch_points, model.stitch_points, patch) * signs[:, None] * signs[None]
         b = b + model.kernel(x, model.stitch_points, patch) * mask[:, None] * signs[None]
-    conditioned = ky - b @ torch.linalg.solve(g, b.T)
-    expected_nll = -torch.distributions.MultivariateNormal(torch.zeros_like(y), conditioned).log_prob(y)
-    torch.testing.assert_close(state["nll"], expected_nll)
     query = 0.05 + 0.9 * torch.rand(6, 2, dtype=x.dtype)
     joint = torch.cat((torch.cat((ky, b), 1), torch.cat((b.T, g), 1)), 0)
     target = torch.cat((y, x.new_zeros(q)))
+    expected_nll = -torch.distributions.MultivariateNormal(torch.zeros_like(target), joint).log_prob(target)
+    torch.testing.assert_close(state["nll"], expected_nll)
+    parameters = tuple(model.parameters())
+    actual_gradients = torch.autograd.grad(state["nll"], parameters, retain_graph=True)
+    expected_gradients = torch.autograd.grad(expected_nll, parameters, retain_graph=True)
+    for actual, expected in zip(actual_gradients, expected_gradients, strict=True):
+        torch.testing.assert_close(actual, expected)
+    if q:
+        conditioned = ky - b @ torch.linalg.solve(g, b.T)
+        conditional_nll = -torch.distributions.MultivariateNormal(torch.zeros_like(y), conditioned).log_prob(y)
+        stitch_nll = -torch.distributions.MultivariateNormal(x.new_zeros(q), g).log_prob(x.new_zeros(q))
+        torch.testing.assert_close(state["nll"], conditional_nll + stitch_nll)
     expected_mean, expected_variance = [], []
     for point in query:
         inside = ((point >= model.region_bounds[:, 0]) & (point < model.region_bounds[:, 1])).all(-1)

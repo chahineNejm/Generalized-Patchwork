@@ -100,6 +100,8 @@ The current foundation provides:
   trainable stitching locations, agreement weights conditional on inducing values, and a
   block-plus-low-rank variational precision;
 - shared minibatch ELBO training and batched prediction;
+- direct-observation Standard Patchwork trained with the paper's joint
+  likelihood p(Y, Delta_S=0), not the stitch-conditioned likelihood;
 - hierarchical support and patch-graph initialization;
 - a dataset registry with cached downloads, provenance manifests, checksum
   validation, and common `X, y` loaders.

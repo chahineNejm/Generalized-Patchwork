@@ -128,11 +128,11 @@ class StandardPatchworkGP(nn.Module):
             b = b.index_add(0, active, cross.T @ inverse_y)
             blocks.append((indices, active, signs, factor, inverse_y, inverse_cross))
         t = 0.5 * ((g - reduction) + (g - reduction).T)
-        factor_t, factor_g = torch.linalg.cholesky(t), torch.linalg.cholesky(g)
+        factor_t = torch.linalg.cholesky(t)
         inverse_b = cholesky_solve(b, factor_t)
         nll = base_nll + 0.5 * (
-            2 * factor_t.diagonal().log().sum() - 2 * factor_g.diagonal().log().sum()
-            + (b * inverse_b).sum())
+            2 * factor_t.diagonal().log().sum() + (b * inverse_b).sum()
+            + q * math.log(2 * math.pi))
         return {"nll": nll, "blocks": blocks, "factor_t": factor_t, "inverse_b": inverse_b}
 
     def loss(self):

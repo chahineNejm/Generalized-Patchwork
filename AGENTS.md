@@ -94,7 +94,8 @@ variational precision. The current phase is the algorithm and data foundation.
   restore the native batched POTRS call that fails on some Colab CUDA builds.
 - Standard Patchwork baseline conditions directly on observed noisy targets in
   fixed rectangular regions and boundary stitch differences, without variational
-  inducing variables. Its joint conditional likelihood must match a dense reference.
+  inducing variables. Train with the paper's joint likelihood p(Y, Delta_S=0),
+  not p(Y | Delta_S=0); values and gradients must match a dense joint reference.
 - UKHousing is a verified 2018-flats reconstruction, not a verified VNNGP snapshot.
   Preserve this distinction, pinned raw checksums and training-only target scaling.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
