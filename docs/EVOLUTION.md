@@ -1,5 +1,34 @@
 # Evolution Log
 
+## 2026-11-11 - Explicit OISST partial reruns
+
+- User requested all three workflows: retry a failed stage, retrain selected
+  models while keeping data/results, and regenerate metrics/plots without training.
+- OISST notebook now separates setup, settings, data, training, analysis and
+  downloads. Stage-local failure states block dependent work but permit explicit
+  retry; no global exception hook or automatic recovery. Legacy notebook guards
+  remain unchanged. Settings changes invalidate training but retain prepared data;
+  reuse validates the data-relevant configuration before any model is built.
+- Added checksummed prepared arrays/splits and explicit prepare/load actions.
+  Changed data settings, missing files or checksum failures raise; never rebuild,
+  impute or substitute data. Position-saving changes do not change the split.
+- Selected-model reruns create fresh batch directories and train from scratch,
+  preserving failed batches and earlier completed models. No checkpoint resumption,
+  automatic skipping, overwrite, budget/seed changes or model-equation changes.
+- Reanalysis explicitly reads completed model-run predictions, recomputes existing
+  Gaussian metrics, regenerates figures in a new directory and records input
+  checksums. No model construction/training/prediction/checkpoint loading; original
+  metrics and artifacts remain untouched. Latest failed batches are rejected;
+  choosing earlier completed run paths is a separate explicit user action.
+- Notebook rebuilding preserves user settings, model selections and overrides.
+- Verification: all 150 tests pass, including real small CPU preparation/train/
+  reanalysis round trip reproducing the original scores, explicit retries, data
+  identity/checksum rejection, failed-stage blocking, unchanged original artifacts,
+  archive exclusivity and notebook override preservation. Two focused failure-
+  record checks also pass after ensuring rejected requests retain their inputs.
+  Ruff, compileall and whitespace checks pass; four dependency warnings remain.
+  Actual Colab GPU execution remains unverified locally.
+
 ## 2026-11-11 - Standard Patchwork short-run warm-up validation
 
 - The saved OISST notebook requests two epochs for Standard Patchwork without

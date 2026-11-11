@@ -4,6 +4,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] OISST partial reruns: explicit stage retry, verified prepared-data reuse,
+  selected-model fresh batches and saved-prediction reanalysis without training.
 - [x] Expose explicit notebook model selection/order separately from per-model
   overrides, with errors for unknown, duplicate or empty selections.
 - [x] Validate warm-up only for models that use it; preserve short standard

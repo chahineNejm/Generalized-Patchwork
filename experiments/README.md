@@ -18,6 +18,20 @@ OISST's `MODELS` list chooses which models run and their order, for example
 `MODELS=["GPW", "SVGP"]`. Selection validates names and duplicates without
 silently dropping requests; overrides for known deselected models may remain.
 
+OISST supports explicit partial reruns. `prepare_experiment` saves checksummed
+prepared arrays/splits; `load_prepared` verifies the explicit data directory and
+data settings without acquisition or preprocessing. `run_prepared_comparison`
+trains only supplied runs in a new batch, preserving previous outputs. Retrying
+a failed stage is explicit, never automatic checkpoint resumption or skipping.
+
+`exploratory_analysis.recompute_saved_runs(paths, destination=...)` recomputes
+metrics and figures from explicitly selected completed run predictions in a new
+directory without constructing/training/predicting/loading a model. Original
+artifacts are unchanged. Saved-result analysis can be run independently of data
+preparation/training; the latest-batch action rejects a failed batch. Notebook
+controls are DATA_ACTION/PREPARED_PATH, MODELS/OVERRIDES, ANALYSIS_SOURCE/SAVED_RUNS
+and DOWNLOAD_SOURCE/SAVED_DIRECTORY. Invalid requests raise with tracebacks.
+
 `notebooks/OISST_Colab.ipynb` runs SVGP, GPW, ProSpar, VNNGP and standard
 Patchwork on the approved OISST ROI/split. It imports `oisst_benchmark.py`, which
 calls existing model builders/trainers and the dataset manager. Defaults include

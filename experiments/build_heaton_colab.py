@@ -11,7 +11,7 @@ from pathlib import Path
 from experiments.colab_source import github_bootstrap, source_metadata
 
 
-def cell(kind: str, source: str) -> dict:
+def cell(kind: str, source: str, *, stage=None, requires=(), invalidates=()) -> dict:
     source = textwrap.dedent(source).strip() + "\n"
     if kind == "code":
         last = ast.parse(source).body[-1]
@@ -20,15 +20,26 @@ def cell(kind: str, source: str) -> dict:
             lines = source.splitlines(keepends=True)
             lines[last.lineno - 1] = "_GPW_CELL_RESULT = " + lines[last.lineno - 1]
             source = "".join(lines)
-        source = (
+        guard = (
             'if "_GPW_STAGE_FAILED" not in globals():\n'
             '    _GPW_STAGE_FAILED = False\n'
             'if _GPW_STAGE_FAILED:\n'
             '    raise RuntimeError("An earlier cell failed; restart the runtime before continuing")\n'
             '_GPW_STAGE_FAILED = True\n'
-            + source + '_GPW_STAGE_FAILED = False\n'
-            + ('_GPW_CELL_RESULT\n' if result_expression else '')
         )
+        success = '_GPW_STAGE_FAILED = False\n'
+        if stage is not None:
+            guard = (
+                'if "_OISST_STAGES" not in globals():\n'
+                '    _OISST_STAGES = {}\n'
+                f'for _stage in {[stage, *invalidates]!r}:\n'
+                '    _OISST_STAGES[_stage] = False\n'
+                f'for _required in {list(requires)!r}:\n'
+                '    if not _OISST_STAGES.get(_required, False):\n'
+                '        raise RuntimeError(f"Run the {_required} stage successfully first")\n'
+            )
+            success = f'_OISST_STAGES[{stage!r}] = True\n'
+        source = guard + source + success + ('_GPW_CELL_RESULT\n' if result_expression else '')
     result = {
         "cell_type": kind,
         "id": hashlib.sha256(source.encode()).hexdigest()[:12],

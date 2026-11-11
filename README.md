@@ -16,10 +16,11 @@ https://github.com/chahineNejm/Generalized-Patchwork and records its resolved
 commit. Model/data implementations are imported, not embedded. Code-only sparse
 checkout excludes unrelated dataset files. The local airline pickle is ignored.
 Changes must be pushed to GitHub before Colab can use them.
-After a failed run or a source update, use Colab's **Disconnect and delete
-runtime**, reconnect with a GPU, then Run all. A Python-only restart keeps the
-old checkout directory, which setup intentionally refuses to reuse. Keep your
-notebook override edits; no hyperparameter change is needed for a code update.
+To load a source update, use Colab's **Disconnect and delete runtime**, reconnect
+with a GPU, then Run all. Download any results/prepared-data folders you need
+before deleting a runtime. A Python-only restart keeps the old checkout, which
+setup intentionally refuses to reuse. Ordinary OISST stage failures can instead
+be retried in the same session as described below; no reinstall is required.
 
 Approved defaults are in `experiments/default_hyperparameters.py`:
 OISST 2025-01-15, ROI (-80,-30,20,50), shared 64/16/20 split, seed 31;
@@ -57,6 +58,32 @@ positions when enabled. GPW/ProSpar also save weight maps. Raw positions and
 snapshot epochs are in `inducing_positions.npz`; standard Patchwork has no
 inducing positions. `analyze_run(path)` regenerates saved-run summary plots
 without retraining. Training, prediction, analysis and model comparisons use tqdm.
+
+### Partial Reruns
+
+Run setup once. The OISST notebook has separate data, training and analysis cells:
+
+- To change models/hyperparameters, rerun settings and **Train only the selected
+  models**. Do not rerun data preparation when its settings are unchanged.
+  Prepared data are verified, not reacquired or reprocessed. Every training
+  execution creates a new batch; earlier results stay intact.
+- To retry after an error, correct the input/cause and rerun the failed stage.
+  Dependents remain blocked until it succeeds. For a failed model, select only
+  that model in MODELS, rerun settings and training. This retrains from scratch;
+  it does not resume a checkpoint or silently skip completed models.
+- To regenerate scores/figures, rerun analysis with ANALYSIS_SOURCE="latest_batch"
+  after a successful batch, or choose ANALYSIS_SOURCE="saved_runs" and set
+  SAVED_RUNS to exact completed model-run directories. The saved_runs action
+  needs setup only, not data preparation or training. All outputs go to a new
+  analysis directory; original metrics/plots are not overwritten.
+
+The data cell also supports DATA_ACTION="load" with an explicit PREPARED_PATH
+from a previous preparation. Missing/corrupt files or changed data settings
+raise rather than triggering preparation. To retain prepared data across runtime
+deletion, download that folder explicitly in the download cell with
+DOWNLOAD_SOURCE="saved_directory" and SAVED_DIRECTORY set to its printed path.
+Restore the folder before choosing load in a later session. Runtime-local files
+are not persistent storage; the notebook does not silently search for backups.
 
 Heaton and UKHousing runs record failures and re-raise the original exception.
 Colab notebooks stop downstream cells after a failed stage; restart the runtime

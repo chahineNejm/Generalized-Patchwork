@@ -7,6 +7,7 @@ import importlib.metadata
 import json
 import os
 import platform
+import shutil
 import time
 import zipfile
 from dataclasses import asdict, dataclass
@@ -321,22 +322,134 @@ def run_comparison(data_config: OISSTConfig, runs: list[tuple[str, UKConfig]], *
                    ("target_mean", "target_std", "input_transform", "target_transform")})
         np.savez_compressed(output / "split.npz", **{key: split[key] for key in ("train", "validation", "test")})
         explore_dataset(split, directory=output / "exploratory")
-        summaries = []
-        for index, (name, config) in enumerate(tqdm(runs, desc="compare:OISST", unit="model")):
-            result = run_model(config, split, directory=output / f"{index:02d}_{config.model}",
-                               save_inducing_positions=data_config.save_inducing_positions,
-                               on_snapshot=on_snapshot)
-            summaries.append({"model": name, **json.loads((result / "metrics.json").read_text())})
-            write_json(output / "comparison.json", summaries)
-            archive = output / f"{index:02d}_{config.model}.zip"
-            with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
-                for path in sorted(output.iterdir()):
-                    if path.is_file() and (path.suffix in (".json", ".npz") or path.name == "source_snapshot.zip"):
-                        bundle.write(path, path.name)
-                for path in sorted(result.rglob("*")):
-                    if path.is_file():
-                        bundle.write(path, path.relative_to(output))
-            if on_complete is not None:
-                on_complete(result, archive, summaries[-1])
+        _run_models(data_config, runs, split, output, on_snapshot, on_complete)
         write_json(output / "status.json", {"state": "complete"})
     return output
+
+
+def _run_models(data_config, runs, split, output, on_snapshot, on_complete):
+    summaries = []
+    for index, (name, config) in enumerate(tqdm(runs, desc="compare:OISST", unit="model")):
+        result = run_model(config, split, directory=output / f"{index:02d}_{config.model}",
+                           save_inducing_positions=data_config.save_inducing_positions,
+                           on_snapshot=on_snapshot)
+        summaries.append({"model": name, "directory": str(result.resolve()),
+                          **json.loads((result / "metrics.json").read_text())})
+        write_json(output / "comparison.json", summaries)
+        archive = output / f"{index:02d}_{config.model}.zip"
+        with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
+            for path in sorted(output.iterdir()):
+                if path.is_file() and (path.suffix in (".json", ".npz") or path.name == "source_snapshot.zip"):
+                    bundle.write(path, path.name)
+            for path in sorted(result.rglob("*")):
+                if path.is_file():
+                    bundle.write(path, path.relative_to(output))
+        if on_complete is not None:
+            on_complete(result, archive, summaries[-1])
+
+
+def data_identity(config):
+    return {key: value for key, value in asdict(config).items() if key != "save_inducing_positions"}
+
+
+def prepare_experiment(data_config, *, directory, data_root, source_provenance, source_zip):
+    """Acquire/prepare once and persist a checksum-verified reusable split."""
+    output = Path(directory)
+    output.mkdir(parents=True, exist_ok=False)
+    with record_failures(output, status_key="state"):
+        write_json(output / "data_config.json", asdict(data_config))
+        write_json(output / "source_provenance.json", source_provenance)
+        (output / "source_snapshot.zip").write_bytes(source_zip)
+        split, manifest = acquire(data_config, data_root=data_root)
+        write_json(output / "data_manifest.json", manifest)
+        write_json(output / "preprocessing.json", {key: split[key] for key in
+                   ("target_mean", "target_std", "input_transform", "target_transform")})
+        np.savez_compressed(output / "split.npz", **{key: split[key] for key in ("train", "validation", "test")})
+        np.savez_compressed(output / "prepared.npz", raw_x=split["raw_x"], raw_y=split["raw_y"],
+                            x=split["x"].numpy(), y=split["y"].numpy())
+        explore_dataset(split, directory=output / "exploratory")
+        names = ("data_config.json", "data_manifest.json", "preprocessing.json", "split.npz", "prepared.npz",
+                 "source_provenance.json", "source_snapshot.zip")
+        write_json(output / "prepared_checksums.json", {name: file_checksum(output / name) for name in names})
+        write_json(output / "status.json", {"state": "complete"})
+    return output
+
+
+def load_prepared(directory, *, data_config):
+    """Load only the explicitly named preparation; never acquire or rebuild."""
+    directory = Path(directory)
+    if json.loads((directory / "status.json").read_text())["state"] != "complete":
+        raise ValueError("Prepared data stage must be complete before reuse")
+    checksums = json.loads((directory / "prepared_checksums.json").read_text())
+    expected = {"data_config.json", "data_manifest.json", "preprocessing.json", "split.npz", "prepared.npz",
+                "source_provenance.json", "source_snapshot.zip"}
+    if set(checksums) != expected:
+        raise ValueError("Prepared data checksum manifest must cover every required file")
+    for name in tqdm(sorted(expected), desc="verify:prepared", unit="file", leave=False):
+        if file_checksum(directory / name) != checksums[name]:
+            raise ValueError(f"Prepared data checksum mismatch: {name}")
+    stored = OISSTConfig(**json.loads((directory / "data_config.json").read_text()))
+    if json.dumps(data_identity(stored), sort_keys=True) != json.dumps(data_identity(data_config), sort_keys=True):
+        raise ValueError("Data settings changed; explicitly prepare a new dataset before training")
+    preprocessing = json.loads((directory / "preprocessing.json").read_text())
+    with np.load(directory / "prepared.npz", allow_pickle=False) as arrays:
+        split = {key: arrays[key].copy() for key in ("raw_x", "raw_y")}
+        split.update({key: torch.from_numpy(arrays[key].copy()) for key in ("x", "y")})
+    with np.load(directory / "split.npz", allow_pickle=False) as groups:
+        split.update({key: groups[key].copy() for key in ("train", "validation", "test")})
+    split.update(preprocessing)
+    return split
+
+
+def run_prepared_comparison(data_config, runs, *, prepared_directory, directory,
+                            source_provenance, source_zip, on_snapshot=None, on_complete=None):
+    """Train exactly the selected models from scratch in a new batch directory."""
+    output = Path(directory)
+    output.mkdir(parents=True, exist_ok=False)
+    with record_failures(output, status_key="state"):
+        write_json(output / "data_config.json", asdict(data_config))
+        write_json(output / "runs.json", [{"name": name, **asdict(config)} for name, config in runs])
+        write_json(output / "source_provenance.json", source_provenance)
+        (output / "source_snapshot.zip").write_bytes(source_zip)
+        if not runs or len({name for name, _ in runs}) != len(runs):
+            raise ValueError("Comparison requires nonempty, uniquely named runs")
+        if any(config.seed != data_config.seed for _, config in runs):
+            raise ValueError("All runs must use the declared shared data seed")
+        split = load_prepared(prepared_directory, data_config=data_config)
+        for name in ("data_manifest.json", "preprocessing.json", "split.npz"):
+            shutil.copy2(Path(prepared_directory) / name, output / name)
+        write_json(output / "prepared_reference.json", {
+            "directory": str(Path(prepared_directory).resolve()),
+            "source_provenance": json.loads((Path(prepared_directory) / "source_provenance.json").read_text()),
+            "checksums": json.loads((Path(prepared_directory) / "prepared_checksums.json").read_text())})
+        _run_models(data_config, runs, split, output, on_snapshot, on_complete)
+        write_json(output / "status.json", {"state": "complete"})
+    return output
+
+
+def completed_run_directories(directory):
+    directory = Path(directory)
+    if json.loads((directory / "status.json").read_text())["state"] != "complete":
+        raise ValueError("Latest batch is not complete; select completed saved run paths explicitly")
+    rows = json.loads((directory / "comparison.json").read_text())
+    if not rows:
+        raise ValueError("Completed batch must contain model results")
+    paths = [Path(row["directory"]) for row in rows]
+    for path in paths:
+        if json.loads((path / "status.json").read_text())["state"] != "complete":
+            raise ValueError(f"Selected model run is not complete: {path}")
+    return paths
+
+
+def archive_directory(directory, *, destination):
+    directory, destination = Path(directory).resolve(), Path(destination).resolve()
+    if not directory.is_dir():
+        raise NotADirectoryError(directory)
+    if destination.is_relative_to(directory):
+        raise ValueError("Archive destination must be outside its source directory")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    paths = sorted(path for path in directory.rglob("*") if path.is_file())
+    with zipfile.ZipFile(destination, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
+        for path in tqdm(paths, desc="archive", unit="file", leave=False):
+            bundle.write(path, path.relative_to(directory))
+    return destination

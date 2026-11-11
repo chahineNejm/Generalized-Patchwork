@@ -1,5 +1,6 @@
 """Separate dataset summaries and saved-run visual analysis, without fitting."""
 
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,9 @@ from tqdm.auto import tqdm
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+from pwgp.data.download import file_checksum
+from pwgp.run_records import record_failures
 
 
 def explore_dataset(split, *, directory):
@@ -80,16 +84,17 @@ def plot_hyperparameters(history, *, destination):
     plt.close(fig)
 
 
-def analyze_run(directory):
+def analyze_run(directory, *, visuals_directory=None, metrics=None):
     """Regenerate figures using only saved outputs."""
     directory = Path(directory)
-    visuals = directory / "visuals"
+    visuals = directory / "visuals" if visuals_directory is None else Path(visuals_directory)
     visuals.mkdir(exist_ok=True)
     history = json.loads((directory / "history.json").read_text())["losses"]
     plot_training(history, destination=visuals / "training.png")
     plot_hyperparameters(json.loads((directory / "hyperparameter_history.json").read_text()),
                          destination=visuals / "hyperparameters.png")
-    metrics = json.loads((directory / "metrics.json").read_text())
+    if metrics is None:
+        metrics = json.loads((directory / "metrics.json").read_text())
     names = ["rmse", "nlpd", "coverage_95", "mean_interval_width"]
     fig, axes = plt.subplots(1, len(names), figsize=(12, 3), constrained_layout=True)
     for ax, name in zip(axes, names, strict=True):
@@ -103,3 +108,73 @@ def analyze_run(directory):
             plot_positions(positions["supports"][0], positions["supports"][-1],
                            destination=visuals / "inducing_positions.png")
     return visuals
+
+
+def recompute_saved_run(directory, *, destination):
+    """Recompute scores/plots from saved predictions without creating a model."""
+    from experiments.oisst_benchmark import map_figure
+    from experiments.ukhousing_benchmark import scores
+
+    source, output = Path(directory), Path(destination)
+    output.mkdir(parents=True, exist_ok=False)
+    with record_failures(output, status_key="state"):
+        (output / "request.json").write_text(json.dumps({"original_run": str(source.resolve()),
+            "training_performed": False, "prediction_performed": False}, indent=2))
+        if json.loads((source / "status.json").read_text())["state"] != "complete":
+            raise ValueError("Reanalysis requires an explicitly selected completed model run")
+        preprocessing = json.loads((source.parent / "preprocessing.json").read_text())
+        center, scale = preprocessing["target_mean"], preprocessing["target_std"]
+        if not np.isfinite(center) or not np.isfinite(scale) or scale <= 0:
+            raise ValueError("Saved target scaling must be finite with positive SD")
+        all_scores = {}
+        visuals = output / "visuals"
+        visuals.mkdir()
+        for label in tqdm(("validation", "test"), desc="reanalyze:scores", unit="split", leave=False):
+            with np.load(source / f"{label}_predictions.npz", allow_pickle=False) as saved:
+                truth, mean, variance = (saved[key] for key in ("truth", "mean", "observation_variance"))
+                if truth.ndim != 1 or len(truth) == 0 or mean.shape != truth.shape or variance.shape != truth.shape:
+                    raise ValueError("Saved predictions require matching nonempty truth/mean/variance vectors")
+                if not np.isfinite(truth).all():
+                    raise ValueError("Saved prediction targets must be finite")
+                all_scores[label] = {"celsius": scores(truth, mean, variance),
+                    "standardized": scores((truth - center) / scale, (mean - center) / scale, variance / scale**2)}
+                if label == "test":
+                    map_figure(saved["coordinates"], {"Observed (C)": truth, "Predicted (C)": mean,
+                        "Absolute error (C)": np.abs(mean - truth), "Observation SD (C)": np.sqrt(variance)},
+                        destination=visuals / "maps.png")
+        metrics = {**json.loads((source / "metrics.json").read_text()), **all_scores["test"]["celsius"]}
+        for name, value in (("metrics.json", metrics), ("all_scores.json", all_scores)):
+            (output / name).write_text(json.dumps(value, indent=2, allow_nan=False))
+        inputs = ("validation_predictions.npz", "test_predictions.npz", "history.json",
+                  "hyperparameter_history.json", "model_metadata.json", "metrics.json")
+        provenance = {"original_run": str(source.resolve()), "package_version":
+            importlib.metadata.version("generalized-patchwork-gp"),
+            "analysis_source_sha256": file_checksum(Path(__file__)),
+            "preprocessing_sha256": file_checksum(source.parent / "preprocessing.json"),
+            "inputs_sha256": {name: file_checksum(source / name) for name in inputs},
+            "training_performed": False, "prediction_performed": False}
+        metadata = json.loads((source / "model_metadata.json").read_text())
+        if metadata["inducing_positions_saved"]:
+            provenance["inputs_sha256"]["inducing_positions.npz"] = file_checksum(source / "inducing_positions.npz")
+        (output / "provenance.json").write_text(json.dumps(provenance, indent=2, allow_nan=False))
+        analyze_run(source, visuals_directory=visuals, metrics=metrics)
+        (output / "status.json").write_text(json.dumps({"state": "complete"}))
+    return output
+
+
+def recompute_saved_runs(directories, *, destination):
+    directories = [Path(path).resolve() for path in directories]
+    if not directories or len(set(directories)) != len(directories):
+        raise ValueError("Select a nonempty list of distinct completed run directories")
+    output = Path(destination)
+    output.mkdir(parents=True, exist_ok=False)
+    with record_failures(output, status_key="state"):
+        (output / "selected_runs.json").write_text(json.dumps([str(path) for path in directories], indent=2))
+        summaries = []
+        for index, directory in enumerate(tqdm(directories, desc="reanalyze", unit="run")):
+            result = recompute_saved_run(directory, destination=output / f"{index:02d}")
+            summaries.append({"original_run": str(directory), "analysis_directory": str(result.resolve()),
+                              **json.loads((result / "metrics.json").read_text())})
+            (output / "comparison.json").write_text(json.dumps(summaries, indent=2, allow_nan=False))
+        (output / "status.json").write_text(json.dumps({"state": "complete"}))
+    return output

@@ -31,6 +31,13 @@ variational precision. The current phase is the algorithm and data foundation.
 - Runner exceptions must save a full traceback and re-raise; never install a
   process-global exception hook. Colab stages must block downstream execution
   after failure, and subprocess commands must check exit status.
+- OISST supports explicit partial reruns: failed stages may be retried by rerunning
+  that stage, but their dependents remain invalid until success. Independent saved-
+  result analysis is an explicit action, never a fallback for failed training.
+  Prepared-data reuse must verify config identity and checksums without rebuilding.
+  Model reruns train from scratch in new directories; never auto-skip, resume or
+  overwrite earlier runs. Reanalysis reads saved predictions and writes new outputs
+  without training, prediction, checkpoint loading or modifying original artifacts.
 - Validate out-of-range values. Do not clamp or project requested inputs silently.
 - Nonfinite model parameters/predictions must raise. Unusable dataset rows are
   removed, never filled, with counts recorded. FLIGHT defaults to the trusted

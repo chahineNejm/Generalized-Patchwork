@@ -24,7 +24,8 @@ def normalized_code(source):
     tree = ast.parse(source)
     for node in tree.body:
         if (isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
-                and node.targets[0].id in ("OVERRIDES", "DATA_OVERRIDES", "MODELS")):
+                and node.targets[0].id in ("OVERRIDES", "DATA_OVERRIDES", "MODELS", "DATA_ACTION",
+                    "PREPARED_PATH", "ANALYSIS_SOURCE", "SAVED_RUNS", "DOWNLOAD_SOURCE", "SAVED_DIRECTORY")):
             node.value = ast.Dict(keys=[], values=[])
     return ast.dump(tree, include_attributes=False)
 
