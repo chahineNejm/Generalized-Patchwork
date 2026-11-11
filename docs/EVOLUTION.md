@@ -1,5 +1,26 @@
 # Evolution Log
 
+## 2026-11-11 - Standard Patchwork short-run warm-up validation
+
+- The saved OISST notebook requests two epochs for Standard Patchwork without
+  overriding its unused warmup_epochs=20 field. Generic validation incorrectly
+  rejected that configuration, despite exact Patchwork having no warm-up phase.
+- OISST and UKHousing now validate warm-up only for variational models. Positive
+  epochs and snapshot intervals remain required. No configured value is changed,
+  clamped or replaced. OISST validation errors now name the model and values.
+- OISST exact-baseline optimizer provenance now records its actual full-data
+  Adam rate and warmup=not_used rather than an unused variational configuration.
+- Verification: full 132-test suite passes after the validation fix. Short-run
+  end-to-end tests retain the ignored value of 20; invalid active warm-up,
+  epochs and snapshot controls still raise without changing requested values.
+- At the user's request, added explicit notebook MODELS selection/order,
+  independent of OVERRIDES. Unknown/duplicate/empty selections raise. Known
+  deselected-model overrides can remain for later use; deselected models are
+  never initialized. Preserved the saved two-epoch settings and all defaults.
+- Model-selection and notebook checks: 14 focused tests pass, including seven
+  new selection tests; Ruff, compileall and whitespace checks pass. No full
+  Colab GPU execution is claimed.
+
 ## 2026-11-11 - OISST cold-CUDA memory-statistics initialization
 
 - Colab reported Invalid device argument from reset_peak_memory_stats before

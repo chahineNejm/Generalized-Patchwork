@@ -146,6 +146,8 @@ def test_model_runner_end_to_end(name, tmp_path, monkeypatch):
                      inducing_points=12, patches=3, q_rank=4, stitches_per_edge=2,
                      vnngp_neighbors=4, vnngp_batch_size=16, exact_maximum_points=16,
                      batch_size=32, prediction_batch_size=8, snapshot_every=2)
+    if name == "patchwork":
+        config = replace(config, warmup_epochs=20)
     if name == "prospar":
         config = replace(config, prospar=ProSparConfig(
             temperatures=(1.0, 2.0, 3.0), exponent=1.0, inducing_nuggets=0.02, prior_jitter=0.0))

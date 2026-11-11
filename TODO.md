@@ -4,6 +4,10 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Expose explicit notebook model selection/order separately from per-model
+  overrides, with errors for unknown, duplicate or empty selections.
+- [x] Validate warm-up only for models that use it; preserve short standard
+  Patchwork runs and include model/value details in OISST validation errors.
 - [x] Fix OISST cold-CUDA allocator reset order; verify requested-device
   initialization and loud initialization failures before publishing the fix.
 - [x] Make user ownership of every methodological choice explicit in AGENTS.md;

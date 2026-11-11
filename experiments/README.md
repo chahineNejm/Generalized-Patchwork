@@ -14,6 +14,9 @@ See `TODO.md` for planned runners and visual studies.
 `default_hyperparameters.py` supplies approved experiment defaults. All notebooks
 allow explicit overrides through `dataclasses.replace`; OISST exposes per-model
 `OVERRIDES` and `DATA_OVERRIDES`. Effective settings are saved, not just defaults.
+OISST's `MODELS` list chooses which models run and their order, for example
+`MODELS=["GPW", "SVGP"]`. Selection validates names and duplicates without
+silently dropping requests; overrides for known deselected models may remain.
 
 `notebooks/OISST_Colab.ipynb` runs SVGP, GPW, ProSpar, VNNGP and standard
 Patchwork on the approved OISST ROI/split. It imports `oisst_benchmark.py`, which

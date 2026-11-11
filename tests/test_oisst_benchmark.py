@@ -55,7 +55,9 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
         return model
 
     monkeypatch.setattr(benchmark, "build_model", tracked)
-    runs = [(name, replace(config, epochs=2, warmup_epochs=1, inducing_points=8, patches=2,
+    runs = [(name, replace(config, epochs=2,
+                          warmup_epochs=config.warmup_epochs if config.model == "patchwork" else 1,
+                          inducing_points=8, patches=2,
                           q_rank=2, patch_neighbors=1, stitches_per_edge=2, vnngp_neighbors=4,
                           vnngp_batch_size=16, exact_maximum_points=16, exact_stitches_per_edge=2,
                           batch_size=32, snapshot_every=2, prediction_batch_size=8)) for name, config in runs]
@@ -79,6 +81,9 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
             assert (path / "visuals/inducing_positions.png").exists()
         else:
             assert not (path / "inducing_positions.npz").exists()
+            environment = json.loads((path / "environment.json").read_text())
+            assert environment["optimizer"]["warmup"] == "not_used"
+            assert json.loads((path / "config.json").read_text())["warmup_epochs"] == 20
         with zipfile.ZipFile(archive) as bundle:
             assert "source_provenance.json" in bundle.namelist()
             assert "source_snapshot.zip" in bundle.namelist()
@@ -150,3 +155,20 @@ def test_cuda_initialization_failure_is_loud_and_does_not_reset_or_build(tmp_pat
                             save_inducing_positions=False)
     failure = json.loads((tmp_path / "failed/failure.json").read_text())
     assert "original CUDA initialization failure" in failure["traceback"]
+
+
+@pytest.mark.parametrize("model", ["svgp", "gpw", "prospar", "vnngp"])
+def test_used_warmup_is_validated_without_changing_values(model, tmp_path):
+    _, runs = oisst_defaults(device="cpu")
+    config = replace(next(config for _, config in runs if config.model == model), epochs=2)
+    with pytest.raises(ValueError, match=rf"{model}:.*warmup_epochs=20.*epochs=2"):
+        benchmark.run_model(config, {}, directory=tmp_path / model, save_inducing_positions=False)
+    assert config.epochs == 2 and config.warmup_epochs == 20
+
+
+@pytest.mark.parametrize("field,value", [("epochs", 0), ("snapshot_every", 0)])
+def test_exact_patchwork_still_rejects_invalid_active_controls(field, value, tmp_path):
+    _, runs = oisst_defaults(device="cpu")
+    config = replace(runs[-1][1], **{field: value})
+    with pytest.raises(ValueError, match=rf"patchwork: {field}={value} must be positive"):
+        benchmark.run_model(config, {}, directory=tmp_path / "run", save_inducing_positions=False)

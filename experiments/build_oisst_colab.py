@@ -31,15 +31,14 @@ def build_notebook(root):
         import torch
         from experiments.default_hyperparameters import oisst_defaults
         from experiments.oisst_benchmark import run_comparison
+        from experiments.run_selection import select_runs
 
         DATA, RUNS = oisst_defaults(device="cuda:0")
+        MODELS = ["SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork"]
         # Optional overrides, e.g. {"GPW": {"epochs": 150, "warmup_epochs": 30}}.
         OVERRIDES = {}
         DATA_OVERRIDES = {}  # e.g. {"save_inducing_positions": False}
-        if set(OVERRIDES) - {name for name, _ in RUNS}:
-            raise ValueError("Overrides contain an unknown run name")
-        RUNS = [(name, replace(config, **OVERRIDES[name]) if name in OVERRIDES else config)
-                for name, config in RUNS]
+        RUNS = select_runs(RUNS, models=MODELS, overrides=OVERRIDES)
         DATA = replace(DATA, **DATA_OVERRIDES)
         RUN_ROOT = ROOT / "results/oisst" / datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         if not torch.cuda.is_available():

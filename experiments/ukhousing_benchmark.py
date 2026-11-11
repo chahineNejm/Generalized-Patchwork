@@ -248,8 +248,11 @@ def run_ukhousing(config: UKConfig, split, *, directory, on_snapshot=None):
 
 
 def _execute_ukhousing(config, split, *, output, on_snapshot):
-    if not 0 <= config.warmup_epochs < config.epochs:
-        raise ValueError("Require 0 <= warmup_epochs < epochs")
+    if config.epochs < 1:
+        raise ValueError(f"{config.model}: epochs={config.epochs} must be positive")
+    if config.model != "patchwork" and not 0 <= config.warmup_epochs < config.epochs:
+        raise ValueError(f"{config.model}: require 0 <= warmup_epochs={config.warmup_epochs} "
+                         f"< epochs={config.epochs}")
     if config.snapshot_every < 1:
         raise ValueError("snapshot_every must be positive")
     torch.set_num_threads(config.threads)

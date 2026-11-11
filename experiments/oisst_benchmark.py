@@ -162,8 +162,13 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
     output.mkdir(exist_ok=False)
     with record_failures(output, status_key="state"):
         write_json(output / "config.json", asdict(config))
-        if not 0 <= config.warmup_epochs < config.epochs or config.snapshot_every < 1:
-            raise ValueError("Require 0 <= warmup < epochs and positive snapshot interval")
+        if config.epochs < 1:
+            raise ValueError(f"{config.model}: epochs={config.epochs} must be positive")
+        if config.model != "patchwork" and not 0 <= config.warmup_epochs < config.epochs:
+            raise ValueError(f"{config.model}: require 0 <= warmup_epochs={config.warmup_epochs} "
+                             f"< epochs={config.epochs}")
+        if config.snapshot_every < 1:
+            raise ValueError(f"{config.model}: snapshot_every={config.snapshot_every} must be positive")
         device = torch.device(config.device)
         if device.type == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("Requested GPU is unavailable; no CPU fallback")
@@ -185,7 +190,9 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
             "numerical": asdict(NumericalConfig(weight_epsilon=config.weight_epsilon)),
             "active_prior_jitter": config.prospar.prior_jitter if config.model == "prospar"
             and config.prospar is not None else NumericalConfig().prior_jitter,
-            "optimizer": asdict(OptimizerConfig(
+            "optimizer": {"method": "Adam", "learning_rate": config.exact_learning_rate,
+                          "gradient_clip": 10.0, "warmup": "not_used"}
+            if config.model == "patchwork" else asdict(OptimizerConfig(
                 learning_rate_q=config.learning_rate_q,
                 learning_rate_supports=config.learning_rate_structure,
                 learning_rate_stitches=config.learning_rate_structure,

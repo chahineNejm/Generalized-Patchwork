@@ -34,9 +34,14 @@ standardization; input normalization uses the declared geographic ROI.
 The notebook's `OVERRIDES` accepts per-model settings, for example:
 
 ```python
+MODELS = ["GPW", "SVGP"]  # Only these models, in this order.
 OVERRIDES = {"GPW": {"epochs": 150, "warmup_epochs": 30}}
 DATA_OVERRIDES = {"save_inducing_positions": True}
 ```
+
+`MODELS` accepts SVGP, GPW, ProSpar, VNNGP and Standard Patchwork. Unknown,
+duplicate or empty selections raise; deselected models are not initialized.
+Overrides for known deselected models may remain in the notebook for later use.
 
 No override changes the defaults file. To override ProSpar settings, provide a
 complete `ProSparConfig` through that model's `prospar` field. Actual settings,
