@@ -23,6 +23,13 @@ def build_notebook(root, *, preserve_settings=False):
         Setup can be rerun without restarting or reconnecting: it verifies and
         updates the checkout, preserving data/results. Each stage uses a fresh
         Python worker, so updated source never mixes with old notebook imports.
+
+        Standard Patchwork uses GPW's initial observed locations and targets,
+        not all training observations. The first baseline uses a 4 x 2 grid
+        (longitude x latitude); the second uses Voronoi cells of GPW's initial
+        clustering centers. Both keep their regions/stitches fixed. GPW still
+        learns from all training observations, so these are reduced-data baselines.
+        Empty cells raise. Saved partition figures and row indices verify the setup.
         """),
         cell("markdown", "## 1. Load code and dependencies"),
         cell("code", github_bootstrap("/content/gpw_oisst", isolated=True), stage="checkout",
@@ -42,15 +49,19 @@ def call_worker(action, *, on_event=None, **values):
         from IPython.display import Image, display
         from google.colab import files
         import pandas as pd
-        MODELS = ["SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork"]
-        # Optional overrides, e.g. {"GPW": {"epochs": 150, "warmup_epochs": 30}}.
+        MODELS = ["SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork", "Standard Patchwork (GPW regions)"]
+        # Point budgets come from GPW; grid shape and stitches are baseline-specific.
+        # Example: {"GPW": {"inducing_points": 512, "patches": 8},
+        # "Standard Patchwork": {"exact_grid_shape": (4, 2), "exact_stitches_per_edge": 5}}.
         OVERRIDES = {}
         DATA_OVERRIDES = {}  # e.g. {"save_inducing_positions": False}
         settings = call_worker("settings", device="cuda:0", models=MODELS,
                                overrides=OVERRIDES, data_overrides=DATA_OVERRIDES)
         DATA, RUNS = settings["data"], settings["runs"]
         WORK_ROOT = ROOT / "results/oisst"
-        display(pd.DataFrame([{"run": row["name"], **row["config"]} for row in RUNS]))
+        display(pd.DataFrame([{"run": row["name"], "training_inputs":
+            "GPW initial subset" if row["config"]["model"] == "patchwork" else "all",
+            **row["config"]} for row in RUNS]))
         print(DATA)
         """, stage="settings", requires=("install",), invalidates=("training", "analysis", "download")),
         cell("markdown", """
@@ -100,6 +111,8 @@ def call_worker(action, *, on_event=None, **values):
             metadata = json.loads((path / "model_metadata.json").read_text())
             if metadata["inducing_positions_saved"]:
                 display(Image(filename=str(path / "visuals/inducing_positions.png")))
+            if metadata["partition_artifacts_saved"]:
+                display(Image(filename=str(path / "visuals/partition.png")))
             files.download(str(archive))
 
         def show_worker_event(event):
@@ -200,6 +213,9 @@ def call_worker(action, *, on_event=None, **values):
                     if (isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
                             and node.targets[0].id in controls):
                         saved_values[node.targets[0].id] = node.value
+        if "MODELS" in saved_values and ast.literal_eval(saved_values["MODELS"]) == [
+                "SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork"]:
+            saved_values["MODELS"].elts.append(ast.Constant("Standard Patchwork (GPW regions)"))
         for new_cell in cells:
             if new_cell["cell_type"] == "code":
                 tree = ast.parse("".join(new_cell["source"]))

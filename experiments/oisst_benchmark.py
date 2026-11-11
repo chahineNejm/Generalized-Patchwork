@@ -215,9 +215,30 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
             "package_version": importlib.metadata.version("generalized-patchwork-gp"),
             "kernel": "ARD RBF", "likelihood": "Gaussian",
             "inducing_positions_saved": save_inducing_positions and config.model != "patchwork",
+            "partition_artifacts_saved": config.model == "patchwork",
+            "training_observations_used": len(model.train_x) if config.model == "patchwork" else len(split["train"]),
+            "training_points_policy": config.exact_training_points if config.model == "patchwork" else "all",
+            "partition": config.exact_partition if config.model == "patchwork" else None,
+            "actual_regions": model.patches if config.model == "patchwork" else None,
             "reference": "arXiv:2311.08752v1 (6)-(13), approved derived objective/prediction"
             if config.model == "prospar" else None,
         })
+        if config.model == "gpw":
+            np.savez_compressed(output / "initialization.npz",
+                supports=model.initial_support_locations.cpu().numpy(),
+                centers=model.initial_cluster_centers.cpu().numpy(), indices=model.source_initial_indices.cpu().numpy())
+        if config.model == "patchwork":
+            from experiments.exploratory_analysis import plot_partition
+
+            np.savez_compressed(output / "training_points.npz", x=model.train_x.cpu().numpy(),
+                               y=model.train_y.cpu().numpy(), indices=model.source_training_indices.cpu().numpy())
+            np.savez_compressed(output / "partition.npz", bounds=model.region_bounds.cpu().numpy(),
+                vertices=model.region_vertices.cpu().numpy(), offsets=model.region_offsets.cpu().numpy(),
+                centers=model.region_centers.cpu().numpy(), labels=model.labels.cpu().numpy(),
+                stitches=model.stitch_points.cpu().numpy(), coefficients=model.coefficients.cpu().numpy())
+            plot_partition(model.train_x.cpu().numpy(), model.labels.cpu().numpy(),
+                model.region_vertices.cpu().numpy(), model.region_offsets.cpu().numpy(),
+                model.stitch_points.cpu().numpy(), destination=visuals / "partition.png")
         torch.save(model.state_dict(), output / "initial_model.pt")
         positions, position_epochs, parameter_history = [], [], []
 
@@ -311,6 +332,9 @@ def run_comparison(data_config: OISSTConfig, runs: list[tuple[str, UKConfig]], *
     output = Path(directory)
     output.mkdir(parents=True, exist_ok=False)
     with record_failures(output, status_key="state"):
+        from experiments.run_selection import resolve_patchwork_references
+
+        runs = resolve_patchwork_references(runs)
         if not runs or len({name for name, _ in runs}) != len(runs):
             raise ValueError("Comparison requires nonempty, uniquely named runs")
         if any(config.seed != data_config.seed for _, config in runs):
@@ -331,6 +355,25 @@ def run_comparison(data_config: OISSTConfig, runs: list[tuple[str, UKConfig]], *
 
 
 def _run_models(data_config, runs, split, output, on_snapshot, on_complete):
+    references = [config.exact_gpw_reference for _, config in runs
+                  if config.model == "patchwork" and config.exact_training_points == "gpw_initial"]
+    if references:
+        from pwgp.initialization import hierarchical_initialization
+
+        reference = references[0]
+        if any(value != reference for value in references):
+            raise ValueError("Matched baselines must use the same GPW initialization reference")
+        if reference["inducing_points"] % reference["patches"]:
+            raise ValueError("Reference GPW inducing budget must divide evenly across patches")
+        torch.set_num_threads(reference["threads"])
+        started = time.perf_counter()
+        initial = hierarchical_initialization(split["x"][split["train"]], reference["patches"],
+            reference["inducing_points"] // reference["patches"], seed=reference["seed"])
+        write_json(output / "gpw_initialization.json", {"reference": reference,
+                   "seconds": time.perf_counter() - started})
+        np.savez_compressed(output / "gpw_initialization.npz", supports=initial["supports"].numpy(),
+            centers=initial["centers"].numpy(), indices=split["train"][initial["indices"].numpy()])
+        split = {**split, "gpw_initialization": initial, "gpw_initialization_reference": reference}
     summaries = []
     for index, (name, config) in enumerate(tqdm(runs, desc="compare:OISST", unit="model")):
         result = run_model(config, split, directory=output / f"{index:02d}_{config.model}",
@@ -410,6 +453,9 @@ def run_prepared_comparison(data_config, runs, *, prepared_directory, directory,
     output = Path(directory)
     output.mkdir(parents=True, exist_ok=False)
     with record_failures(output, status_key="state"):
+        from experiments.run_selection import resolve_patchwork_references
+
+        runs = resolve_patchwork_references(runs)
         write_json(output / "data_config.json", asdict(data_config))
         write_json(output / "runs.json", [{"name": name, **asdict(config)} for name, config in runs])
         write_json(output / "source_provenance.json", source_provenance)

@@ -3,6 +3,7 @@
 import importlib.metadata
 import json
 import os
+from itertools import pairwise
 from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", str(Path("results/.matplotlib").resolve()))
@@ -70,6 +71,23 @@ def plot_positions(initial, final, *, destination):
     plt.close(fig)
 
 
+def plot_partition(points, labels, vertices, offsets, stitches, *, destination):
+    """Show the fixed regions, observed training locations and boundary stitches."""
+    fig, ax = plt.subplots(figsize=(8, 5), constrained_layout=True)
+    ax.scatter(*points.T, c=labels, cmap="tab10", s=9)
+    for lo, hi in pairwise(offsets):
+        polygon = vertices[lo:hi]
+        closed = np.vstack((polygon, polygon[0]))
+        ax.plot(*closed.T, color="black", linewidth=0.8)
+    if len(stitches):
+        ax.scatter(*stitches.T, marker="x", color="black", s=16, label="Stitches")
+        ax.legend()
+    ax.set(xlim=(0, 1), ylim=(0, 1), xlabel="Normalized longitude", ylabel="Normalized latitude",
+           title=f"{len(points)} observed training locations; {len(offsets) - 1} fixed regions")
+    fig.savefig(destination, dpi=140)
+    plt.close(fig)
+
+
 def plot_hyperparameters(history, *, destination):
     epochs = [row["epoch"] for row in history]
     lengthscales = np.array([row["lengthscales"] for row in history]).reshape(len(history), -1)
@@ -103,6 +121,11 @@ def analyze_run(directory, *, visuals_directory=None, metrics=None):
     fig.savefig(visuals / "metrics.png", dpi=140)
     plt.close(fig)
     metadata = json.loads((directory / "model_metadata.json").read_text())
+    if metadata.get("partition_artifacts_saved") is True:
+        with np.load(directory / "training_points.npz", allow_pickle=False) as points, np.load(
+                directory / "partition.npz", allow_pickle=False) as partition:
+            plot_partition(points["x"], partition["labels"], partition["vertices"], partition["offsets"],
+                           partition["stitches"], destination=visuals / "partition.png")
     if metadata["inducing_positions_saved"]:
         with np.load(directory / "inducing_positions.npz") as positions:
             plot_positions(positions["supports"][0], positions["supports"][-1],
@@ -154,6 +177,9 @@ def recompute_saved_run(directory, *, destination):
             "inputs_sha256": {name: file_checksum(source / name) for name in inputs},
             "training_performed": False, "prediction_performed": False}
         metadata = json.loads((source / "model_metadata.json").read_text())
+        if metadata.get("partition_artifacts_saved") is True:
+            provenance["inputs_sha256"].update({name: file_checksum(source / name)
+                for name in ("partition.npz", "training_points.npz")})
         if metadata["inducing_positions_saved"]:
             provenance["inputs_sha256"]["inducing_positions.npz"] = file_checksum(source / "inducing_positions.npz")
         (output / "provenance.json").write_text(json.dumps(provenance, indent=2, allow_nan=False))

@@ -1,5 +1,41 @@
 # Evolution Log
 
+## 2026-11-11 - Matched-initial-location Standard Patchwork comparisons
+
+- User approved two OISST baselines using only observed targets at GPW's initial
+  inducing locations: a fixed (4 longitude, 2 latitude) checkerboard, and Voronoi
+  cells of GPW's initial clustering centers. Boundaries are straight segments
+  clipped to [0,1]^2. Empty selected-data cells explicitly raise; never merge or
+  drop regions, reduce budgets or replace points. Regions/stitches stay fixed.
+- Extract the existing initialization's row indices and centers without changing
+  its clustering, sampling, seed or support positions. Save those identities for
+  GPW and matched baselines. Effective GPW initialization settings drive both
+  baselines, including baseline-only reruns; conflicting references raise.
+- Each comparison computes that initialization once under GPW's requested
+  thread setting and shares the exact arrays across models. Save its reference
+  and timing separately; never silently recluster if a shared reference differs.
+- Existing Standard Patchwork name now selects the grid; the additional name
+  'Standard Patchwork (GPW regions)' selects initial-cluster Voronoi regions.
+  Notebook controls expose grid shape, stitches, epochs and learning rate; the
+  reference point budget/cluster count are set in the GPW overrides. Update the
+  former full default model selection to include both; retain custom selections.
+- Preserve joint-likelihood training, local ARD RBFs, separate regional kernel
+  parameters, numerical settings, initialization and optimization. Fixed grids
+  use their requested geometry, not the adaptive maximum-points subdivision.
+  Legacy UKHousing adaptive/all-training-data settings are unchanged.
+- Save training row indices/targets, initial centers/supports, polygon boundaries,
+  stitches, region counts and partition figures. Reanalysis regenerates the fixed
+  geometry plot from saved arrays and includes those arrays in provenance.
+- Shared preprocessing and held-out splits are unchanged. GPW uses all training
+  observations while these baselines use only selected targets: this is a
+  reduced-data support-location comparison, not an equal-information benchmark.
+- Verification: all 169 tests pass, including both partitions' dense joint
+  likelihood values/gradients and conditional predictions, exact shared row
+  identity, empty-cell failures, saved artifacts and fresh-worker notebook tests.
+  Partition figures inspected locally; Ruff, compileall and whitespace checks
+  pass. Four dependency warnings remain. No real-data benchmark or Colab GPU
+  run launched. GPW's model/weights and VNNGP are unchanged.
+
 ## 2026-11-11 - OISST reruns without reconnecting
 
 - User explicitly requested no kernel restart or reconnect. OISST setup now

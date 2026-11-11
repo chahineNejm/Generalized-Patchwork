@@ -30,6 +30,7 @@ from pwgp import SVGP, GeneralizedPatchworkGP, ProSparGP, fit
 from pwgp.config import HyperparameterBounds, NumericalConfig, OptimizerConfig, ProSparConfig
 from pwgp.data.download import file_checksum
 from pwgp.initialization import (
+    hierarchical_initialization,
     hierarchical_supports,
     initialize_stitches,
     observed_supports,
@@ -54,6 +55,10 @@ class UKConfig:
     vnngp_batch_size: int = 512
     exact_maximum_points: int = 512
     exact_stitches_per_edge: int = 2
+    exact_partition: str = "adaptive"
+    exact_grid_shape: tuple[int, int] | None = None
+    exact_training_points: str = "all"
+    exact_gpw_reference: dict[str, int] | None = None
     batch_size: int = 1024
     prediction_batch_size: int = 256
     lengthscale: float = 0.1
@@ -107,6 +112,28 @@ def scores(y, mean, variance):
             "mean_interval_width": float(np.mean(2 * 1.959963984540054 * sd))}
 
 
+def initial_gpw_points(x, reference, split):
+    """Use the comparison's exact shared initialization or construct it explicitly."""
+    if reference is None or set(reference) != {"inducing_points", "patches", "seed", "threads"}:
+        raise ValueError("Matched Patchwork requires an explicit GPW initialization reference; use select_runs")
+    if reference["inducing_points"] % reference["patches"]:
+        raise ValueError("Reference GPW inducing budget must divide evenly across patches")
+    if "gpw_initialization" in split:
+        if split["gpw_initialization_reference"] != reference:
+            raise ValueError("Shared initialization differs from the requested GPW reference")
+        initial = split["gpw_initialization"]
+        if not torch.equal(x[initial["indices"]], initial["supports"]):
+            raise ValueError("Shared GPW locations do not match their source training rows")
+        return initial
+    previous_threads = torch.get_num_threads()
+    torch.set_num_threads(reference["threads"])
+    try:
+        return hierarchical_initialization(x, reference["patches"],
+            reference["inducing_points"] // reference["patches"], seed=reference["seed"])
+    finally:
+        torch.set_num_threads(previous_threads)
+
+
 def build_model(config, split):
     x, y = split["x"][split["train"]], split["y"][split["train"]]
     device = torch.device(config.device)
@@ -119,12 +146,18 @@ def build_model(config, split):
     if config.model == "gpw":
         if config.inducing_points % config.patches:
             raise ValueError("GPW inducing budget must divide evenly across patches")
-        supports = hierarchical_supports(x, config.patches, config.inducing_points // config.patches,
-                                        seed=config.seed)
+        initial = initial_gpw_points(x, {key: getattr(config, key)
+            for key in ("inducing_points", "patches", "seed", "threads")}, split)
+        supports = initial["supports"]
         edges = patch_neighbor_graph(supports, neighbors=config.patch_neighbors)
         stitches = initialize_stitches(supports, edges, config.stitches_per_edge)
-        return GeneralizedPatchworkGP(supports.to(device), stitches.to(device), edges,
-                                      q_rank=config.q_rank, numerical=numerical, **options)
+        model = GeneralizedPatchworkGP(supports.to(device), stitches.to(device), edges,
+                                       q_rank=config.q_rank, numerical=numerical, **options)
+        model.register_buffer("initial_support_locations", supports.to(device))
+        model.register_buffer("initial_cluster_centers", initial["centers"].to(device))
+        model.register_buffer("source_initial_indices", torch.as_tensor(
+            split["train"][initial["indices"].numpy()], device=device))
+        return model
     if config.model == "prospar":
         if config.prospar is None:
             raise ValueError("ProSpar requires explicit temperatures, exponent, inducing_nuggets and prior_jitter")
@@ -134,10 +167,28 @@ def build_model(config, split):
                                         seed=config.seed)
         return ProSparGP(supports.to(device), numerical=numerical, **options, **asdict(config.prospar))
     if config.model == "patchwork":
-        return StandardPatchworkGP(x.to(device), y.to(device),
-                                   maximum_points=config.exact_maximum_points,
-                                   stitches_per_edge=config.exact_stitches_per_edge,
-                                   jitter=numerical.prior_jitter, **options)
+        centers = None
+        if config.exact_training_points == "gpw_initial":
+            initial = initial_gpw_points(x, config.exact_gpw_reference, split)
+            rows = initial["indices"].flatten()
+            x, y = x[rows], y[rows]
+            if config.exact_partition == "gpw_voronoi":
+                centers = initial["centers"].cpu().numpy()
+        elif config.exact_training_points == "all":
+            rows = torch.arange(len(x))
+            if config.exact_partition == "gpw_voronoi":
+                raise ValueError("GPW Voronoi regions require exact_training_points='gpw_initial'")
+        else:
+            raise ValueError(f"Unknown exact_training_points: {config.exact_training_points}")
+        model = StandardPatchworkGP(x.to(device), y.to(device),
+            maximum_points=config.exact_maximum_points, stitches_per_edge=config.exact_stitches_per_edge,
+            partition="voronoi" if config.exact_partition == "gpw_voronoi" else config.exact_partition,
+            grid_shape=config.exact_grid_shape, centers=centers, jitter=numerical.prior_jitter, **options)
+        model.register_buffer("source_training_indices", torch.as_tensor(split["train"][rows.numpy()], device=device))
+        if config.exact_training_points == "gpw_initial":
+            model.register_buffer("reference_supports", initial["supports"].to(device))
+            model.register_buffer("initial_cluster_centers", initial["centers"].to(device))
+        return model
     if config.model == "vnngp":
         return VNNGP(x.to(device), neighbors=config.vnngp_neighbors,
                      batch_size=config.vnngp_batch_size, jitter=numerical.prior_jitter, **options)

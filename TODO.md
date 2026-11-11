@@ -45,11 +45,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
   objective/gradient checks pass. Retain separate regional kernels as approved.
 - [x] Preserve the Colab-saved OISST notebook in results/notebook_backups before
   regenerating its output-free launcher, retaining explicit notebook settings.
-- [ ] Replace data-adaptive Standard Patchwork regions with a user-specified
-  regular geometric grid; grid dimensions and empty-region handling need approval.
-- [ ] Match Standard Patchwork's observed training locations to GPW's initial
-  inducing locations, exposing comparison controls; grid dimensions and the
-  reported RMSE trend are being clarified before implementation.
+- [x] Add OISST Standard Patchwork on GPW's exact initial selected rows: a 4x2
+  geometric grid or initial-cluster Voronoi regions, empty cells raise; verify
+  geometry, dense algebra, saved row identity, notebook controls and full suite.
+- [ ] Clarify whether the user's decreasing RMSE refers to epochs, points or
+  patches before attributing the trend to a specific mechanism.
 - [x] OISST five-model runner, centralized default hyperparameters with notebook
   overrides, separate exploratory analysis and per-run visuals/optional positions.
 - [x] Approve OISST ProSpar prior_jitter=0: learned nuggets alone, no extra fixed

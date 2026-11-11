@@ -1,4 +1,4 @@
-"""Direct-observation Patchwork Kriging with fixed rectangular regions."""
+"""Direct-observation Patchwork Kriging with fixed linear-boundary regions."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from torch import nn
 from pwgp.config import DEFAULT_HYPERPARAMETER_BOUNDS
 from pwgp.linalg import cholesky_solve
 from pwgp.parameters import LocalARDHyperparameters
+from pwgp.partitions import checkerboard_partition, voronoi_partition
 
 
 def rectangular_partition(x: np.ndarray, *, maximum_points: int, stitches_per_edge: int):
@@ -69,18 +70,36 @@ class StandardPatchworkGP(nn.Module):
     """Condition directly on all noisy observations and zero stitch differences."""
 
     def __init__(self, x, y, *, maximum_points=512, stitches_per_edge=2,
-                 lengthscale=0.1, outputscale=1.0, noise_std=0.1, jitter=1e-4):
+                 lengthscale=0.1, outputscale=1.0, noise_std=0.1, jitter=1e-4,
+                 partition="adaptive", grid_shape=None, centers=None):
         super().__init__()
-        labels, bounds, points, edges = rectangular_partition(
-            x.detach().cpu().numpy(), maximum_points=maximum_points,
-            stitches_per_edge=stitches_per_edge,
-        )
+        values = x.detach().cpu().numpy()
+        if partition == "adaptive":
+            labels, bounds, points, edges = rectangular_partition(values, maximum_points=maximum_points,
+                                                                 stitches_per_edge=stitches_per_edge)
+            polygons = [np.array([lo, [hi[0], lo[1]], hi, [lo[0], hi[1]]]) for lo, hi in bounds]
+        elif partition == "grid":
+            labels, bounds, points, edges, polygons = checkerboard_partition(
+                values, grid_shape=grid_shape, stitches_per_edge=stitches_per_edge)
+        elif partition == "voronoi":
+            labels, bounds, points, edges, polygons = voronoi_partition(
+                values, centers=centers, stitches_per_edge=stitches_per_edge)
+        else:
+            raise ValueError(f"Unknown Standard Patchwork partition: {partition}")
         self.patches = len(bounds)
+        counts = np.bincount(labels, minlength=self.patches)
+        if (counts == 0).any():
+            raise ValueError(f"Standard Patchwork regions have no selected training points: {np.flatnonzero(counts == 0).tolist()}")
+        self.partition = partition
         self.jitter = jitter
         self.register_buffer("train_x", x.clone())
         self.register_buffer("train_y", y.clone())
         self.register_buffer("labels", torch.as_tensor(labels, device=x.device))
         self.register_buffer("region_bounds", torch.as_tensor(bounds, dtype=x.dtype, device=x.device))
+        self.register_buffer("region_centers", x.new_empty(0, 2) if centers is None else torch.as_tensor(
+            centers, dtype=x.dtype, device=x.device))
+        self.register_buffer("region_vertices", torch.as_tensor(np.vstack(polygons), dtype=x.dtype, device=x.device))
+        self.register_buffer("region_offsets", torch.as_tensor(np.cumsum([0, *map(len, polygons)]), device=x.device))
         self.register_buffer("stitch_points", torch.as_tensor(points, dtype=x.dtype, device=x.device))
         coefficients = x.new_zeros(self.patches, len(points))
         for q, (i, j) in enumerate(edges):
@@ -141,11 +160,7 @@ class StandardPatchworkGP(nn.Module):
     @torch.no_grad()
     def predict(self, x, *, observation_noise=True, state=None):
         state = self.conditioned_state() if state is None else state
-        inside = ((x[:, None] >= self.region_bounds[None, :, 0])
-                  & (x[:, None] < self.region_bounds[None, :, 1])).all(-1)
-        if not bool((inside.sum(-1) == 1).all()):
-            raise ValueError("Each query must belong to exactly one fixed patch")
-        assigned = inside.long().argmax(-1)
+        assigned = self.assign_regions(x)
         mean, variance = x.new_empty(len(x)), x.new_empty(len(x))
         for patch, block in enumerate(state["blocks"]):
             take = (assigned == patch).nonzero().flatten()
@@ -166,3 +181,14 @@ class StandardPatchworkGP(nn.Module):
         if observation_noise:
             variance = variance + self.hyp.noise_std().square()
         return mean, variance
+
+    def assign_regions(self, x):
+        if self.partition == "voronoi":
+            if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x >= 1)).any()):
+                raise ValueError("Queries must lie in the fixed unit-square domain")
+            return (x[:, None] - self.region_centers[None]).square().sum(-1).argmin(1)
+        inside = ((x[:, None] >= self.region_bounds[None, :, 0])
+                  & (x[:, None] < self.region_bounds[None, :, 1])).all(-1)
+        if not bool((inside.sum(-1) == 1).all()):
+            raise ValueError("Each query must belong to exactly one fixed patch")
+        return inside.long().argmax(-1)

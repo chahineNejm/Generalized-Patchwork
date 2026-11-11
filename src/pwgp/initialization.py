@@ -16,13 +16,13 @@ def _numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     return np.asarray(x, dtype=np.float64)
 
 
-def observed_supports(
+def observed_support_indices(
     x: torch.Tensor,
     count: int,
     *,
     seed: int = 0,
 ) -> torch.Tensor:
-    """Sample distinct interior observations for the open-unit-cube parameters."""
+    """Sample row indices of distinct interior observations without replacement."""
     values = _numpy(x)
     if values.ndim != 2 or not np.isfinite(values).all():
         raise ValueError("Observed support inputs must be a finite [N,D] array")
@@ -33,17 +33,22 @@ def observed_supports(
     if not 1 <= count <= len(indices):
         raise ValueError(f"Requested {count} supports from {len(indices)} distinct observed locations inside (0,1)")
     chosen = np.random.default_rng(seed).choice(indices, count, replace=False)
-    return x[torch.as_tensor(chosen, dtype=torch.long, device=x.device)].clone()
+    return torch.as_tensor(chosen, dtype=torch.long, device=x.device)
 
 
-def hierarchical_supports(
+def observed_supports(x: torch.Tensor, count: int, *, seed: int = 0) -> torch.Tensor:
+    """Sample distinct interior observations for the open-unit-cube parameters."""
+    return x[observed_support_indices(x, count, seed=seed)].clone()
+
+
+def hierarchical_initialization(
     x: torch.Tensor,
     patches: int,
     supports_per_patch: int,
     *,
     seed: int = 0,
-) -> torch.Tensor:
-    """Cluster observations into patches, then initialize local supports."""
+) -> dict[str, torch.Tensor]:
+    """Return GPW's initial supports, original row indices and clustering centers."""
     values = _numpy(x)
     if patches < 1 or supports_per_patch < 1:
         raise ValueError("patch and support counts must be positive")
@@ -57,6 +62,7 @@ def hierarchical_supports(
     )
     labels = outer.fit_predict(values)
     groups: list[torch.Tensor] = []
+    selected: list[torch.Tensor] = []
     for patch in range(patches):
         local = values[labels == patch]
         if len(local) < supports_per_patch:
@@ -64,8 +70,17 @@ def hierarchical_supports(
                 f"Patch {patch} has {len(local)} points for {supports_per_patch} supports"
             )
         local_x = torch.as_tensor(local, dtype=x.dtype, device=x.device)
-        groups.append(observed_supports(local_x, supports_per_patch, seed=seed + 100 + patch))
-    return torch.stack(groups)
+        local_indices = observed_support_indices(local_x, supports_per_patch, seed=seed + 100 + patch)
+        groups.append(local_x[local_indices].clone())
+        original_indices = torch.as_tensor(np.flatnonzero(labels == patch), dtype=torch.long, device=x.device)
+        selected.append(original_indices[local_indices])
+    return {"supports": torch.stack(groups), "indices": torch.stack(selected),
+            "centers": torch.as_tensor(outer.cluster_centers_, dtype=x.dtype, device=x.device)}
+
+
+def hierarchical_supports(x: torch.Tensor, patches: int, supports_per_patch: int, *, seed: int = 0) -> torch.Tensor:
+    """Cluster observations into patches, then initialize local supports."""
+    return hierarchical_initialization(x, patches, supports_per_patch, seed=seed)["supports"]
 
 
 def patch_neighbor_graph(

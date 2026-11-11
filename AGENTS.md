@@ -98,9 +98,19 @@ variational precision. The current phase is the algorithm and data foundation.
 - Use `pwgp.linalg.cholesky_solve` for two explicit triangular solves; do not
   restore the native batched POTRS call that fails on some Colab CUDA builds.
 - Standard Patchwork baseline conditions directly on observed noisy targets in
-  fixed rectangular regions and boundary stitch differences, without variational
+  fixed linear-boundary regions and boundary stitch differences, without variational
   inducing variables. Train with the paper's joint likelihood p(Y, Delta_S=0),
   not p(Y | Delta_S=0); values and gradients must match a dense joint reference.
+- OISST Standard Patchwork variants use exactly GPW's initial selected rows and
+  their observed targets, not all observations or GPW's optimized locations.
+  Provide a fixed (longitude, latitude) grid, default (4,2), or clipped Voronoi
+  cells of the initial clustering centers. Preserve every requested region;
+  empty cells raise, never drop/merge cells or substitute points. Resolve the
+  reference from GPW's effective initialization settings, including when GPW is
+  deselected. Save row indices, centers, geometry and fixed training-point plots.
+  GPW still trains on all observations: label these as reduced-data baselines,
+  not equal-information benchmarks. Legacy UKHousing adaptive/all-data settings
+  remain explicit and unchanged.
 - UKHousing is a verified 2018-flats reconstruction, not a verified VNNGP snapshot.
   Preserve this distinction, pinned raw checksums and training-only target scaling.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
