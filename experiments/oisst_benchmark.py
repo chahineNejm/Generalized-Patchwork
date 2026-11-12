@@ -235,6 +235,7 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
             np.savez_compressed(output / "partition.npz", bounds=model.region_bounds.cpu().numpy(),
                 vertices=model.region_vertices.cpu().numpy(), offsets=model.region_offsets.cpu().numpy(),
                 centers=model.region_centers.cpu().numpy(), labels=model.labels.cpu().numpy(),
+                tree=model.partition_tree.cpu().numpy(),
                 stitches=model.stitch_points.cpu().numpy(), coefficients=model.coefficients.cpu().numpy())
             plot_partition(model.train_x.cpu().numpy(), model.labels.cpu().numpy(),
                 model.region_vertices.cpu().numpy(), model.region_offsets.cpu().numpy(),

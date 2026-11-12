@@ -22,6 +22,10 @@ Main comparisons
 - Standard Patchwork Kriging (Park and Apley, 2018)
   Paper: https://jmlr.org/papers/v19/17-042.html
   Author GitHub: not verified. Our rectangular-region implementation is not authors' code.
+  OISST comparison variants: checkerboard 4x2, GPW-initial-center Voronoi,
+  and balanced first-PC tree with 8 regions. All use exactly the same GPW
+  initial selected observations/targets. Tree stitches are seeded uniform draws.
+  These reduced-data baselines do not see all observations used by GPW training.
   
 - ProSpar-GP (Li and Mak, 2025)
   Paper: https://doi.org/10.1080/10618600.2025.2490264

@@ -33,10 +33,12 @@ dependent stages; there is no automatic skipping, retry or checkpoint resumption
 Approved defaults are in `experiments/default_hyperparameters.py`:
 OISST 2025-01-15, ROI (-80,-30,20,50), shared 64/16/20 split, seed 31;
 SVGP 512, GPW 8x64, ProSpar 8x64, VNNGP K32 with all training locations,
-and two Standard Patchwork baselines using GPW's exact 512 initial observed
+and three Standard Patchwork baselines using GPW's exact 512 initial observed
 locations/targets: `Standard Patchwork` uses a 4x2 checkerboard (longitude x
 latitude); `Standard Patchwork (GPW regions)` uses Voronoi cells of GPW's initial
-clustering centers. Each has 5 fixed stitches/shared boundary segment. Empty
+clustering centers; `Standard Patchwork (PC tree)` uses 8 balanced PC-tree leaves.
+Each has 5 fixed stitches/shared boundary segment (uniform random with the run
+seed for the PC tree, evenly spaced for the other two). Empty
 cells raise; no region is dropped and no point is substituted. GPW still learns
 from all training observations: these are reduced-data, not equal-information,
 comparisons. Historical all-data Patchwork results are a different protocol.
@@ -55,19 +57,21 @@ DATA_OVERRIDES = {"save_inducing_positions": True}
 ```
 
 `MODELS` accepts SVGP, GPW, ProSpar, VNNGP, Standard Patchwork and
-Standard Patchwork (GPW regions). Unknown,
+Standard Patchwork (GPW regions), and Standard Patchwork (PC tree). Unknown,
 duplicate or empty selections raise; deselected models are not initialized.
 Overrides for known deselected models may remain in the notebook for later use.
 
 Matched Patchwork controls can be set directly in the notebook:
 
 ```python
-MODELS = ["GPW", "Standard Patchwork", "Standard Patchwork (GPW regions)"]
+MODELS = ["GPW", "Standard Patchwork", "Standard Patchwork (GPW regions)",
+          "Standard Patchwork (PC tree)"]
 OVERRIDES = {
     "GPW": {"inducing_points": 512, "patches": 8},
     "Standard Patchwork": {"exact_grid_shape": (4, 2), "exact_stitches_per_edge": 5,
                            "epochs": 100, "exact_learning_rate": 0.01},
     "Standard Patchwork (GPW regions)": {"exact_stitches_per_edge": 5, "epochs": 100},
+    "Standard Patchwork (PC tree)": {"exact_tree_patches": 8, "exact_stitches_per_edge": 5},
 }
 ```
 
@@ -77,6 +81,9 @@ only to the legacy adaptive partition, not fixed grids/Voronoi cells. Selected
 rows and observed targets are in `training_points.npz`; boundaries/labels and
 stitches are in `partition.npz`, with `visuals/partition.png`. GPW's matching
 initial supports, centers and row indices are in `initialization.npz`.
+The tree requires a power-of-two `exact_tree_patches` and equal point counts
+per leaf. Indivisible budgets and tied central projections raise; no implicit
+rounding or point removal. Saved `partition.npz` includes the fixed routing tree.
 
 No override changes the defaults file. To override ProSpar settings, provide a
 complete dictionary of `ProSparConfig` fields through that model's `prospar`

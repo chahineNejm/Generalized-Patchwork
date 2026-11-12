@@ -104,7 +104,11 @@ variational precision. The current phase is the algorithm and data foundation.
 - OISST Standard Patchwork variants use exactly GPW's initial selected rows and
   their observed targets, not all observations or GPW's optimized locations.
   Provide a fixed (longitude, latitude) grid, default (4,2), or clipped Voronoi
-  cells of the initial clustering centers. Preserve every requested region;
+  cells of the initial clustering centers, or an 8-region balanced PC tree.
+  PC-tree splits use the first local PC and equal observation counts, with
+  seeded uniform stitches on shared leaf boundaries. Require power-of-two
+  region counts and divisible budgets; unsplittable projections raise. Save
+  fixed tree routing with the geometry. Preserve every requested region;
   empty cells raise, never drop/merge cells or substitute points. Resolve the
   reference from GPW's effective initialization settings, including when GPW is
   deselected. Save row indices, centers, geometry and fixed training-point plots.

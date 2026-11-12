@@ -57,6 +57,7 @@ class UKConfig:
     exact_stitches_per_edge: int = 2
     exact_partition: str = "adaptive"
     exact_grid_shape: tuple[int, int] | None = None
+    exact_tree_patches: int | None = None
     exact_training_points: str = "all"
     exact_gpw_reference: dict[str, int] | None = None
     batch_size: int = 1024
@@ -183,7 +184,8 @@ def build_model(config, split):
         model = StandardPatchworkGP(x.to(device), y.to(device),
             maximum_points=config.exact_maximum_points, stitches_per_edge=config.exact_stitches_per_edge,
             partition="voronoi" if config.exact_partition == "gpw_voronoi" else config.exact_partition,
-            grid_shape=config.exact_grid_shape, centers=centers, jitter=numerical.prior_jitter, **options)
+            grid_shape=config.exact_grid_shape, centers=centers, tree_patches=config.exact_tree_patches,
+            seed=config.seed, jitter=numerical.prior_jitter, **options)
         model.register_buffer("source_training_indices", torch.as_tensor(split["train"][rows.numpy()], device=device))
         if config.exact_training_points == "gpw_initial":
             model.register_buffer("reference_supports", initial["supports"].to(device))

@@ -9,7 +9,7 @@ from experiments.run_selection import select_runs
 from experiments.ukhousing_benchmark import build_model
 from pwgp.initialization import hierarchical_initialization, hierarchical_supports
 from pwgp.models.standard_patchwork import StandardPatchworkGP
-from pwgp.partitions import checkerboard_partition, voronoi_partition
+from pwgp.partitions import checkerboard_partition, pc_tree_partition, voronoi_partition
 
 
 @pytest.fixture
@@ -19,7 +19,8 @@ def comparison():
     y = torch.sin(8 * x[:, 0]) + torch.cos(6 * x[:, 1])
     split = {"x": x, "y": y, "train": np.arange(len(x))}
     _, runs = oisst_defaults(device="cpu")
-    selected = select_runs(runs, models=["GPW", "Standard Patchwork", "Standard Patchwork (GPW regions)"],
+    selected = select_runs(runs, models=["GPW", "Standard Patchwork", "Standard Patchwork (GPW regions)",
+                                       "Standard Patchwork (PC tree)"],
         overrides={"GPW": {"inducing_points": 64, "patches": 4, "patch_neighbors": 1,
                            "q_rank": 4, "stitches_per_edge": 2},
                    "Standard Patchwork": {"exact_stitches_per_edge": 2, "exact_maximum_points": 2},
@@ -49,9 +50,12 @@ def test_both_baselines_use_exact_gpw_initial_locations_and_targets(comparison):
         if config.exact_partition == "grid":
             assert model.patches == 8
             assert torch.bincount(model.labels).max() > config.exact_maximum_points
-        else:
+        elif config.exact_partition == "gpw_voronoi":
             torch.testing.assert_close(model.region_centers, gpw.initial_cluster_centers)
             torch.testing.assert_close(model.labels, torch.arange(4).repeat_interleave(16))
+        else:
+            assert model.patches == 8
+            torch.testing.assert_close(torch.bincount(model.labels), torch.full((8,), 8))
         before = model.train_x.clone()
         with torch.no_grad():
             gpw.support.raw.add_(0.1)
@@ -117,13 +121,66 @@ def test_voronoi_stitches_on_shared_linear_edges():
         assert ((point > 0) & (point < 1)).all()
 
 
-@pytest.mark.parametrize("partition", ["grid", "voronoi"])
+def test_pc_tree_balances_oblique_regions_and_preserves_all_points():
+    rng = np.random.default_rng(17)
+    axes = rng.uniform([-0.35, -0.04], [0.35, 0.04], size=(128, 2))
+    angle = np.pi / 6
+    rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+    x = 0.5 + axes @ rotation.T
+    labels, _, points, edges, polygons, tree = pc_tree_partition(x, patches=8, stitches_per_edge=5, seed=31)
+    np.testing.assert_array_equal(np.bincount(labels), np.full(8, 16))
+    assert tree.shape == (15, 6) and np.abs(tree[0, :2]).min() > 0.2
+    assert len(points) == 5 * len(set(edges))
+    areas = []
+    for polygon in polygons:
+        areas.append(0.5 * np.abs(np.sum(polygon[:, 0] * np.roll(polygon[:, 1], -1)
+                                            - polygon[:, 1] * np.roll(polygon[:, 0], -1))))
+    assert sum(areas) == pytest.approx(1)
+    for point, (i, j) in zip(points, edges, strict=True):
+        for patch in (i, j):
+            vertices = polygons[patch]
+            sides = np.roll(vertices, -1, axis=0) - vertices
+            delta = point - vertices
+            cross = sides[:, 0] * delta[:, 1] - sides[:, 1] * delta[:, 0]
+            assert cross.min() >= -1e-12 and np.abs(cross).min() < 1e-12
+    a = pc_tree_partition(x, patches=8, stitches_per_edge=5, seed=31)
+    b = pc_tree_partition(x, patches=8, stitches_per_edge=5, seed=32)
+    np.testing.assert_array_equal(a[2], points)
+    np.testing.assert_array_equal(b[0], labels)
+    assert not np.array_equal(b[2], points)
+    tx = torch.tensor(x, dtype=torch.float64)
+    model = StandardPatchworkGP(tx, tx[:, 0], partition="pc_tree", tree_patches=8, seed=31)
+    torch.testing.assert_close(model.assign_regions(tx), model.labels)
+    root = model.partition_tree[0]
+    at_cut = (root[:2] * root[2])[None]
+    if bool(((at_cut >= 0) & (at_cut < 1)).all()):
+        assert model.assign_regions(at_cut).item() < 4
+
+
+@pytest.mark.parametrize("patches,count,message", [
+    (3, 24, "power of two"), (8, 30, "divide evenly"), (8, 4, "divide evenly")])
+def test_pc_tree_rejects_invalid_balanced_budgets(patches, count, message):
+    x = np.random.default_rng(19).uniform(0.05, 0.95, size=(count, 2))
+    with pytest.raises(ValueError, match=message):
+        pc_tree_partition(x, patches=patches, stitches_per_edge=2, seed=31)
+
+
+def test_pc_tree_unsplittable_projections_raise():
+    with pytest.raises(ValueError, match="zero input variance"):
+        pc_tree_partition(np.full((8, 2), 0.5), patches=2, stitches_per_edge=2, seed=31)
+    x = np.array([[0.1, 0.5], [0.5, 0.5], [0.5, 0.5], [0.9, 0.5]])
+    with pytest.raises(ValueError, match="projection ties"):
+        pc_tree_partition(x, patches=2, stitches_per_edge=2, seed=31)
+
+
+@pytest.mark.parametrize("partition", ["grid", "voronoi", "pc_tree"])
 def test_fixed_partition_joint_likelihood_gradients_and_prediction_match_dense(partition):
     torch.manual_seed(8)
     x = 0.05 + 0.9 * torch.rand(20, 2, dtype=torch.float64)
     y = torch.sin(8 * x[:, 0])
     model = StandardPatchworkGP(x, y, partition=partition, grid_shape=(2, 1),
-        centers=None if partition == "grid" else np.array([[0.25, 0.4], [0.75, 0.6]]), stitches_per_edge=2)
+        centers=np.array([[0.25, 0.4], [0.75, 0.6]]) if partition == "voronoi" else None,
+        tree_patches=2, seed=31, stitches_per_edge=2)
     n, q = len(x), len(model.stitch_points)
     ky = (model.hyp.noise_std().square() + model.jitter) * torch.eye(n, dtype=x.dtype)
     g, b = model.jitter * torch.eye(q, dtype=x.dtype), x.new_zeros(n, q)

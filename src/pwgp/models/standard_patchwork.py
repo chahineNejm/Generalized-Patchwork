@@ -11,7 +11,7 @@ from torch import nn
 from pwgp.config import DEFAULT_HYPERPARAMETER_BOUNDS
 from pwgp.linalg import cholesky_solve
 from pwgp.parameters import LocalARDHyperparameters
-from pwgp.partitions import checkerboard_partition, voronoi_partition
+from pwgp.partitions import checkerboard_partition, pc_tree_partition, voronoi_partition
 
 
 def rectangular_partition(x: np.ndarray, *, maximum_points: int, stitches_per_edge: int):
@@ -71,9 +71,10 @@ class StandardPatchworkGP(nn.Module):
 
     def __init__(self, x, y, *, maximum_points=512, stitches_per_edge=2,
                  lengthscale=0.1, outputscale=1.0, noise_std=0.1, jitter=1e-4,
-                 partition="adaptive", grid_shape=None, centers=None):
+                 partition="adaptive", grid_shape=None, centers=None, tree_patches=None, seed=0):
         super().__init__()
         values = x.detach().cpu().numpy()
+        tree = np.empty((0, 6))
         if partition == "adaptive":
             labels, bounds, points, edges = rectangular_partition(values, maximum_points=maximum_points,
                                                                  stitches_per_edge=stitches_per_edge)
@@ -84,6 +85,9 @@ class StandardPatchworkGP(nn.Module):
         elif partition == "voronoi":
             labels, bounds, points, edges, polygons = voronoi_partition(
                 values, centers=centers, stitches_per_edge=stitches_per_edge)
+        elif partition == "pc_tree":
+            labels, bounds, points, edges, polygons, tree = pc_tree_partition(
+                values, patches=tree_patches, stitches_per_edge=stitches_per_edge, seed=seed)
         else:
             raise ValueError(f"Unknown Standard Patchwork partition: {partition}")
         self.patches = len(bounds)
@@ -96,6 +100,7 @@ class StandardPatchworkGP(nn.Module):
         self.register_buffer("train_y", y.clone())
         self.register_buffer("labels", torch.as_tensor(labels, device=x.device))
         self.register_buffer("region_bounds", torch.as_tensor(bounds, dtype=x.dtype, device=x.device))
+        self.register_buffer("partition_tree", torch.as_tensor(tree, dtype=x.dtype, device=x.device))
         self.register_buffer("region_centers", x.new_empty(0, 2) if centers is None else torch.as_tensor(
             centers, dtype=x.dtype, device=x.device))
         self.register_buffer("region_vertices", torch.as_tensor(np.vstack(polygons), dtype=x.dtype, device=x.device))
@@ -183,6 +188,15 @@ class StandardPatchworkGP(nn.Module):
         return mean, variance
 
     def assign_regions(self, x):
+        if self.partition == "pc_tree":
+            if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x >= 1)).any()):
+                raise ValueError("Queries must lie in the fixed unit-square domain")
+            indices = torch.zeros(len(x), dtype=torch.long, device=x.device)
+            for _ in range(self.patches.bit_length() - 1):
+                node = self.partition_tree[indices]
+                left = (x * node[:, :2]).sum(-1) <= node[:, 2]
+                indices = torch.where(left, node[:, 3], node[:, 4]).long()
+            return self.partition_tree[indices, 5].long()
         if self.partition == "voronoi":
             if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x >= 1)).any()):
                 raise ValueError("Queries must lie in the fixed unit-square domain")

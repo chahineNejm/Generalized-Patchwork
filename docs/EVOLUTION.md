@@ -1,5 +1,31 @@
 # Evolution Log
 
+## 2026-11-12 - Balanced PC-tree Standard Patchwork
+
+- User approved an additional 8-patch PC-tree baseline following the paper's
+  spatial partition, alongside checkerboard and initial-GPW-center Voronoi.
+  All three retain exactly the same selected observations and observed targets.
+- Split each region along its first local PC, at the midpoint between the two
+  central projections, into equal-count children. Keep the full tree fixed.
+  Require a power-of-two patch count and a divisible observation budget; ties
+  preventing a geometric equal-count split raise, never round/drop/substitute.
+- Use the existing stitch budget per shared final-region boundary, drawn
+  uniformly with the declared experiment seed, as in the paper. Preserve
+  existing evenly spaced grid/Voronoi stitches and all likelihood/kernel settings.
+- Save tree routing alongside polygons, labels, stitches and source row indices.
+  Existing UKHousing adaptive/all-data settings remain unchanged.
+- Verification: all 177 tests pass, including balanced oblique geometry, seeded
+  stitch reproducibility, fixed routing, preserved source rows, invalid-budget
+  errors, dense joint-likelihood values/gradients and conditional predictions.
+  The seven-configuration runner saves/reanalyzes geometry. A 512-point preview
+  confirms eight regions of 64 points. Ruff, compileall and whitespace pass;
+  four dependency warnings remain. No real-data training or Colab GPU run.
+- Consolidated the local planning workbook into five experiment families, keeping
+  per-dataset readiness separate. List checkerboard, GPW-center Voronoi and PC
+  tree together wherever Standard Patchwork is proposed. Existing hyperparameter
+  cells/overrides and unrelated sheets preserved; visuals and XLSX integrity
+  checked. Generated workbook stays outside Git.
+
 ## 2026-11-12 - In-place OISST history display
 
 - User requested updating the training-history plot instead of appending it at

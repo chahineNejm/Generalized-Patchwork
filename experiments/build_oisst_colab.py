@@ -30,6 +30,8 @@ def build_notebook(root, *, preserve_settings=False):
         clustering centers. Both keep their regions/stitches fixed. GPW still
         learns from all training observations, so these are reduced-data baselines.
         Empty cells raise. Saved partition figures and row indices verify the setup.
+        A third baseline, Standard Patchwork (PC tree), uses 8 balanced regions
+        split along local principal components, with seeded uniform boundary stitches.
         """),
         cell("markdown", "## 1. Load code and dependencies"),
         cell("code", github_bootstrap("/content/gpw_oisst", isolated=True), stage="checkout",
@@ -49,7 +51,7 @@ def call_worker(action, *, on_event=None, **values):
         from IPython.display import Image, display
         from google.colab import files
         import pandas as pd
-        MODELS = ["SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork", "Standard Patchwork (GPW regions)"]
+        MODELS = ["SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork", "Standard Patchwork (GPW regions)", "Standard Patchwork (PC tree)"]
         # Point budgets come from GPW; grid shape and stitches are baseline-specific.
         # Example: {"GPW": {"inducing_points": 512, "patches": 8},
         # "Standard Patchwork": {"exact_grid_shape": (4, 2), "exact_stitches_per_edge": 5}}.
@@ -215,6 +217,9 @@ def call_worker(action, *, on_event=None, **values):
         if "MODELS" in saved_values and ast.literal_eval(saved_values["MODELS"]) == [
                 "SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork"]:
             saved_values["MODELS"].elts.append(ast.Constant("Standard Patchwork (GPW regions)"))
+        if "MODELS" in saved_values and ast.literal_eval(saved_values["MODELS"]) == [
+                "SVGP", "GPW", "ProSpar", "VNNGP", "Standard Patchwork", "Standard Patchwork (GPW regions)"]:
+            saved_values["MODELS"].elts.append(ast.Constant("Standard Patchwork (PC tree)"))
         for new_cell in cells:
             if new_cell["cell_type"] == "code":
                 tree = ast.parse("".join(new_cell["source"]))

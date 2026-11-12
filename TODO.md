@@ -42,6 +42,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Add approved 8-region balanced PC-tree Standard Patchwork with the same
+  GPW initial observations, seeded uniform stitches, saved tree and dense tests.
 - [x] Match Standard Patchwork equation (8) joint-likelihood training; dense
   objective/gradient checks pass. Retain separate regional kernels as approved.
 - [x] Preserve the Colab-saved OISST notebook in results/notebook_backups before

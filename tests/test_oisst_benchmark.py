@@ -23,7 +23,7 @@ def example_split(config):
 def test_approved_defaults_and_explicit_overrides():
     data, runs = oisst_defaults(device="cpu")
     assert data.bounds == (-80, -30, 20, 50) and data.seed == 31
-    assert [config.model for _, config in runs] == ["svgp", "gpw", "prospar", "vnngp", "patchwork", "patchwork"]
+    assert [config.model for _, config in runs] == ["svgp", "gpw", "prospar", "vnngp", "patchwork", "patchwork", "patchwork"]
     for _, config in runs:
         assert (config.epochs, config.warmup_epochs, config.inducing_points) == (100, 20, 512)
     prospar = runs[2][1].prospar
@@ -60,7 +60,7 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
                           inducing_points=8, patches=2,
                           q_rank=2, patch_neighbors=1, stitches_per_edge=2, vnngp_neighbors=4,
                           vnngp_batch_size=16, exact_maximum_points=16, exact_stitches_per_edge=2,
-                          exact_grid_shape=(2, 1),
+                          exact_grid_shape=(2, 1), exact_tree_patches=2,
                           batch_size=32, snapshot_every=2, prediction_batch_size=8)) for name, config in runs]
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w") as source:
@@ -69,7 +69,7 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
     result = benchmark.run_comparison(data, runs, directory=tmp_path / "run", data_root=tmp_path,
         source_provenance={"mode": "fixture", "commit": "test"}, source_zip=stream.getvalue(),
         on_complete=lambda path, archive, metrics: completed.append((path, archive, metrics)))
-    assert len(completed) == 6 and all(ref() is None for ref in references)
+    assert len(completed) == 7 and all(ref() is None for ref in references)
     assert json.loads((result / "status.json").read_text())["state"] == "complete"
     assert json.loads((result / "exploratory/summary.json").read_text())["observations"] == 100
     for (name, config), (path, archive, metrics) in zip(runs, completed, strict=True):
@@ -91,6 +91,9 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
             metadata = json.loads((path / "model_metadata.json").read_text())
             assert metadata["training_observations_used"] == 8
             assert (path / "visuals/partition.png").is_file()
+            if config.exact_partition == "pc_tree":
+                with np.load(path / "partition.npz") as geometry:
+                    assert geometry["tree"].shape == (3, 6)
             with np.load(path / "training_points.npz") as selected, np.load(
                     completed[1][0] / "initialization.npz") as initial:
                 np.testing.assert_array_equal(selected["indices"], initial["indices"].ravel())

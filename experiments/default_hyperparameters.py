@@ -29,7 +29,9 @@ def oisst_defaults(*, device="cuda:0"):
             ("Standard Patchwork", replace(common, model="patchwork", exact_training_points="gpw_initial",
                 exact_partition="grid", exact_grid_shape=(4, 2))),
             ("Standard Patchwork (GPW regions)", replace(common, model="patchwork", exact_training_points="gpw_initial",
-                exact_partition="gpw_voronoi"))]
+                exact_partition="gpw_voronoi")),
+            ("Standard Patchwork (PC tree)", replace(common, model="patchwork", exact_training_points="gpw_initial",
+                exact_partition="pc_tree", exact_tree_patches=8))]
     return OISSTConfig(day="2025-01-15", bounds=(-80.0, -30.0, 20.0, 50.0),
                        seed=31, train_fraction=0.64, validation_fraction=0.16,
                        save_inducing_positions=True), runs
