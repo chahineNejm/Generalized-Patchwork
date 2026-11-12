@@ -24,13 +24,16 @@ The catalog contains 22 configurations: OISST, UKHousing, MODIS, California,
 TCO, TCO.L2, ICETHICK, PROTEIN, SARCOS, FLIGHT, and six configurations each of
 Michalewicz and G-function. Precipitation and satellite drag are explicitly deferred.
 The notebook prints all effective settings before training. `RUN_TRAINING=False`
-blocks training until explicitly enabled. All presets together mean 179 model
-runs: start by selecting a small subset, not by enabling the entire catalog.
-FLIGHT has 5.9 million rows; even a short VNNGP run must build its full graph.
+blocks training until explicitly enabled. The notebook now excludes VNNGP with
+`EXCLUDED_MODEL_TYPES=["vnngp"]` and places FLIGHT last: 137 model runs. The full
+catalog still offers all 179 configurations when explicitly selected. Exclusions
+are saved in the plan; conflicting explicit model selections raise.
+FLIGHT has 5.9 million rows and remains expensive without VNNGP.
 
 ```python
 DATASETS = ["california"]
 MODELS_BY_DATASET = {"california": ["SVGP", "GPW"]}
+EXCLUDED_MODEL_TYPES = ["vnngp"]
 EPOCHS = 3
 WARMUP_EPOCHS = 1
 MODEL_OVERRIDES = {"california": {"GPW": {"learning_rate_structure": 0.001}}}
@@ -60,6 +63,10 @@ initial/final checkpoints, histories, optional inducing trajectories, worker log
 per-completed-run ZIPs and a final collection ZIP. Save a Kaggle version with
 outputs to retain these after the session. No training has been run on Kaggle
 as part of local verification.
+Each completed model's metrics, comparison table and ZIP are saved before the
+next model starts; its download link appears immediately. A later failure does
+not remove them. Download completed archives during the run: writing to the
+session's working directory alone is not an external backup against session loss.
 
 ## OISST Comparison
 

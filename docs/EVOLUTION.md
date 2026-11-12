@@ -1,5 +1,25 @@
 # Evolution Log
 
+## 2026-11-12 - No-VNNGP batch with FLIGHT last
+
+- User requested all datasets/models except VNNGP, with FLIGHT last, and saving
+  completed results before GPU time expires. User approved commit/push after checks.
+- Notebook explicitly sets excluded_model_types=[vnngp], keeps all 22 datasets,
+  moves FLIGHT after the synthetic designs, and selects 137 model configurations.
+  The 3/1 schedule and all retained model/data settings are unchanged. The full
+  179-run catalog remains available; exclusions are saved in the signed plan.
+  Unknown/duplicate exclusions and conflicting explicit model selections raise.
+- Preserve sequential per-model metrics, comparison tables and completed ZIPs
+  before the next model. Add immediate archive download links. No silent skip,
+  checkpoint resume, external upload or persistent-storage guarantee is added.
+  Session-local archives must be downloaded/exported to protect against loss
+  of the session filesystem. Use the user's confirmed Kaggle input mount path.
+- Verification: all22 launcher tests pass, including exclusion/order/config
+  identity, notebook regeneration, fresh-worker compatibility and preservation
+  of first-run ZIP/metrics after a deliberate second-model failure. Compileall,
+  Ruff and whitespace checks pass. No model equations changed; no real
+  benchmarks are launched locally.
+
 ## 2026-11-12 - Approved multi-dataset Kaggle comparison
 
 - All remaining choices were explicitly approved: new-data 80/20, seed31,

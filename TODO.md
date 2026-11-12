@@ -46,6 +46,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Kaggle default selection excludes VNNGP, puts FLIGHT last and exposes
+  per-completion ZIP download links; verify saved results survive later failures.
 - [x] Multi-dataset Kaggle notebook: explicit selections/overrides, 3/1 schedule,
   reviewed training gate, full outputs and archives. All 22 configurations and
   source/preprocessing/capacity choices approved; all 227 tests pass locally.

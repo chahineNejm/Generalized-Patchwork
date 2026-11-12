@@ -58,6 +58,11 @@ def make_plan(request):
     for key in ("models", "model_overrides", "data_overrides"):
         if set(request[key]) - data.keys():
             raise ValueError(f"{key} contains unknown dataset names")
+    excluded = request.get("excluded_model_types", [])
+    known_types = {config.model for runs in defaults.values() for _, config in runs}
+    if (not isinstance(excluded, list) or any(not isinstance(value, str) for value in excluded)
+            or len(set(excluded)) != len(excluded) or set(excluded) - known_types):
+        raise ValueError("excluded_model_types must list distinct known model types")
     epochs, warmup = request["epochs"], request["warmup_epochs"]
     if (not isinstance(epochs, int) or isinstance(epochs, bool) or epochs < 1
             or not isinstance(warmup, int) or isinstance(warmup, bool) or warmup < 0):
@@ -71,10 +76,13 @@ def make_plan(request):
             raise ValueError("Dataset overrides cannot relabel a source or change its verified feature schema")
         specs.append(asdict(spec))
         available = [(label, replace(config, epochs=epochs, warmup_epochs=warmup)) for label, config in defaults[name]]
-        models = request["models"][name] if name in request["models"] else [label for label, _ in available]
+        models = request["models"][name] if name in request["models"] else [
+            label for label, config in available if config.model not in excluded]
         overrides = request["model_overrides"].get(name, {})
         chosen = select_runs(available, models=models, overrides=overrides)
         for label, config in chosen:
+            if config.model in excluded:
+                raise ValueError(f"{name}/{label}: explicitly selected model conflicts with excluded_model_types")
             if (type(config.epochs) is not int or config.epochs < 1
                     or type(config.warmup_epochs) is not int or config.warmup_epochs < 0):
                 raise ValueError(f"{name}/{label}: epochs/warm-up must be positive/nonnegative integers")
@@ -93,7 +101,7 @@ def make_plan(request):
                 "training_points": "GPW initial subset" if config.model == "patchwork" else "all",
                 "prospar_paper_points": 5000 if config.model == "prospar" else None})
     plan = {"data": specs, "runs": runs, "save_inducing_positions": request["save_inducing_positions"],
-            "deferred": deferred}
+            "excluded_model_types": excluded, "deferred": deferred}
     return {"plan": plan, "plan_sha256": plan_hash(plan), "summary": summary,
             "total_runs": len(runs), "total_epochs": sum(row["config"]["epochs"] for row in runs),
             "available": {name: [label for label, _ in values] for name, values in defaults.items()}}

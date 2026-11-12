@@ -8,9 +8,10 @@ from experiments.colab_source import github_bootstrap, source_metadata
 
 
 def build_notebook(root):
-    datasets = ["oisst", "ukhousing", "modis", "california", "tco", "tco_l2", "icethick", "protein", "sarcos", "flight"]
+    datasets = ["oisst", "ukhousing", "modis", "california", "tco", "tco_l2", "icethick", "protein", "sarcos"]
     datasets.extend(f"{name}_d{dimension}_n{count}" for name in ("michalewicz", "g_function")
                     for dimension in (3, 5, 10) for count in (50000, 100000))
+    datasets.append("flight")
     cells = [
         cell("markdown", """
         # GPW multi-dataset experiments: Kaggle
@@ -29,15 +30,16 @@ def build_notebook(root):
 
         All 22 dataset configurations are listed initially. Training is OFF until
         RUN_TRAINING=True. Review the complete plan first: all presets together
-        currently mean 179 model runs. Three epochs do not make graph construction
-        or large inducing systems cheap. VNNGP uses every training location.
+        currently mean 137 model runs, excluding VNNGP. FLIGHT runs last.
+        Three epochs do not make large inducing systems cheap. VNNGP presets
+        remain available but are explicitly excluded by EXCLUDED_MODEL_TYPES.
         Select a small explicit DATASETS/MODELS subset for your first check.
         No point budget, dataset size, device or numerical value is reduced silently.
 
         New real and synthetic protocols use seeded 80/20; existing OISST/UKHousing
         protocols and official MODIS split/training-only detrending are retained.
         All models keep their approved ARD RBF/initialization/optimizer settings.
-        VNNGP compares K32/K128. Standard Patchwork uses all input dimensions and
+        Optional VNNGP presets compare K32/K128. Standard Patchwork uses all input dimensions and
         paper-style balanced PC trees; the 2D datasets also expose checkerboard
         and initial-GPW-center Voronoi variants where configured. Reduced-data
         Standard Patchwork uses exactly the primary GPW initial selected targets,
@@ -60,6 +62,10 @@ def build_notebook(root):
         Metrics include both explicitly labeled standardized and original-target
         scales; do not compare values with different units as the same metric.
         High-dimensional location plots are labeled two-feature projections.
+        Each completed model is saved and archived before the next starts, with
+        a download link displayed immediately. Completed archives survive a later
+        model failure within the session; download them before session storage is
+        lost. This does not create an external backup automatically.
         Save a Kaggle version with outputs to retain them beyond the session.
         """),
         cell("markdown", "## 1. Latest source and dependencies"),
@@ -81,7 +87,9 @@ def call_worker(action, *, on_event=None, **values):
 
         Edit DATASETS to choose/order datasets. MODELS_BY_DATASET selects/orders
         model names shown in AVAILABLE_MODELS; an absent entry means the complete
-        explicitly displayed preset for that dataset. Unknown names raise.
+        displayed preset minus EXCLUDED_MODEL_TYPES. VNNGP is excluded by default;
+        an explicit selection conflicting with an exclusion raises.
+        Unknown names raise.
         MODEL_OVERRIDES is {dataset: {model_name: {field: value}}}.
         DATA_OVERRIDES is {dataset: {field: value}}; no source/schema relabeling.
 
@@ -91,11 +99,12 @@ def call_worker(action, *, on_event=None, **values):
         warm-up shrinking occurs. Rerunning training always starts fresh.
         """),
         cell("code", f'''from datetime import UTC, datetime
-from IPython.display import Image, Markdown, display
+from IPython.display import FileLink, Image, Markdown, display
 import pandas as pd
 
-INPUT_ROOT = "/kaggle/input/gpw-kaggle-inputs"
+INPUT_ROOT = "/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs"
 DATASETS = {datasets!r}
+EXCLUDED_MODEL_TYPES = ["vnngp"]
 MODELS_BY_DATASET = {{}}
 MODEL_OVERRIDES = {{}}
 DATA_OVERRIDES = {{}}
@@ -104,6 +113,7 @@ WARMUP_EPOCHS = 1
 SAVE_INDUCING_POSITIONS = True
 
 settings = call_worker("settings", device="cuda:0", input_root=INPUT_ROOT, datasets=DATASETS,
+    excluded_model_types=EXCLUDED_MODEL_TYPES,
     models=MODELS_BY_DATASET, model_overrides=MODEL_OVERRIDES, data_overrides=DATA_OVERRIDES,
     epochs=EPOCHS, warmup_epochs=WARMUP_EPOCHS, save_inducing_positions=SAVE_INDUCING_POSITIONS)
 PLAN, PLAN_SHA256 = settings["plan"], settings["plan_sha256"]
@@ -176,6 +186,7 @@ def show_event(event):
         if metadata["inducing_positions_saved"]:
             display(Image(filename=str(path / "visuals/inducing_positions.png")))
         print("Saved completed-run archive:", event["archive"])
+        display(FileLink(event["archive"]))
     else:
         raise ValueError(f"Unknown worker event: {event['kind']}")
 

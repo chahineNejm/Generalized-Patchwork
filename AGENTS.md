@@ -130,6 +130,10 @@ variational precision. The current phase is the algorithm and data foundation.
   the complete finite plan, and defaults to 3 epochs / 1 warm-up. It uses fresh
   workers, explicit selection/overrides, immutable prepared-data reuse, per-run
   archives and a collection archive under /kaggle/working/gpw_results.
+  The current notebook excludes VNNGP explicitly and runs FLIGHT last; keep all
+  catalog presets available and reject conflicting selections. Archive and save
+  summary metrics after each completed model, before starting the next, with an
+  immediate download link. Session-local files are not an external backup.
   New real/synthetic datasets use approved seed31, 80/20, all-row input min-max
   scaling and training-only target statistics. Existing geographic protocols
   remain unchanged. Precipitation and satellite drag are explicitly deferred.

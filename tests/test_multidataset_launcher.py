@@ -47,6 +47,20 @@ def test_catalog_all_approved_capacities_and_schedules():
     assert {c.inducing_points for _, c in runs["california"]} == {512}
 
 
+def test_no_vnngp_all_datasets_flight_last_preserves_other_configs():
+    data, _, _ = multidataset_defaults(device="cpu", input_root="manual")
+    datasets = [name for name in data if name != "flight"] + ["flight"]
+    complete = worker.make_plan(request(datasets=datasets))["plan"]
+    result = worker.make_plan(request(datasets=datasets, excluded_model_types=["vnngp"]))
+    assert result["total_runs"] == 137 and result["total_epochs"] == 411
+    assert result["plan"]["data"][-1]["name"] == "flight"
+    assert result["plan"]["excluded_model_types"] == ["vnngp"]
+    assert result["plan"]["runs"] == [r for r in complete["runs"] if r["config"]["model"] != "vnngp"]
+    assert result["plan"]["runs"][-1]["dataset"] == "flight"
+    with pytest.raises(ValueError, match="conflicts"):
+        worker.make_plan(request(excluded_model_types=["vnngp"], models={"california": ["VNNGP K32"]}))
+
+
 @pytest.mark.parametrize("change,match", [
     ({"datasets": ["precipitation"]}, "deferred"),
     ({"datasets": []}, "nonempty"),
@@ -57,6 +71,9 @@ def test_catalog_all_approved_capacities_and_schedules():
     ({"models": {"california": ["not a model"]}}, "Unknown"),
     ({"data_overrides": {"california": {"dimension": 2}}}, "schema"),
     ({"model_overrides": {"california": {"SVGP": {"epochs": 2.5}}}}, "integers"),
+    ({"excluded_model_types": ["unknown"]}, "known model types"),
+    ({"excluded_model_types": "vnngp"}, "known model types"),
+    ({"excluded_model_types": ["vnngp", "vnngp"]}, "distinct"),
 ])
 def test_invalid_plans_do_not_substitute_values(change, match):
     with pytest.raises((ValueError, TypeError, KeyError), match=match):
@@ -125,6 +142,13 @@ def test_notebook_reproducible_no_model_code_and_training_gated(tmp_path):
     assert "RUN_TRAINING = False" in code and "live.update(Image" in code
     assert "EPOCHS = 3" in code and "WARMUP_EPOCHS = 1" in code
     assert "_OISST_STAGES" in code and "class " not in code
+    settings = next("".join(c["source"]) for c in notebook["cells"] if
+                    c["cell_type"] == "code" and "EXCLUDED_MODEL_TYPES =" in "".join(c["source"]))
+    assignments = {n.targets[0].id: n.value for n in ast.walk(ast.parse(settings))
+                   if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)}
+    assert ast.literal_eval(assignments["DATASETS"])[-1] == "flight"
+    assert ast.literal_eval(assignments["EXCLUDED_MODEL_TYPES"]) == ["vnngp"]
+    assert 'display(FileLink(event["archive"]))' in code
 
 
 def test_settings_in_fresh_worker_without_reconnect(github_checkout, tmp_path):
@@ -181,3 +205,25 @@ def test_short_pipeline_archives_and_loud_failure(tmp_path, monkeypatch):
         worker.execute({**train, "execute_training": True, "directory": str(tmp_path / "failed")})
     assert calls == [1]
     assert "deliberate failure" in (tmp_path / "failed/failure.json").read_text()
+
+    def complete_then_fail(*args, **kwargs):
+        import shutil
+
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError("second model failed")
+        shutil.copytree(tmp_path / "batch/tiny/run_00", kwargs["directory"])
+        return kwargs["directory"]
+
+    calls.clear()
+    monkeypatch.setattr(worker, "run_model", complete_then_fail)
+    partial = tmp_path / "partial"
+    with pytest.raises(RuntimeError, match="second model"):
+        worker.execute({**train, "execute_training": True, "directory": str(partial)})
+    assert len(calls) == 2
+    with zipfile.ZipFile(partial / "tiny_run_00.zip") as archive:
+        assert "run_00/metrics.json" in archive.namelist()
+    import pandas as pd
+
+    assert len(pd.read_csv(partial / "comparison.csv")) == 1
+    assert json.loads((partial / "status.json").read_text())["state"] == "failed"
