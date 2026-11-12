@@ -98,15 +98,15 @@ def call_worker(action, *, on_event=None, **values):
         """),
         cell("code", """
         live = display("Starting OISST comparison...", display_id=True)
+        history = display("Training history...", display_id=True)
 
         def show_progress(path, epoch):
             live.update(Image(filename=str(path / "visuals/progress.png")))
-            display(Image(filename=str(path / "visuals/training.png")))
+            history.update(Image(filename=str(path / "visuals/training.png")))
 
         def show_completed(path, archive, metrics):
             display(pd.DataFrame([metrics]).T)
             display(Image(filename=str(path / "visuals/maps.png")))
-            display(Image(filename=str(path / "visuals/metrics.png")))
             display(Image(filename=str(path / "visuals/hyperparameters.png")))
             metadata = json.loads((path / "model_metadata.json").read_text())
             if metadata["inducing_positions_saved"]:
@@ -161,7 +161,6 @@ def call_worker(action, *, on_event=None, **values):
         analysis_table = pd.read_json(ANALYSIS_DIRECTORY / "comparison.json")
         display(analysis_table)
         for path in analysis_table["analysis_directory"]:
-            display(Image(filename=str(Path(path) / "visuals/metrics.png")))
             display(Image(filename=str(Path(path) / "visuals/maps.png")))
         print("Analysis:", ANALYSIS_DIRECTORY)
         """, stage="analysis", requires=("install",), invalidates=("download",)),

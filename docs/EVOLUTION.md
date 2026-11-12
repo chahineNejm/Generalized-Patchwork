@@ -1,5 +1,16 @@
 # Evolution Log
 
+## 2026-11-12 - In-place OISST history display
+
+- User requested updating the training-history plot instead of appending it at
+  each snapshot. Give history its own persistent display handle, like progress.
+  Training, snapshot frequency, saved figures and final-result displays unchanged.
+- Remove single-run metric bar-chart displays from training completion and
+  saved-result analysis as requested; retain numeric tables and saved artifacts.
+- Verification: 13 focused notebook/partial-rerun tests pass; after bar-chart
+  removal, all 3 display regression tests pass. Ruff, compileall and whitespace
+  checks pass. No model changes or real-data training; full suite not rerun.
+
 ## 2026-11-11 - Matched-initial-location Standard Patchwork comparisons
 
 - User approved two OISST baselines using only observed targets at GPW's initial

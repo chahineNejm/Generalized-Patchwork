@@ -4,6 +4,7 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Update OISST training history in place; omit single-run metric bar charts.
 - [x] OISST without reconnects: verified checkout reuse and fresh stage workers,
   live progress/visuals, preserved user settings/data/results and loud failures.
 - [x] Use agreement weights conditional on U and stitching, independent of q(U),

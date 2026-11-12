@@ -22,6 +22,9 @@ checkout and fast-forwards to latest main; local source edits, a wrong repositor
 or divergent history raise instead of being overwritten. Data/results stay.
 Every package-dependent stage runs in a fresh Python worker, with live progress
 and visuals in the notebook. Workers verify the setup commit and source archive.
+Live progress and training-history figures update in place without accumulating
+one plot per snapshot; saved figures and snapshot frequency are unchanged.
+Metrics appear as numeric tables, without single-run metric bar-chart displays.
 To reuse earlier prepared data after setup, choose DATA_ACTION="load" and its
 exact PREPARED_PATH. Ordinary model-setting changes need only settings/training.
 Worker requests/logs/failures are saved under results/worker_jobs. Errors block

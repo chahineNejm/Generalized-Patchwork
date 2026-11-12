@@ -161,3 +161,36 @@ def test_notebook_does_not_import_experiment_models_in_parent():
                 assert not node.module.startswith(("experiments", "pwgp", "torch"))
             elif isinstance(node, ast.Import):
                 assert not any(alias.name.startswith(("experiments", "pwgp", "torch")) for alias in node.names)
+
+
+def test_notebook_updates_history_without_appending_snapshots():
+    import ast
+    from unittest.mock import Mock
+
+    root = Path(__file__).resolve().parents[1]
+    notebook = json.loads((root / "notebooks/OISST_Colab.ipynb").read_text())
+    source = next("".join(cell["source"]) for cell in notebook["cells"]
+                  if cell["cell_type"] == "code" and "def show_progress(" in "".join(cell["source"]))
+    nodes = [node for node in ast.parse(source).body
+             if (isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                 and node.targets[0].id in {"live", "history"})
+             or (isinstance(node, ast.FunctionDef) and node.name == "show_progress")]
+    display, image = Mock(), Mock()
+    display.side_effect = [Mock(), Mock()]
+    namespace = {"display": display, "Image": image}
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), "<snapshot-display>", "exec"), namespace)  # noqa: S102
+    for epoch in (0, 10, 20):
+        namespace["show_progress"](Path("run"), epoch)
+    assert display.call_count == 2
+    assert all(call.kwargs == {"display_id": True} for call in display.call_args_list)
+    assert namespace["live"].update.call_count == 3
+    assert namespace["history"].update.call_count == 3
+    assert image.call_args.kwargs["filename"] == str(Path("run/visuals/training.png"))
+
+
+def test_notebook_omits_single_run_metric_bar_charts():
+    root = Path(__file__).resolve().parents[1]
+    notebook = json.loads((root / "notebooks/OISST_Colab.ipynb").read_text())
+    source = "\n".join("".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code")
+    assert "visuals/metrics.png" not in source
+    assert "display(pd.DataFrame([metrics]).T)" in source
