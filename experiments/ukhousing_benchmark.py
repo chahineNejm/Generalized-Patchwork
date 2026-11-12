@@ -255,7 +255,8 @@ def train(model, split, config, callback):
             optimizer.step()
             losses.append(float(loss.detach()))
             bar.set_postfix(loss=losses[-1])
-            callback(epoch + 1, losses)
+            if callback(epoch + 1, losses) is True:
+                break
         return losses
     q_parameters = list(model.variational_parameters())
     hyperparameters = list(model.hyperparameters())
@@ -285,7 +286,8 @@ def train(model, split, config, callback):
             seen += len(indices)
         losses.append(accumulated / seen)
         bar.set_postfix(loss=losses[-1])
-        callback(epoch + 1, losses)
+        if callback(epoch + 1, losses) is True:
+            break
     return losses
 
 

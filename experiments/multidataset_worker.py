@@ -20,6 +20,7 @@ from experiments.multidataset_data import (
     verify_manual_inputs,
 )
 from experiments.oisst_worker import emit, source_snapshot
+from experiments.training_control import EarlyStoppingConfig
 from pwgp.run_records import record_failures
 
 
@@ -69,6 +70,9 @@ def make_plan(request):
         raise ValueError("EPOCHS must be a positive integer; WARMUP_EPOCHS a nonnegative integer")
     if not isinstance(request["save_inducing_positions"], bool):
         raise TypeError("save_inducing_positions must be an explicit boolean")
+    early_stopping = request.get("early_stopping")
+    if early_stopping is not None:
+        EarlyStoppingConfig(**early_stopping)
     specs, runs, summary = [], [], []
     for name in selected:
         spec = replace(data[name], **request["data_overrides"][name]) if name in request["data_overrides"] else data[name]
@@ -90,6 +94,8 @@ def make_plan(request):
                 raise ValueError(f"{name}/{label}: require 0 <= warm-up < epochs; no automatic adjustment")
             if config.seed != spec.seed:
                 raise ValueError(f"{name}/{label}: model and shared dataset seed must match explicitly")
+            if early_stopping is not None and config.warmup_epochs >= config.epochs:
+                raise ValueError(f"{name}/{label}: early stopping must have post-warm-up epochs to monitor")
             runs.append({"dataset": name, "name": label, "config": asdict(config)})
             summary.append({"dataset": name, "model": label, "dimensions": spec.dimension,
                 "epochs": config.epochs, "warmup_epochs": config.warmup_epochs if config.model != "patchwork" else "not used",
@@ -101,7 +107,7 @@ def make_plan(request):
                 "training_points": "GPW initial subset" if config.model == "patchwork" else "all",
                 "prospar_paper_points": 5000 if config.model == "prospar" else None})
     plan = {"data": specs, "runs": runs, "save_inducing_positions": request["save_inducing_positions"],
-            "excluded_model_types": excluded, "deferred": deferred}
+            "early_stopping": early_stopping, "excluded_model_types": excluded, "deferred": deferred}
     return {"plan": plan, "plan_sha256": plan_hash(plan), "summary": summary,
             "total_runs": len(runs), "total_epochs": sum(row["config"]["epochs"] for row in runs),
             "available": {name: [label for label, _ in values] for name, values in defaults.items()}}
@@ -181,6 +187,7 @@ def execute(request):
                         values["prospar"] = ProSparConfig(**values["prospar"])
                     result = run_model(UKConfig(**values), split, directory=output / f"run_{index:02d}",
                         save_inducing_positions=plan["save_inducing_positions"],
+                        early_stopping=plan.get("early_stopping"),
                         on_snapshot=lambda path, epoch: emit("snapshot", directory=str(path), epoch=epoch))
                     metrics = json.loads((result / "metrics.json").read_text(encoding="utf-8"))
                     summary = {"dataset": spec.name, "model": row["name"], "directory": str(result), **metrics}

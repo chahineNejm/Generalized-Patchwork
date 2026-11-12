@@ -1,5 +1,34 @@
 # Evolution Log
 
+## 2026-11-12 - Reduced batch and approved training-loss stopping
+
+- User approved retaining all real datasets except FLIGHT, excluding VNNGP,
+  reducing each synthetic function to D5/train50k and keeping both existing
+  GPW/ProSpar sizes. Standard Patchwork uses only PC-tree variants. The reduced
+  selection has11 datasets/61 model configurations; full presets remain available.
+- User explicitly changed the maximum schedule to100 epochs/20 warm-up and
+  approved early stopping on epoch training loss: patience10, minimum relative
+  significant improvement0.001*abs(best_loss), monitored only after warm-up.
+  Epoch21 initializes the reference; ten subsequent non-improving epochs stop
+  at31 in the constant-loss case. Tiny improvements accumulate relative to the
+  last significant reference. Equal losses, including zero, never reset patience.
+  Positive/negative/zero losses use the same explicit rule. Nonfinite loss raises.
+- User selected evaluation of the last trained model, not checkpoint restoration.
+  Save early-stopping config, actual epochs, reason and evaluated epoch per run;
+  force final histories, plots, locations and checkpoint on early exit. Preserve
+  per-model archives/summary updates and fail-stop behavior. No external backup
+  or implicit resume is added. Fixed-length behavior remains when stopping is None.
+- Shared trainer and exact/VNNGP loops honor an explicit True epoch-callback
+  return; existing None callbacks are unchanged. No model equations, gradient
+  formulas, optimizer values, preprocessing or split choices change.
+- Verification:47 targeted tests and all248 regression tests pass, including
+  dense-reference model checks, all five trainer stop callbacks, threshold
+  handling at positive/negative/zero loss, exact warm-up/patience counts,
+  last-state evaluation, forced final snapshots, archive retention and unchanged
+  retained configurations. Four dependency warnings remain. Compileall, Ruff
+  and whitespace checks pass. No real benchmark or Kaggle GPU run was performed.
+  User explicitly approved committing and pushing this verified update to main.
+
 ## 2026-11-12 - No-VNNGP batch with FLIGHT last
 
 - User requested all datasets/models except VNNGP, with FLIGHT last, and saving

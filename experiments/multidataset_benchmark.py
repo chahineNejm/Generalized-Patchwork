@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 
 from experiments.exploratory_analysis import plot_hyperparameters, plot_training
 from experiments.oisst_benchmark import learned_parameters, predict, supports
+from experiments.training_control import EarlyStoppingConfig, TrainingLossStopper
 from experiments.ukhousing_benchmark import build_model, scores, train
 from pwgp.config import HyperparameterBounds, NumericalConfig, OptimizerConfig
 from pwgp.run_records import record_failures
@@ -88,7 +89,7 @@ def plot_predictions(truth, mean, variance, *, destination):
     plt.close(fig)
 
 
-def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=None):
+def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=None, early_stopping=None):
     output = Path(directory)
     output.mkdir(parents=True, exist_ok=False)
     with record_failures(output, status_key="state"):
@@ -98,6 +99,13 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
             raise ValueError("Require 0 <= warmup_epochs < epochs; no automatic warm-up adjustment")
         if config.model == "prospar" and config.prospar is None:
             raise ValueError("ProSpar requires explicit temperatures, exponent, nuggets and prior_jitter")
+        stop_config = None if early_stopping is None else EarlyStoppingConfig(**early_stopping)
+        if stop_config is not None and config.warmup_epochs >= config.epochs:
+            raise ValueError("Early stopping requires post-warm-up epochs; no automatic schedule adjustment")
+        stopper = None if stop_config is None else TrainingLossStopper(stop_config, warmup_epochs=config.warmup_epochs)
+        write_json(output / "training_control.json", {"early_stopping": early_stopping,
+            "monitor": "epoch training loss", "monitor_after_epoch": config.warmup_epochs,
+            "evaluated_model": "last trained parameters; no restoration"})
         torch.set_num_threads(config.threads)
         faiss.omp_set_num_threads(config.threads)
         torch.manual_seed(config.seed)
@@ -160,10 +168,11 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
         position_history, position_epochs, parameters, stitch_history = [], [], [], []
 
         def snapshot(epoch, losses):
+            stopped = stopper.update(epoch, losses[-1]) if stopper is not None and epoch > 0 else False
             write_json(output / "history.json", {"losses": losses})
             parameters.append({"epoch": epoch, **learned_parameters(model, config.model)})
             write_json(output / "hyperparameter_history.json", parameters)
-            if epoch == 0 or epoch % config.snapshot_every == 0 or epoch == config.epochs:
+            if epoch == 0 or epoch % config.snapshot_every == 0 or epoch == config.epochs or stopped:
                 plot_training(losses, destination=visuals / "training.png")
                 plot_hyperparameters(parameters, destination=visuals / "hyperparameters.png")
                 if save_inducing_positions and config.model != "patchwork":
@@ -181,6 +190,7 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
                 torch.save(model.state_dict(), output / "checkpoint.pt")
                 if on_snapshot is not None:
                     on_snapshot(output, epoch)
+            return stopped
 
         snapshot(0, [])
         started = time.perf_counter()
@@ -188,6 +198,15 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
         if device.type == "cuda":
             torch.cuda.synchronize(device)
         training_seconds = time.perf_counter() - started
+        stop_triggered = stopper is not None and stopper.stopped
+        stopped = stop_triggered and len(losses) < config.epochs
+        write_json(output / "training_summary.json", {"maximum_epochs": config.epochs,
+            "epochs_completed": len(losses), "stopped_early": stopped,
+            "reason": "training_loss_patience" if stop_triggered else "maximum_epochs",
+            "significant_best_loss": stopper.best_loss if stopper is not None else None,
+            "significant_best_epoch": stopper.best_epoch if stopper is not None else None,
+            "epochs_without_significant_improvement": stopper.bad_epochs if stopper is not None else None,
+            "evaluated_epoch": len(losses), "checkpoint_restored": False})
         torch.save(model.state_dict(), output / "model.pt")
         write_json(output / "learned_parameters.json", learned_parameters(model, config.model))
         all_scores, prediction_seconds = {}, 0.0
@@ -209,6 +228,7 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
                 plot_predictions(split["raw_y"][indices], raw_mean, raw_variance, destination=visuals / "predictions.png")
         metrics = {**{f"{key}_{scale}": value for scale, values in all_scores["test"].items()
                      for key, value in values.items()}, "target_name": split["target_name"], "final_loss": losses[-1],
+            "epochs_completed": len(losses), "stopped_early": stopped,
             "initialization_seconds": initialization_seconds, "training_seconds": training_seconds,
             "prediction_seconds": prediction_seconds, "test_points": len(split["test"]),
             "peak_cuda_megabytes": torch.cuda.max_memory_allocated(device) / 2**20 if device.type == "cuda" else None}

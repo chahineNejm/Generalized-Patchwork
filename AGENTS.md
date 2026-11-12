@@ -127,13 +127,21 @@ variational precision. The current phase is the algorithm and data foundation.
   even with both GPW sizes selected. Use fresh workers and verified prepared
   splits without reconnects; preserve the legacy four-model UKHousing preset.
 - The multi-dataset Kaggle launcher is gated off until RUN_TRAINING=True, prints
-  the complete finite plan, and defaults to 3 epochs / 1 warm-up. It uses fresh
+  the complete finite plan, and defaults to 100 epochs maximum / 20 warm-up. It uses fresh
   workers, explicit selection/overrides, immutable prepared-data reuse, per-run
   archives and a collection archive under /kaggle/working/gpw_results.
-  The current notebook excludes VNNGP explicitly and runs FLIGHT last; keep all
-  catalog presets available and reject conflicting selections. Archive and save
+  The reduced notebook excludes VNNGP and FLIGHT, retains nine real datasets
+  and two synthetic cases (each function D5/train50k), keeps every existing
+  GPW/ProSpar size, and selects PC-tree-only Standard Patchwork. Keep all
+  full catalog presets available and reject conflicting selections. Archive and save
   summary metrics after each completed model, before starting the next, with an
   immediate download link. Session-local files are not an external backup.
+  Approved early stopping monitors epoch training loss only after warm-up:
+  patience10, minimum relative improvement0.001*abs(significant_best_loss).
+  Equal losses never reset patience, even at zero. Epoch21 sets the baseline
+  under20 warm-up. Evaluate the last trained model, never restore a checkpoint.
+  Record control settings, actual epochs and stopping reason; force final plots
+  and checkpoints on early exit. Preserve fixed-length behavior when disabled.
   New real/synthetic datasets use approved seed31, 80/20, all-row input min-max
   scaling and training-only target statistics. Existing geographic protocols
   remain unchanged. Precipitation and satellite drag are explicitly deferred.

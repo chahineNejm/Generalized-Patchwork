@@ -46,6 +46,10 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Reduced61-run Kaggle batch: no FLIGHT/VNNGP, PC-tree-only Standard
+  Patchwork, both existing GPW/ProSpar sizes, D5/train50k synthetic pair;
+  100/20 schedule with approved training-loss early stopping, patience10,
+  relative improvement0.001, last-model evaluation and final artifacts; all248 tests pass.
 - [x] Kaggle default selection excludes VNNGP, puts FLIGHT last and exposes
   per-completion ZIP download links; verify saved results survive later failures.
 - [x] Multi-dataset Kaggle notebook: explicit selections/overrides, 3/1 schedule,

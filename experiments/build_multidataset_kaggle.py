@@ -5,13 +5,11 @@ from pathlib import Path
 
 from experiments.build_heaton_colab import cell
 from experiments.colab_source import github_bootstrap, source_metadata
+from experiments.default_hyperparameters import multidataset_notebook_defaults
 
 
 def build_notebook(root):
-    datasets = ["oisst", "ukhousing", "modis", "california", "tco", "tco_l2", "icethick", "protein", "sarcos"]
-    datasets.extend(f"{name}_d{dimension}_n{count}" for name in ("michalewicz", "g_function")
-                    for dimension in (3, 5, 10) for count in (50000, 100000))
-    datasets.append("flight")
+    defaults = multidataset_notebook_defaults(device="cuda:0", input_root="/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs")
     cells = [
         cell("markdown", """
         # GPW multi-dataset experiments: Kaggle
@@ -28,32 +26,39 @@ def build_notebook(root):
         uses a fresh worker, so setup can be rerun without restarting the kernel.
         Model/data code is never embedded in this notebook.
 
-        All 22 dataset configurations are listed initially. Training is OFF until
-        RUN_TRAINING=True. Review the complete plan first: all presets together
-        currently mean 137 model runs, excluding VNNGP. FLIGHT runs last.
-        Three epochs do not make large inducing systems cheap. VNNGP presets
-        remain available but are explicitly excluded by EXCLUDED_MODEL_TYPES.
-        Select a small explicit DATASETS/MODELS subset for your first check.
+        The reduced batch selects 11 dataset configurations and 61 model runs.
+        FLIGHT and VNNGP are excluded. Each synthetic function uses D=5 and
+        50000 training points. All existing GPW/ProSpar sizes are retained;
+        Standard Patchwork uses only its PC-tree variant. Full presets remain
+        available for explicit later selection. Training is OFF until
+        RUN_TRAINING=True. Review the complete plan first.
         No point budget, dataset size, device or numerical value is reduced silently.
 
         New real and synthetic protocols use seeded 80/20; existing OISST/UKHousing
         protocols and official MODIS split/training-only detrending are retained.
         All models keep their approved ARD RBF/initialization/optimizer settings.
-        Optional VNNGP presets compare K32/K128. Standard Patchwork uses all input dimensions and
-        paper-style balanced PC trees; the 2D datasets also expose checkerboard
-        and initial-GPW-center Voronoi variants where configured. Reduced-data
+        Standard Patchwork uses all input dimensions and paper-style balanced
+        PC trees. Grid/Voronoi variants are deferred from the current selection. Reduced-data
         Standard Patchwork uses exactly the primary GPW initial selected targets,
         while GPW/SVGP/ProSpar/VNNGP train on all observations.
 
         ProSpar is deliberately smaller than its paper: matched budgets here are
-        512/1024/2048, versus the paper's 200x25=5000 points. Actual/paper capacities
+        512/1024, versus the paper's 200x25=5000 points. Actual/paper capacities
         are recorded with every ProSpar result. These are controlled comparisons,
         not reproductions of every paper's kernel, split or optimization protocol.
 
         Precipitation and satellite drag are explicitly DEFERRED: verified source
         data are unavailable. They are not silently skipped from a selected plan.
-        Synthetic functions use the approved six dimension/sample-size settings
-        per function; their 80/20 test sizes differ from the paper's fixed 25000.
+        Additional synthetic dimensions/sample sizes are deferred, not deleted.
+        The selected 80/20 synthetic test size is12500, unlike the paper's25000.
+
+        Train for at most100 epochs with20 warm-up. After warm-up, stop after10
+        epochs without a relative training-loss improvement of at least0.1%.
+        Epoch21 establishes the monitoring baseline. Patience ignores warm-up;
+        no validation/test targets are used. Evaluate the last trained parameters,
+        never restore an earlier checkpoint. Actual epoch counts and stopping
+        reasons are saved. EPOCHS/WARMUP_EPOCHS/EARLY_STOPPING remain editable;
+        set EARLY_STOPPING=None to explicitly disable stopping for a smoke run.
 
         Results, plan, worker logs, tracebacks and per-run ZIPs are written under
         /kaggle/working/gpw_results. Every run saves source/data provenance, full
@@ -103,17 +108,19 @@ from IPython.display import FileLink, Image, Markdown, display
 import pandas as pd
 
 INPUT_ROOT = "/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs"
-DATASETS = {datasets!r}
+DATASETS = {defaults["datasets"]!r}
 EXCLUDED_MODEL_TYPES = ["vnngp"]
-MODELS_BY_DATASET = {{}}
+MODELS_BY_DATASET = {json.dumps(defaults["models"], indent=4)}
 MODEL_OVERRIDES = {{}}
 DATA_OVERRIDES = {{}}
-EPOCHS = 3
-WARMUP_EPOCHS = 1
+EPOCHS = {defaults["epochs"]}
+WARMUP_EPOCHS = {defaults["warmup_epochs"]}
+EARLY_STOPPING = {defaults["early_stopping"]!r}
 SAVE_INDUCING_POSITIONS = True
 
 settings = call_worker("settings", device="cuda:0", input_root=INPUT_ROOT, datasets=DATASETS,
     excluded_model_types=EXCLUDED_MODEL_TYPES,
+    early_stopping=EARLY_STOPPING,
     models=MODELS_BY_DATASET, model_overrides=MODEL_OVERRIDES, data_overrides=DATA_OVERRIDES,
     epochs=EPOCHS, warmup_epochs=WARMUP_EPOCHS, save_inducing_positions=SAVE_INDUCING_POSITIONS)
 PLAN, PLAN_SHA256 = settings["plan"], settings["plan_sha256"]

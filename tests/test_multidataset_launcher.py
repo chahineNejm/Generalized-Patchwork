@@ -11,7 +11,10 @@ import pytest
 
 from experiments import multidataset_worker as worker
 from experiments.build_multidataset_kaggle import build_notebook
-from experiments.default_hyperparameters import multidataset_defaults
+from experiments.default_hyperparameters import (
+    multidataset_defaults,
+    multidataset_notebook_defaults,
+)
 from experiments.multidataset_data import (
     DatasetSpec,
     load_prepared,
@@ -59,6 +62,20 @@ def test_no_vnngp_all_datasets_flight_last_preserves_other_configs():
     assert result["plan"]["runs"][-1]["dataset"] == "flight"
     with pytest.raises(ValueError, match="conflicts"):
         worker.make_plan(request(excluded_model_types=["vnngp"], models={"california": ["VNNGP K32"]}))
+
+
+def test_reduced_batch_retains_both_sizes_and_only_pc_tree():
+    defaults = multidataset_notebook_defaults(device="cpu", input_root="manual")
+    result = worker.make_plan(request(**defaults, excluded_model_types=["vnngp"]))
+    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (11, 61, 6100)
+    assert "flight" not in defaults["datasets"]
+    synthetic = [name for name in defaults["datasets"] if name.startswith(("michalewicz", "g_function"))]
+    assert synthetic == ["michalewicz_d5_n50000", "g_function_d5_n50000"]
+    full = worker.make_plan(request(datasets=defaults["datasets"], epochs=100, warmup_epochs=20))["plan"]
+    expected = [r for r in full["runs"] if r["config"]["model"] != "vnngp" and
+                (r["config"]["model"] != "patchwork" or r["config"]["exact_partition"] == "pc_tree")]
+    assert result["plan"]["runs"] == expected
+    assert result["plan"]["early_stopping"] == {"patience": 10, "relative_min_improvement": .001}
 
 
 @pytest.mark.parametrize("change,match", [
@@ -140,14 +157,16 @@ def test_notebook_reproducible_no_model_code_and_training_gated(tmp_path):
     imports = [n.module for n in ast.walk(ast.parse(code)) if isinstance(n, ast.ImportFrom)]
     assert not any(n and n.startswith(("experiments", "pwgp")) for n in imports)
     assert "RUN_TRAINING = False" in code and "live.update(Image" in code
-    assert "EPOCHS = 3" in code and "WARMUP_EPOCHS = 1" in code
+    assert "EPOCHS = 100" in code and "WARMUP_EPOCHS = 20" in code
     assert "_OISST_STAGES" in code and "class " not in code
     settings = next("".join(c["source"]) for c in notebook["cells"] if
                     c["cell_type"] == "code" and "EXCLUDED_MODEL_TYPES =" in "".join(c["source"]))
     assignments = {n.targets[0].id: n.value for n in ast.walk(ast.parse(settings))
                    if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)}
-    assert ast.literal_eval(assignments["DATASETS"])[-1] == "flight"
+    assert len(ast.literal_eval(assignments["DATASETS"])) == 11
+    assert "flight" not in ast.literal_eval(assignments["DATASETS"])
     assert ast.literal_eval(assignments["EXCLUDED_MODEL_TYPES"]) == ["vnngp"]
+    assert ast.literal_eval(assignments["EARLY_STOPPING"]) == {"patience": 10, "relative_min_improvement": .001}
     assert 'display(FileLink(event["archive"]))' in code
 
 

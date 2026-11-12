@@ -158,6 +158,17 @@ def multidataset_defaults(*, device, input_root):
     return data, runs, deferred
 
 
+def multidataset_notebook_defaults(*, device, input_root):
+    """Approved reduced batch; retain every existing GPW/ProSpar size."""
+    _, runs, _ = multidataset_defaults(device=device, input_root=input_root)
+    datasets = ["oisst", "ukhousing", "modis", "california", "tco", "tco_l2", "icethick", "protein", "sarcos",
+                "michalewicz_d5_n50000", "g_function_d5_n50000"]
+    models = {name: [label for label, config in runs[name] if config.model != "vnngp" and
+                    (config.model != "patchwork" or config.exact_partition == "pc_tree")] for name in datasets}
+    return {"datasets": datasets, "models": models, "epochs": 100, "warmup_epochs": 20,
+            "early_stopping": {"patience": 10, "relative_min_improvement": 0.001}}
+
+
 def matched_runs(*, device, budget, batch_size, primary_patches, alternative_patches, dimension):
     """Fixed-budget variants; higher-dimensional Standard Patchwork uses its PC tree."""
     common = replace(ukhousing_defaults(device=device), inducing_points=budget, batch_size=batch_size,

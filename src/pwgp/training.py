@@ -33,9 +33,9 @@ def fit(
     batch_size: int,
     seed: int = 0,
     optimizer: OptimizerConfig = DEFAULT_OPTIMIZER_CONFIG,
-    on_epoch: Callable[[int, torch.nn.Module, FitHistory], None] | None = None,
+    on_epoch: Callable[[int, torch.nn.Module, FitHistory], bool | None] | None = None,
 ) -> FitHistory:
-    """Optimize the training objective, alternating Patchwork q and structure updates."""
+    """Optimize the objective; an epoch callback returning True explicitly stops training."""
     if epochs < 1 or batch_size < 1:
         raise ValueError("epochs and batch_size must be positive")
     if x.ndim != 2 or y.ndim != 1 or len(x) != len(y):
@@ -138,8 +138,8 @@ def fit(
         history.losses.append(accumulated / seen)
         progress.set_postfix(loss=f"{history.losses[-1]:.5f}")
         history.elapsed_seconds = time.perf_counter() - started
-        if on_epoch is not None:
-            on_epoch(epoch + 1, model, history)
+        if on_epoch is not None and on_epoch(epoch + 1, model, history) is True:
+            break
     for parameter in all_parameters:
         parameter.requires_grad_(True)
     if device.type == "cuda":

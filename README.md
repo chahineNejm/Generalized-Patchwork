@@ -24,8 +24,10 @@ The catalog contains 22 configurations: OISST, UKHousing, MODIS, California,
 TCO, TCO.L2, ICETHICK, PROTEIN, SARCOS, FLIGHT, and six configurations each of
 Michalewicz and G-function. Precipitation and satellite drag are explicitly deferred.
 The notebook prints all effective settings before training. `RUN_TRAINING=False`
-blocks training until explicitly enabled. The notebook now excludes VNNGP with
-`EXCLUDED_MODEL_TYPES=["vnngp"]` and places FLIGHT last: 137 model runs. The full
+blocks training until explicitly enabled. The reduced notebook selects11 datasets
+and61 model runs: all nine real datasets except FLIGHT, plus each synthetic
+function at D5/train50k. VNNGP is excluded with `EXCLUDED_MODEL_TYPES=["vnngp"]`;
+both existing GPW/ProSpar sizes are retained and Standard Patchwork is PC-tree-only. The full
 catalog still offers all 179 configurations when explicitly selected. Exclusions
 are saved in the plan; conflicting explicit model selections raise.
 FLIGHT has 5.9 million rows and remains expensive without VNNGP.
@@ -36,8 +38,19 @@ MODELS_BY_DATASET = {"california": ["SVGP", "GPW"]}
 EXCLUDED_MODEL_TYPES = ["vnngp"]
 EPOCHS = 3
 WARMUP_EPOCHS = 1
+EARLY_STOPPING = None  # Explicit short smoke test instead of the100/20 default.
 MODEL_OVERRIDES = {"california": {"GPW": {"learning_rate_structure": 0.001}}}
 ```
+
+The approved notebook defaults are100 epochs maximum and20 warm-up, with
+`EARLY_STOPPING={"patience":10,"relative_min_improvement":0.001}`. The epoch
+training loss must improve by at least0.1% of the absolute significant-best loss
+to reset patience. Warm-up does not count; epoch21 establishes the baseline.
+No validation/test scores are used. Evaluation uses the last trained parameters,
+not a restored checkpoint. `training_control.json` and `training_summary.json`
+record settings, actual epochs and stopping reason. Final snapshots are saved
+even when early stopping occurs between scheduled snapshots. No model equations,
+data splits, kernels or learning rates change.
 
 Defaults live in `experiments/default_hyperparameters.py`. California uses M512;
 TCO/TCO.L2, ICETHICK, PROTEIN, SARCOS and synthetics use M1024; FLIGHT uses M2048.
