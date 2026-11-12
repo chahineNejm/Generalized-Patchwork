@@ -41,8 +41,11 @@ variational precision. The current phase is the algorithm and data foundation.
 - Validate out-of-range values. Do not clamp or project requested inputs silently.
 - Nonfinite model parameters/predictions must raise. Unusable dataset rows are
   removed, never filled, with counts recorded. FLIGHT defaults to the trusted
-  author-prepared airline pickle, not raw reconstruction; an unavailable source
+  author-prepared airline data, not raw reconstruction; an unavailable source
   raises without substitution. Do not claim a verified original 2013 SVGP split.
+  The multi-dataset Kaggle adapter uses only the approved one-time converted
+  airline.npz plus pinned conversion provenance, never a pickle compatibility
+  fallback. Preserve the original pickle and the approved feature/time mapping.
 - Keep code compact. Use brief docstrings for functions and comments only for
   mathematically dense blocks.
 - Put tunable values in explicit arguments or configuration dataclasses.
@@ -119,10 +122,23 @@ variational precision. The current phase is the algorithm and data foundation.
   Preserve this distinction, pinned raw checksums and training-only target scaling.
 - The separate UKHousing size-matched comparison uses RBF, 100 epochs / 20
   variational kernel-noise warm-up; GPW/ProSpar 8x128 and 4x256, SVGP 1024,
-  VNNGP K32/K256, and the three reduced-data Standard Patchwork partitions.
+  VNNGP K32/K128, and the three reduced-data Standard Patchwork partitions.
   Those baselines reference the named eight-patch GPW initialization explicitly,
   even with both GPW sizes selected. Use fresh workers and verified prepared
   splits without reconnects; preserve the legacy four-model UKHousing preset.
+- The multi-dataset Kaggle launcher is gated off until RUN_TRAINING=True, prints
+  the complete finite plan, and defaults to 3 epochs / 1 warm-up. It uses fresh
+  workers, explicit selection/overrides, immutable prepared-data reuse, per-run
+  archives and a collection archive under /kaggle/working/gpw_results.
+  New real/synthetic datasets use approved seed31, 80/20, all-row input min-max
+  scaling and training-only target statistics. Existing geographic protocols
+  remain unchanged. Precipitation and satellite drag are explicitly deferred.
+  Synthetic dimension/sample-size/noise/function parameters remain explicit.
+  ProSpar capacities must be labeled against the paper's 5000-point configuration.
+- Higher-dimensional Standard Patchwork uses all features and balanced first-PC
+  trees, with linear-program bounds/shared-face detection and exact uniform
+  rejection sampling on shared faces. Never substitute an approximate sampler.
+  Save full-dimensional geometry/positions; label 2-feature plots as projections.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.

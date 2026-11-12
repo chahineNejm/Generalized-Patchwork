@@ -104,11 +104,77 @@ def ukhousing_comparison_defaults(*, device):
             ("ProSpar 8 x 128", replace(common, model="prospar", patches=8, prospar=prospar)),
             ("ProSpar 4 x 256", replace(common, model="prospar", patches=4, prospar=prospar)),
             ("VNNGP K32", replace(common, model="vnngp", vnngp_neighbors=32)),
-            ("VNNGP K256", replace(common, model="vnngp", vnngp_neighbors=256)),
+            ("VNNGP K128", replace(common, model="vnngp", vnngp_neighbors=128)),
             ("Standard Patchwork", replace(common, model="patchwork", exact_training_points="gpw_initial",
                 exact_partition="grid", exact_grid_shape=(4, 2))),
             ("Standard Patchwork (GPW regions)", replace(common, model="patchwork",
                 exact_training_points="gpw_initial", exact_partition="gpw_voronoi")),
             ("Standard Patchwork (PC tree)", replace(common, model="patchwork",
                 exact_training_points="gpw_initial", exact_partition="pc_tree", exact_tree_patches=8))]
+    return runs
+
+
+def multidataset_defaults(*, device, input_root):
+    """Approved dataset protocols and model capacities; no training is launched."""
+    from pathlib import Path
+
+    from experiments.multidataset_data import DatasetSpec
+
+    paths = Path(input_root)
+    data, runs = {}, {}
+    oisst, oisst_runs = oisst_defaults(device=device)
+    data["oisst"] = DatasetSpec("oisst", "oisst", 2, oisst.train_fraction, oisst.validation_fraction,
+                                 oisst.seed, day=oisst.day, bounds=oisst.bounds)
+    runs["oisst"] = [*oisst_runs, ("VNNGP K128", replace(dict(oisst_runs)["VNNGP"], vnngp_neighbors=128))]
+    data["ukhousing"] = DatasetSpec("ukhousing", "ukhousing", 2, .64, .16, 31)
+    runs["ukhousing"] = ukhousing_comparison_defaults(device=device)
+    data["modis"] = DatasetSpec("modis", "modis", 2, None, 0., 31)
+    heaton = heaton_defaults(device=device)
+    common = replace(ukhousing_defaults(device=device), inducing_points=heaton.inducing_points,
+        batch_size=heaton.batch_size, prediction_batch_size=heaton.prediction_batch_size)
+    runs["modis"] = [("SVGP", replace(common, model="svgp")),
+                      ("GPW", replace(common, model="gpw", patches=8)),
+                      ("GPW 4 x 120", replace(common, model="gpw", patches=4))]
+    specifications = [("california", 8, 512, 512), ("tco", 2, 1024, 1024),
+        ("tco_l2", 2, 1024, 1024), ("icethick", 2, 1024, 1024),
+        ("protein", 9, 1024, 1024), ("sarcos", 21, 1024, 1024), ("flight", 8, 2048, 2048)]
+    for name, dimension, budget, batch in specifications:
+        path = str(paths / ("airline.npz" if name == "flight" else "icethk.txt")) if name in ("flight", "icethick") else None
+        data[name] = DatasetSpec(name, name, dimension, .8, 0., 31, input_path=path)
+        runs[name] = matched_runs(device=device, budget=budget, batch_size=batch,
+            primary_patches=16 if name == "flight" else 8,
+            alternative_patches=8 if name == "flight" else 4, dimension=dimension)
+    for function in ("michalewicz", "g_function"):
+        for dimension in (3, 5, 10):
+            for count in (50000, 100000):
+                name = f"{function}_d{dimension}_n{count}"
+                data[name] = DatasetSpec(name, function, dimension, .8, 0., 31, synthetic={
+                    "training_points": count, "test_points": count // 4, "noise_variance": 1e-8,
+                    "michalewicz_m": 10, "g_coefficients": [i / 2 for i in range(dimension)]})
+                runs[name] = matched_runs(device=device, budget=1024, batch_size=1024,
+                    primary_patches=8, alternative_patches=4, dimension=dimension)
+    deferred = {"precipitation": "User deferred: no verified source file/URL supplied",
+                "satellite_drag": "User deferred: no verified source file/URL supplied"}
+    return data, runs, deferred
+
+
+def matched_runs(*, device, budget, batch_size, primary_patches, alternative_patches, dimension):
+    """Fixed-budget variants; higher-dimensional Standard Patchwork uses its PC tree."""
+    common = replace(ukhousing_defaults(device=device), inducing_points=budget, batch_size=batch_size,
+                     patches=primary_patches)
+    prospar = ProSparConfig(temperatures=1., exponent=1., inducing_nuggets=.01, prior_jitter=0.)
+    runs = [("SVGP", replace(common, model="svgp")), ("GPW", replace(common, model="gpw")),
+        ("GPW (alternative)", replace(common, model="gpw", patches=alternative_patches)),
+        ("ProSpar", replace(common, model="prospar", prospar=prospar)),
+        ("ProSpar (alternative)", replace(common, model="prospar", patches=alternative_patches, prospar=prospar)),
+        ("VNNGP K32", replace(common, model="vnngp", vnngp_neighbors=32)),
+        ("VNNGP K128", replace(common, model="vnngp", vnngp_neighbors=128))]
+    if dimension == 2:
+        runs.extend([
+            ("Standard Patchwork", replace(common, model="patchwork", exact_training_points="gpw_initial",
+                exact_partition="grid", exact_grid_shape=(4, 2))),
+            ("Standard Patchwork (GPW regions)", replace(common, model="patchwork",
+                exact_training_points="gpw_initial", exact_partition="gpw_voronoi"))])
+    runs.append(("Standard Patchwork (PC tree)", replace(common, model="patchwork",
+        exact_training_points="gpw_initial", exact_partition="pc_tree", exact_tree_patches=8)))
     return runs

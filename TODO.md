@@ -31,7 +31,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
   imputation, recording discarded-row counts and source-reconstruction limits.
 - [x] Default to author-prepared airline data, initialize from distinct observed
   locations and reject nonpositive initial learned noise; verified and rebuilt Colab.
-- [ ] Obtain a trusted author airline pickle: the published Dropbox link is disabled.
+- [x] Use the user's trusted author airline pickle; explicitly convert its legacy
+  format in an isolated environment to a pinned NPZ with conversion provenance.
 - [ ] Discuss any further VNNGP strictness changes; do not edit third-party libraries.
 
 - [x] Working SVGP model class with explicit hyperparameters.
@@ -45,8 +46,18 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Multi-dataset Kaggle notebook: explicit selections/overrides, 3/1 schedule,
+  reviewed training gate, full outputs and archives. All 22 configurations and
+  source/preprocessing/capacity choices approved; all 227 tests pass locally.
+- [x] Obtain explicit approval to commit/push the verified Kaggle changes;
+  test execution on Kaggle GPU remains user-run, not locally verified.
+- [x] Extend Standard Patchwork PC-tree partitions/ARD kernels beyond 2D and
+  add a dimension-independent comparison runner; dense tests and full suite pass.
+- [ ] Precipitation and satellite drag are explicitly deferred by the user;
+  obtain verified source files before implementing/running those adapters.
+
 - [x] Approved UKHousing ten-configuration Colab: RBF, 100/20, SVGP 1024,
-  GPW/ProSpar 8x128 and 4x256, VNNGP K32/K256, three reduced-data partitions;
+  GPW/ProSpar 8x128 and 4x256, VNNGP K32/K128, three reduced-data partitions;
   fresh workers, explicit selection/overrides, immutable verified data and archives.
 
 - [x] Add approved 8-region balanced PC-tree Standard Patchwork with the same

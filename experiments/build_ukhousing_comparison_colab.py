@@ -16,7 +16,7 @@ def build_notebook(root):
         no implementations are embedded. Setup can be rerun without reconnecting.
         Every package-dependent stage runs in a fresh worker.
 
-        SVGP 1,024; GPW and ProSpar each 8 x 128 and 4 x 256; VNNGP K=32/256
+        SVGP 1,024; GPW and ProSpar each 8 x 128 and 4 x 256; VNNGP K=32/128
         with one fixed inducing location per training observation. Standard
         Patchwork: checkerboard 4 x 2, GPW-center Voronoi and 8-leaf PC tree,
         each using the 8-patch GPW initialization's 1,024 observed targets.
@@ -62,7 +62,7 @@ from google.colab import files
 import pandas as pd
 
 MODELS = ["SVGP", "GPW", "GPW 4 x 256", "ProSpar 8 x 128", "ProSpar 4 x 256",
-          "VNNGP K32", "VNNGP K256", "Standard Patchwork",
+          "VNNGP K32", "VNNGP K128", "Standard Patchwork",
           "Standard Patchwork (GPW regions)", "Standard Patchwork (PC tree)"]
 OVERRIDES = {}
 DATA = {"seed": 31, "train_fraction": 0.64, "validation_fraction": 0.16}

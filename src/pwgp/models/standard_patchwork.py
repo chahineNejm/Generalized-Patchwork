@@ -74,7 +74,8 @@ class StandardPatchworkGP(nn.Module):
                  partition="adaptive", grid_shape=None, centers=None, tree_patches=None, seed=0):
         super().__init__()
         values = x.detach().cpu().numpy()
-        tree = np.empty((0, 6))
+        dimension = values.shape[1]
+        tree = np.empty((0, dimension + 4))
         if partition == "adaptive":
             labels, bounds, points, edges = rectangular_partition(values, maximum_points=maximum_points,
                                                                  stitches_per_edge=stitches_per_edge)
@@ -101,7 +102,7 @@ class StandardPatchworkGP(nn.Module):
         self.register_buffer("labels", torch.as_tensor(labels, device=x.device))
         self.register_buffer("region_bounds", torch.as_tensor(bounds, dtype=x.dtype, device=x.device))
         self.register_buffer("partition_tree", torch.as_tensor(tree, dtype=x.dtype, device=x.device))
-        self.register_buffer("region_centers", x.new_empty(0, 2) if centers is None else torch.as_tensor(
+        self.register_buffer("region_centers", x.new_empty(0, dimension) if centers is None else torch.as_tensor(
             centers, dtype=x.dtype, device=x.device))
         self.register_buffer("region_vertices", torch.as_tensor(np.vstack(polygons), dtype=x.dtype, device=x.device))
         self.register_buffer("region_offsets", torch.as_tensor(np.cumsum([0, *map(len, polygons)]), device=x.device))
@@ -111,7 +112,7 @@ class StandardPatchworkGP(nn.Module):
             coefficients[i, q], coefficients[j, q] = 1, -1
         self.register_buffer("coefficients", coefficients)
         self.hyp = LocalARDHyperparameters(
-            self.patches, 2, lengthscale=lengthscale, outputscale=outputscale,
+            self.patches, dimension, lengthscale=lengthscale, outputscale=outputscale,
             noise_std=noise_std, bounds=DEFAULT_HYPERPARAMETER_BOUNDS,
             dtype=x.dtype, device=x.device, trainable=True,
         )
@@ -189,20 +190,24 @@ class StandardPatchworkGP(nn.Module):
 
     def assign_regions(self, x):
         if self.partition == "pc_tree":
-            if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x >= 1)).any()):
-                raise ValueError("Queries must lie in the fixed unit-square domain")
+            if x.ndim != 2 or x.shape[1] != self.train_x.shape[1]:
+                raise ValueError("PC-tree query dimension must match training inputs")
+            if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x > 1)).any()):
+                raise ValueError("Queries must lie in the fixed unit-cube domain")
+            dimension = x.shape[1]
             indices = torch.zeros(len(x), dtype=torch.long, device=x.device)
             for _ in range(self.patches.bit_length() - 1):
                 node = self.partition_tree[indices]
-                left = (x * node[:, :2]).sum(-1) <= node[:, 2]
-                indices = torch.where(left, node[:, 3], node[:, 4]).long()
-            return self.partition_tree[indices, 5].long()
+                left = (x * node[:, :dimension]).sum(-1) <= node[:, dimension]
+                indices = torch.where(left, node[:, dimension + 1], node[:, dimension + 2]).long()
+            return self.partition_tree[indices, dimension + 3].long()
         if self.partition == "voronoi":
-            if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x >= 1)).any()):
+            if not bool(torch.isfinite(x).all()) or bool(((x < 0) | (x > 1)).any()):
                 raise ValueError("Queries must lie in the fixed unit-square domain")
             return (x[:, None] - self.region_centers[None]).square().sum(-1).argmin(1)
-        inside = ((x[:, None] >= self.region_bounds[None, :, 0])
-                  & (x[:, None] < self.region_bounds[None, :, 1])).all(-1)
+        upper = self.region_bounds[None, :, 1]
+        below = (x[:, None] < upper) | ((x[:, None] == 1) & (upper == 1))
+        inside = ((x[:, None] >= self.region_bounds[None, :, 0]) & below).all(-1)
         if not bool((inside.sum(-1) == 1).all()):
             raise ValueError("Each query must belong to exactly one fixed patch")
         return inside.long().argmax(-1)

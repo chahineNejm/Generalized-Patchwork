@@ -1,6 +1,7 @@
-"""Fixed 2D geometric partitions with straight boundary stitches."""
+"""Fixed geometric partitions and balanced PC trees."""
 
 import numpy as np
+from scipy.optimize import linprog
 from scipy.spatial import HalfspaceIntersection
 
 
@@ -79,6 +80,14 @@ def voronoi_partition(x, *, centers, stitches_per_edge, tolerance=1e-12):
 
 
 def pc_tree_partition(x, *, patches, stitches_per_edge, seed, tolerance=1e-12):
+    if x.ndim == 2 and x.shape[1] > 2:
+        return nd_pc_tree_partition(x, patches=patches, stitches_per_edge=stitches_per_edge,
+                                    seed=seed, tolerance=tolerance)
+    return _pc_tree_partition_2d(x, patches=patches, stitches_per_edge=stitches_per_edge,
+                                  seed=seed, tolerance=tolerance)
+
+
+def _pc_tree_partition_2d(x, *, patches, stitches_per_edge, seed, tolerance):
     """Balanced principal-component splits with uniform random boundary stitches."""
     validate_inputs(x, stitches_per_edge)
     if not isinstance(patches, int) or isinstance(patches, bool) or patches < 1 or patches & (patches - 1):
@@ -156,3 +165,110 @@ def pc_tree_partition(x, *, patches, stitches_per_edge, seed, tolerance=1e-12):
         raise ValueError("PC-tree shared-boundary graph is disconnected")
     bounds = np.asarray([[v.min(0), v.max(0)] for v in polygons])
     return labels, bounds, np.asarray(points).reshape(-1, 2), edges, polygons, np.asarray(nodes)
+
+
+def nd_pc_tree_partition(x, *, patches, stitches_per_edge, seed, tolerance):
+    """Paper-style balanced PC splits and exact uniform hyperplane rejection draws."""
+    if (x.ndim != 2 or x.shape[1] < 3 or not np.isfinite(x).all()
+            or (x <= 0).any() or (x >= 1).any()):
+        raise ValueError("PC-tree requires finite x[N,D], D>=3, strictly inside the unit cube")
+    if not isinstance(patches, int) or isinstance(patches, bool) or patches < 1 or patches & (patches - 1):
+        raise ValueError("PC-tree patches must be a positive power of two")
+    if len(x) < patches or len(x) % patches:
+        raise ValueError("PC-tree observation count must divide evenly across requested patches")
+    if not isinstance(stitches_per_edge, int) or isinstance(stitches_per_edge, bool) or stitches_per_edge < 1:
+        raise ValueError("stitches_per_edge must be a positive integer")
+    if not np.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("Geometry tolerance must be finite and positive")
+    dimension = x.shape[1]
+    box = np.column_stack((np.vstack((-np.eye(dimension), np.eye(dimension))),
+                           np.r_[np.zeros(dimension), -np.ones(dimension)]))
+    nodes, leaves = [], []
+    labels = np.empty(len(x), dtype=np.int64)
+
+    def split(indices, planes, depth):
+        index = len(nodes)
+        nodes.append([*np.zeros(dimension), 0., -1., -1., -1.])
+        if depth == 0:
+            labels[indices] = len(leaves)
+            nodes[index][-1] = len(leaves)
+            leaves.append(planes)
+            return index
+        values = x[indices]
+        centered = values - values.mean(0)
+        eigenvalues, vectors = np.linalg.eigh(centered.T @ centered)
+        if eigenvalues[-1] <= 0:
+            raise ValueError("PC-tree cannot split a region with zero input variance")
+        normal = vectors[:, -1]
+        normal = normal if normal[np.abs(normal).argmax()] > 0 else -normal
+        projection = values @ normal
+        ordered = np.sort(projection)
+        lo, hi = ordered[len(indices) // 2 - 1:len(indices) // 2 + 1]
+        cut = lo + (hi - lo) / 2
+        if not lo < cut < hi:
+            raise ValueError("PC-tree projection ties prevent an equal-count geometric split")
+        left = projection <= cut
+        plane = np.r_[normal, -cut]
+        a = split(indices[left], np.vstack((planes, plane)), depth - 1)
+        b = split(indices[~left], np.vstack((planes, -plane)), depth - 1)
+        nodes[index] = [*normal, cut, a, b, -1]
+        return index
+
+    split(np.arange(len(x)), box, patches.bit_length() - 1)
+    rng = np.random.default_rng(seed)
+    points, edges, bounds = [], [], []
+    for planes in leaves:
+        limits = []
+        for axis in np.eye(dimension):
+            pair = []
+            for objective in (axis, -axis):
+                result = linprog(objective, A_ub=planes[:, :-1], b_ub=-planes[:, -1],
+                                 bounds=[(None, None)] * dimension, method="highs")
+                if not result.success:
+                    raise ValueError(f"PC-tree region bounds failed: {result.message}")
+                pair.append(result.x @ axis)
+            limits.append(pair)
+        bounds.append(np.asarray(limits).T)
+    for i in range(patches):
+        for j in range(i + 1, patches):
+            for plane in leaves[i][2 * dimension:]:
+                if not np.isclose(leaves[j], -plane, atol=tolerance, rtol=0).all(1).any():
+                    continue
+                planes = np.vstack((leaves[i], leaves[j]))
+                on_plane = np.isclose(planes, plane, atol=tolerance, rtol=0).all(1)
+                on_plane |= np.isclose(planes, -plane, atol=tolerance, rtol=0).all(1)
+                constraints = planes[~on_plane]
+                normal = plane[:-1]
+                result = linprog(np.r_[np.zeros(dimension), -1.],
+                    A_ub=np.column_stack((constraints[:, :-1], np.linalg.norm(constraints[:, :-1], axis=1))),
+                    b_ub=-constraints[:, -1], A_eq=np.array([np.r_[normal, 0.]]), b_eq=[-plane[-1]],
+                    bounds=[(None, None)] * dimension + [(0, None)], method="highs")
+                if result.status == 2:
+                    continue
+                if not result.success:
+                    raise ValueError(f"PC-tree boundary feasibility failed: {result.message}")
+                if result.x[-1] <= tolerance:
+                    continue
+                # Eliminating one coordinate has a constant surface Jacobian.
+                # Uniform cube draws accepted inside the face are thus uniform on it.
+                pivot = np.abs(normal).argmax()
+                free = np.arange(dimension) != pivot
+                drawn = []
+                while len(drawn) < stitches_per_edge:
+                    candidate = np.empty(dimension)
+                    candidate[free] = rng.random(dimension - 1)
+                    candidate[pivot] = (-plane[-1] - candidate[free] @ normal[free]) / normal[pivot]
+                    if ((candidate > 0).all() and (candidate < 1).all()
+                            and (constraints[:, :-1] @ candidate + constraints[:, -1] < 0).all()):
+                        drawn.append(candidate)
+                points.extend(drawn)
+                edges.extend([(i, j)] * stitches_per_edge)
+                break
+    connected = {0}
+    for _ in range(patches):
+        connected.update(b for a, b in edges if a in connected)
+        connected.update(a for a, b in edges if b in connected)
+    if len(connected) != patches:
+        raise ValueError("PC-tree shared-boundary graph is disconnected")
+    vertices = [np.empty((0, dimension)) for _ in leaves]
+    return labels, np.asarray(bounds), np.asarray(points).reshape(-1, dimension), edges, vertices, np.asarray(nodes)

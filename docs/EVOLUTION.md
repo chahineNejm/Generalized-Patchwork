@@ -1,5 +1,88 @@
 # Evolution Log
 
+## 2026-11-12 - Approved multi-dataset Kaggle comparison
+
+- All remaining choices were explicitly approved: new-data 80/20, seed31,
+  all-row input min-max and training-only target scaling; canonical sklearn
+  California/UCI CASP/GPML SARCOS sources, author TCO/TCO.L2 files, official
+  ICETHICK and trusted author FLIGHT. SARCOS combines supplied files, first torque.
+  Preserve OISST/UKHousing and official MODIS protocols. Source bytes were acquired
+  and pinned; preparation of six new real datasets and all 12 full-size synthetic
+  designs succeeded. Precipitation/satellite drag remain explicitly deferred.
+- Approved M512 California; M1024 ozone/ice/protein/sarcos/synthetics; M2048 FLIGHT,
+  GPW/ProSpar 8/4 patches (FLIGHT16/8), VNNGP K32/K128, eight-region reduced-data
+  PC tree. Retain approved RBF initialization, learning rates, bounds and numerics.
+  Existing OISST/MODIS sizes remain unchanged. The UK comparison now uses K128
+  instead of K256. ProSpar actual versus paper5000 capacities are saved explicitly.
+- Approved all d3/5/10 and training50k/100k configurations for both synthetic
+  functions: Latin hypercube, Gaussian noise variance1e-8, Michalewicz m10,
+  G a_i=(i-1)/2. Test counts12.5k/25k preserve80/20, unlike paper fixed25k.
+- User explicitly approved one-time airline conversion after modern pandas could
+  not read pandas.core.index. Isolated Python3.6.8/pandas0.23.4/NumPy1.16.6 read
+  the trusted pickle; the existing approved feature/time mapping produced
+  5,929,413 rows with zero removals. Original SHA256 f111b35372eb2798cd43ab186203d5bb8733653260faa65c6307c87a933ef083
+  is unchanged. Converted NPZ SHA256 90ba687d9b4c7fef8d39cd76572a5a46df4b0232cac9fc0e96664e2c4aff5b3a;
+  provenance SHA256 0a2ae27c3d8681ffd572ec714ed28ffbe7213addd349f97e71f3c6f52754c4be.
+  Kaggle accepts only this NPZ/provenance, with no runtime unpickling or fallback.
+  The private input ZIP also contains official icethk.txt; no data enter Git.
+- Launcher prints 22 configurations/179 preset model runs and all effective
+  settings, defaults to3epochs/1warm-up, and requires RUN_TRAINING=True. Selection
+  is explicit; no budgets/devices/values are reduced automatically. Fresh workers
+  save full failures, stop downstream work, and terminate on interruption.
+- Save immutable checksummed prepared data, all-dimensional EDA/positions,
+  configs, source archives, checkpoints, predictions, histories, metric scales,
+  timings, completed-run ZIPs and collection ZIP under Kaggle working outputs.
+  Reuse is explicit and verified; training never silently resumes/skips/overwrites.
+- Verification: all227 tests pass (four external dependency warnings), including
+  dense high-dimensional objective/gradient/prediction references, five-model
+  3/1 smoke runs, fresh-worker isolation, immutable prepared-data reuse,
+  training authorization, complete archives and failure-stop behavior.
+  Compileall, Ruff and whitespace checks pass. The full converted FLIGHT loads
+  and splits into4,743,530 train/1,185,883 test rows; input ZIP integrity and
+  manual-file checksums pass. Plots were visually inspected.
+  No real benchmark training or Kaggle GPU run has been performed in this change.
+  User explicitly approved committing and pushing the verified code to main;
+  dataset files, the private input ZIP and unrelated local files stay outside Git.
+
+## 2026-11-12 - Multi-dataset foundation and higher-dimensional Patchwork
+
+- User chose 80/20 for new dataset protocols, a 3-epoch/1-warm-up short run,
+  paper-style PC-tree Standard Patchwork in higher dimensions, and explicit
+  deferral of precipitation and satellite drag because source data are unavailable.
+- Extend balanced first-PC trees above two dimensions, retaining every feature.
+  Retain all regions and equal-count/positive-variance/projection-tie invariants.
+  Compute boundary feasibility and exact region bounds with linear programming;
+  uniform draws in free coordinates accepted inside the shared face have constant
+  surface Jacobian, giving uniform boundary stitches without MCMC or projection.
+  No failed solver, infeasible face or poor acceptance triggers a different method.
+  Existing 2D tree generation and its seeded boundary draws are preserved.
+- Standard Patchwork now uses one ARD coordinate per actual input dimension.
+  Prediction routing accepts the closed unit cube, including normalized maxima;
+  internal cell boundaries retain their half-open routing. Training support
+  initialization still requires actual interior observations, never moved points.
+- Add dimension-independent comparison primitives with explicit split fraction
+  and seed; target scaling uses training rows only. Dataset adoption of the input
+  transform, presets/sources and synthetic generation still awaits user approval.
+  No new real dataset was acquired or assigned an invented configuration.
+- Shared runner saves full-dimensional locations, checkpoints, hyperparameter
+  histories, configurations, scores and labeled two-feature projection plots.
+  ProSpar metadata records actual capacity versus the paper's 5000 points.
+- Targeted geometry/dense/runner tests pass; full regression verification running.
+  Full multi-dataset acquisition/launcher is not complete or published yet.
+
+## 2026-11-12 - Multi-dataset launcher requested
+
+- Record the user-requested capacity caveat: current matched-budget ProSpar
+  has 1024 inducing points (8x128 or 4x256), versus 5000 (200x25) in the supplied
+  paper. Add the distinction to README; future notebook/report labels must retain it.
+- User selected VNNGP K32/K128 instead of K32/K256 for upcoming comparisons.
+  Existing published UKHousing launcher remains unchanged pending the new work.
+- User approved the full dataset list and a short-run schedule of 3 epochs with
+  1 warm-up epoch, both editable independently. New-dataset preprocessing/splits,
+  presets, unavailable sources and unsupported model/likelihood combinations
+  remain unresolved; do not invent defaults for them.
+- Documentation only at this step; no training or model configuration changed.
+
 ## 2026-11-12 - Explicit UKHousing source refresh
 
 - After a Colab source-checksum failure, user approved verifying and repinning

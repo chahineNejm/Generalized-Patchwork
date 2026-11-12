@@ -50,6 +50,37 @@ def explore_dataset(split, *, directory):
     return directory
 
 
+def explore_multidataset(split, *, directory):
+    """Full-dimensional summaries with explicitly labeled two-feature projections."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=False)
+    x, y = split["raw_x"], split["raw_y"]
+    if x.ndim != 2 or x.shape[0] != len(y) or x.shape[1] < 2:
+        raise ValueError("Exploration requires x[N,D], D>=2, and y[N]")
+    if not np.isfinite(x).all() or not np.isfinite(y).all():
+        raise ValueError("Exploration requires finite prepared observations")
+    summary = {"observations": len(y), "dimensions": x.shape[1], "feature_names": split["feature_names"],
+        "input_min": x.min(0).tolist(), "input_max": x.max(0).tolist(),
+        "target_name": split["target_name"], "target_mean": float(y.mean()), "target_std": float(y.std()),
+        "target_min": float(y.min()), "target_max": float(y.max()),
+        "duplicate_locations": len(x) - len(np.unique(x, axis=0)),
+        "split_counts": {key: len(split[key]) for key in ("train", "validation", "test")}}
+    (directory / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False), encoding="utf-8")
+    for kind in tqdm(("distribution", "projection"), desc="explore:data", unit="figure"):
+        fig, ax = plt.subplots(figsize=(7, 4), constrained_layout=True)
+        if kind == "distribution":
+            ax.hist(y, bins=50)
+            ax.set(xlabel=split["target_name"], ylabel="Observations")
+        else:
+            artist = ax.scatter(x[:, 0], x[:, 1], c=y, s=2, cmap="viridis")
+            fig.colorbar(artist, ax=ax, label=split["target_name"])
+            ax.set(xlabel=split["feature_names"][0], ylabel=split["feature_names"][1],
+                   title="Two-feature projection" if x.shape[1] > 2 else "Observed targets")
+        fig.savefig(directory / f"{kind}.png", dpi=140)
+        plt.close(fig)
+    return directory
+
+
 def plot_training(losses, *, destination):
     fig, ax = plt.subplots(figsize=(7, 4), constrained_layout=True)
     ax.plot(np.arange(1, len(losses) + 1), losses)

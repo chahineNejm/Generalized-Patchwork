@@ -28,7 +28,7 @@ def test_approved_sizes_and_protocol():
         if config.model == "prospar":
             assert asdict(config.prospar) == {"temperatures": 1.0, "exponent": 1.0,
                                              "inducing_nuggets": 0.01, "prior_jitter": 0.0}
-    assert [c.vnngp_neighbors for _, c in runs if c.model == "vnngp"] == [32, 256]
+    assert [c.vnngp_neighbors for _, c in runs if c.model == "vnngp"] == [32, 128]
     assert ukhousing_defaults(device="cpu").exact_training_points == "all"
 
 

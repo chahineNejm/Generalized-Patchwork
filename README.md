@@ -8,6 +8,59 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## All-Dataset Kaggle Notebook
+
+Open `notebooks/All_Datasets_Kaggle.ipynb` in Kaggle, enable Internet and GPU,
+and attach a private dataset named `gpw-kaggle-inputs` containing the three files
+from the supplied local `data/gpw-kaggle-inputs.zip`: `airline.npz`, `airline.json`
+and `icethk.txt`. Set `INPUT_ROOT` to the exact mounted directory. These files
+are pinned by checksum; other approved real sources download automatically.
+FLIGHT's old author pickle was explicitly converted once using isolated Python
+3.6.8/pandas 0.23.4, with unchanged feature/time mapping and no removed rows.
+The original is untouched; no pickle reader or compatibility fallback runs in Kaggle.
+Data and the private input bundle stay out of Git. No Kaggle upload is automated.
+
+The catalog contains 22 configurations: OISST, UKHousing, MODIS, California,
+TCO, TCO.L2, ICETHICK, PROTEIN, SARCOS, FLIGHT, and six configurations each of
+Michalewicz and G-function. Precipitation and satellite drag are explicitly deferred.
+The notebook prints all effective settings before training. `RUN_TRAINING=False`
+blocks training until explicitly enabled. All presets together mean 179 model
+runs: start by selecting a small subset, not by enabling the entire catalog.
+FLIGHT has 5.9 million rows; even a short VNNGP run must build its full graph.
+
+```python
+DATASETS = ["california"]
+MODELS_BY_DATASET = {"california": ["SVGP", "GPW"]}
+EPOCHS = 3
+WARMUP_EPOCHS = 1
+MODEL_OVERRIDES = {"california": {"GPW": {"learning_rate_structure": 0.001}}}
+```
+
+Defaults live in `experiments/default_hyperparameters.py`. California uses M512;
+TCO/TCO.L2, ICETHICK, PROTEIN, SARCOS and synthetics use M1024; FLIGHT uses M2048.
+GPW/ProSpar compare 8- and 4-patch allocations (FLIGHT: 16 and 8). VNNGP uses
+all training locations and K32/K128. ProSpar's matched capacity is smaller than
+its paper's 5000 points; every result records this difference.
+Standard Patchwork uses the primary GPW initial observed subset and an eight-leaf
+balanced first-PC tree in every supported dimension; the new 2D presets also
+include fixed grid/Voronoi variants. These are reduced-data comparisons.
+
+New real/synthetic protocols use seed31, random 80/20, all-row input min-max
+scaling and training-only target standardization. OISST/UKHousing retain 64/16/20;
+MODIS retains its official split and training-only OLS detrending. SARCOS combines
+both GPML files and uses first torque, not the supplied official split.
+Synthetic d=3/5/10 and train=50k/100k use Latin hypercubes, noise variance1e-8,
+Michalewicz m10 and G coefficients (i-1)/2; test=12.5k/25k to preserve 80/20.
+
+Fresh workers avoid reconnects. Verified prepared data can be explicitly reused;
+model reruns always create new directories. Errors record full tracebacks and stop
+subsequent work. `/kaggle/working/gpw_results` contains configs, checksums,
+source archives, splits, EDA, predictions, both labeled metric scales, timings,
+initial/final checkpoints, histories, optional inducing trajectories, worker logs,
+per-completed-run ZIPs and a final collection ZIP. Save a Kaggle version with
+outputs to retain these after the session. No training has been run on Kaggle
+as part of local verification.
+
 ## OISST Comparison
 
 Open `notebooks/OISST_Colab.ipynb` in Colab, select a GPU runtime and Run all.
@@ -429,6 +482,10 @@ The verified reconstruction and retained optimizer settings differ from the
 VNNGP paper; scores are not a paper reproduction. Live plots update in place;
 each completed run saves and downloads its configuration/provenance archive.
 The earlier `UKHousing_Colab.ipynb` remains the legacy four-model experiment.
+
+Capacity caveat: our matched-budget ProSpar configurations use 1,024 inducing
+points (8x128 or 4x256), versus 5,000 (200x25) in the supplied ProSpar preprint.
+These are smaller-model comparisons, not reproduction of the paper's capacity.
 
 The current source snapshot, verified on 2026-11-12, retains 185,257 flats;
 the previous snapshot retained 185,254. See `docs/UKHOUSING_SNAPSHOTS.md` for

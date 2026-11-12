@@ -9,9 +9,9 @@ import traceback
 from pathlib import Path
 
 
-def run_worker(root, request, *, on_event=None, module="experiments.oisst_worker"):
+def run_worker(root, request, *, on_event=None, module="experiments.oisst_worker", jobs_directory=None):
     root = Path(root).resolve()
-    jobs = root / "results/worker_jobs"
+    jobs = root / "results/worker_jobs" if jobs_directory is None else Path(jobs_directory)
     jobs.mkdir(parents=True, exist_ok=True)
     job = Path(tempfile.mkdtemp(prefix="job_", dir=jobs))
     request_path = job / "request.json"
