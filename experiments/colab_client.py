@@ -9,7 +9,7 @@ import traceback
 from pathlib import Path
 
 
-def run_worker(root, request, *, on_event=None):
+def run_worker(root, request, *, on_event=None, module="experiments.oisst_worker"):
     root = Path(root).resolve()
     jobs = root / "results/worker_jobs"
     jobs.mkdir(parents=True, exist_ok=True)
@@ -23,7 +23,7 @@ def run_worker(root, request, *, on_event=None):
     process = None
     try:
         with (job / "worker.log").open("w", encoding="utf-8") as log:
-            process = subprocess.Popen([sys.executable, "-u", "-m", "experiments.oisst_worker", str(request_path)],
+            process = subprocess.Popen([sys.executable, "-u", "-m", module, str(request_path)],
                 cwd=root, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="strict", bufsize=1)
             for line in process.stdout:

@@ -91,3 +91,24 @@ def periodic_heat_defaults(*, device):
         learning_rate_line=0.003, learning_rate_hyperparameters=0.003,
         snapshot_every=25, prediction_batch_size=256, threads=2, device=device,
     )
+
+
+def ukhousing_comparison_defaults(*, device):
+    """Approved 1,024-point comparison; retain the legacy four-model preset."""
+    common = ukhousing_defaults(device=device)
+    prospar = ProSparConfig(temperatures=1.0, exponent=1.0,
+                           inducing_nuggets=0.01, prior_jitter=0.0)
+    runs = [("SVGP", replace(common, model="svgp")),
+            ("GPW", replace(common, model="gpw", patches=8)),
+            ("GPW 4 x 256", replace(common, model="gpw", patches=4)),
+            ("ProSpar 8 x 128", replace(common, model="prospar", patches=8, prospar=prospar)),
+            ("ProSpar 4 x 256", replace(common, model="prospar", patches=4, prospar=prospar)),
+            ("VNNGP K32", replace(common, model="vnngp", vnngp_neighbors=32)),
+            ("VNNGP K256", replace(common, model="vnngp", vnngp_neighbors=256)),
+            ("Standard Patchwork", replace(common, model="patchwork", exact_training_points="gpw_initial",
+                exact_partition="grid", exact_grid_shape=(4, 2))),
+            ("Standard Patchwork (GPW regions)", replace(common, model="patchwork",
+                exact_training_points="gpw_initial", exact_partition="gpw_voronoi")),
+            ("Standard Patchwork (PC tree)", replace(common, model="patchwork",
+                exact_training_points="gpw_initial", exact_partition="pc_tree", exact_tree_patches=8))]
+    return runs

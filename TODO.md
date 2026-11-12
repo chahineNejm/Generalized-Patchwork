@@ -42,6 +42,10 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Approved UKHousing ten-configuration Colab: RBF, 100/20, SVGP 1024,
+  GPW/ProSpar 8x128 and 4x256, VNNGP K32/K256, three reduced-data partitions;
+  fresh workers, explicit selection/overrides, immutable verified data and archives.
+
 - [x] Add approved 8-region balanced PC-tree Standard Patchwork with the same
   GPW initial observations, seeded uniform stitches, saved tree and dense tests.
 - [x] Match Standard Patchwork equation (8) joint-likelihood training; dense

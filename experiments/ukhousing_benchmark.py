@@ -331,6 +331,7 @@ def _execute_ukhousing(config, split, *, output, on_snapshot):
     (output / "environment.json").write_text(json.dumps(environment, indent=2), encoding="utf-8")
     (output / "status.json").write_text(json.dumps({"state": "running"}), encoding="utf-8")
     if device.type == "cuda":
+        torch.cuda.synchronize(device)
         torch.cuda.reset_peak_memory_stats(device)
     started = time.perf_counter()
     model = build_model(config, split)

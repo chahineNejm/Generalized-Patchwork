@@ -412,6 +412,24 @@ parser guessing, automatic recovery, or silent parameter substitution.
 
 ## Verification
 
+### UKHousing Size-Matched Comparison
+
+Open `notebooks/UKHousing_Comparison_Colab.ipynb` in a GPU Colab runtime and
+Run all. It loads latest main in fresh workers without requiring reconnects.
+Edit `MODELS` to select/order runs and `OVERRIDES` for per-model hyperparameters;
+effective settings are displayed and saved. Rerun settings then training to run
+only the selected configurations from scratch on verified prepared data.
+
+The approved configurations use ARD RBF, 100 epochs and 20 kernel/noise warm-up:
+SVGP 1024; GPW/ProSpar each 8x128 and 4x256; VNNGP K32/K256 at all training
+locations. Standard Patchwork has grid 4x2, GPW-center Voronoi and PC-tree 8
+variants, each on the eight-patch GPW initial 1024 observed targets, with 100
+joint-likelihood updates and no warm-up. These are reduced-data baselines.
+The verified reconstruction and retained optimizer settings differ from the
+VNNGP paper; scores are not a paper reproduction. Live plots update in place;
+each completed run saves and downloads its configuration/provenance archive.
+The earlier `UKHousing_Colab.ipynb` remains the legacy four-model experiment.
+
 ```powershell
 python -m pytest
 ```

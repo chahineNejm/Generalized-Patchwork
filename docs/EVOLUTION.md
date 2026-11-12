@@ -1,5 +1,30 @@
 # Evolution Log
 
+## 2026-11-12 - Approved UKHousing size-matched comparison
+
+- User approved RBF kernels and existing 100 epochs / 20 kernel-noise warm-up,
+  rather than changing to Matern or the VNNGP paper's sweep. Preserve existing
+  UKHousing initialization, learning rates, batch sizes, numerical constraints,
+  seed 31 and 64/16/20 split. This is not a reproduction of the paper.
+- Compare SVGP 1024; GPW and ProSpar each 8x128 and 4x256; VNNGP at all
+  training locations with K32/K256; Standard Patchwork grid 4x2, initial-center
+  Voronoi and PC-tree 8, using exactly the eight-patch GPW initial 1024 targets.
+  These standard baselines retain the existing UKHousing two-stitches/edge
+  setting and use reduced data, while the other models train on all observations.
+- Approved ProSpar starts: temperatures 1, exponent 1, nuggets 0.01, extra
+  prior_jitter 0. Legacy UKHousing defaults and notebook remain unchanged.
+- New launcher uses latest main and fresh workers, immutable prepared split
+  files verified by checksum/config identity, explicit selected-model reruns,
+  an updating live figure, tqdm and per-completion archives/downloads. No
+  automatic resume/skip/recovery. Saved failures re-raise and block dependents.
+- Initialize CUDA before resetting allocator statistics, matching the verified
+  OISST ordering; no device or numerical substitutions.
+- Verification: all 184 tests pass, including all ten tiny synthetic runs,
+  prepared-data corruption/config rejection, exact preset budgets/references,
+  notebook regeneration/syntax, fresh-worker setup reuse, archived completions
+  and loud failures blocking later runs. Ruff and compileall pass. Four existing
+  dependency warnings remain. No full UKHousing training or Colab GPU run.
+
 ## 2026-11-12 - Balanced PC-tree Standard Patchwork
 
 - User approved an additional 8-patch PC-tree baseline following the paper's

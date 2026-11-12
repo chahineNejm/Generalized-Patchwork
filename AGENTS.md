@@ -117,6 +117,12 @@ variational precision. The current phase is the algorithm and data foundation.
   remain explicit and unchanged.
 - UKHousing is a verified 2018-flats reconstruction, not a verified VNNGP snapshot.
   Preserve this distinction, pinned raw checksums and training-only target scaling.
+- The separate UKHousing size-matched comparison uses RBF, 100 epochs / 20
+  variational kernel-noise warm-up; GPW/ProSpar 8x128 and 4x256, SVGP 1024,
+  VNNGP K32/K256, and the three reduced-data Standard Patchwork partitions.
+  Those baselines reference the named eight-patch GPW initialization explicitly,
+  even with both GPW sizes selected. Use fresh workers and verified prepared
+  splits without reconnects; preserve the legacy four-model UKHousing preset.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.
