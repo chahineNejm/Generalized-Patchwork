@@ -430,6 +430,12 @@ VNNGP paper; scores are not a paper reproduction. Live plots update in place;
 each completed run saves and downloads its configuration/provenance archive.
 The earlier `UKHousing_Colab.ipynb` remains the legacy four-model experiment.
 
+The current source snapshot, verified on 2026-11-12, retains 185,257 flats;
+the previous snapshot retained 185,254. See `docs/UKHOUSING_SNAPSHOTS.md` for
+hashes and validation. Source checksum checks remain mandatory; old caches are
+not silently replaced. For the updated Colab code, rerun setup, settings and
+data preparation without reconnecting. Historical results retain their own hashes.
+
 ```powershell
 python -m pytest
 ```

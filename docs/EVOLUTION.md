@@ -1,5 +1,31 @@
 # Evolution Log
 
+## 2026-11-12 - Explicit UKHousing source refresh
+
+- After a Colab source-checksum failure, user approved verifying and repinning
+  current official files, without bypassing checks or changing methodology.
+- Official listing retains the same price URL. Current CSV has 1,037,647 rows:
+  30 added IDs, 49 removed IDs, 63 revised records relative to the old local file.
+  Exact 16-field CSV schema, unique IDs, 2018 dates and positive prices verified.
+  The postcode archive is byte-identical; ZIP integrity/schema/key checks pass.
+- Pin prices to dbf8e95e719630fa8b8d0c90bea52e9e282e7bb6c938951737d4ed65c7655eda;
+  retain the postcode hash. Record source_snapshot=2026-11-12 in new manifests.
+  Detailed source/history notes: docs/UKHOUSING_SNAPSHOTS.md. This is a locally
+  observed HTTPS snapshot hash, not a publisher-authenticated checksum.
+- Actual unchanged preparation succeeds with 185,257 retained flats (previously
+  185,254). Preserve old local files/results. No preprocessing, split procedure,
+  model, optimizer, hyperparameter or numerical-setting change. Snapshot changes
+  can change actual split membership, and remain distinguishable by hashes.
+- Checksum errors now name expected/actual hashes and the local download/cache
+  path. Failures still raise with no replacement download, alternate source or
+  automatic repinning. Download mismatches retain their .part file for inspection.
+- Two complete HTTPS downloads produce identical price hashes; observed server
+  Last-Modified is 2026-10-28. The postcode archive has 1,809,110 unique keys.
+- Verification: actual full data preparation succeeds; all 187 tests pass,
+  including exact download acceptance, expected/actual error details, preserved
+  rejected files, and no replacement/retry for stale caches. Ruff, compileall and
+  whitespace checks pass. Four dependency warnings remain; no model training.
+
 ## 2026-11-12 - Approved UKHousing size-matched comparison
 
 - User approved RBF kernels and existing 100 epochs / 20 kernel-noise warm-up,

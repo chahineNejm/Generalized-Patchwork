@@ -16,7 +16,8 @@ from pwgp.data.download import file_checksum
 
 PRICE_URL = "https://price-paid-data.publicdata.landregistry.gov.uk/pp-2018.csv"
 POSTCODE_URL = "https://data.freemaptools.com/download/full-uk-postcodes/ukpostcodes.zip"
-PRICE_SHA256 = "2e9fb3872f0800c86458ea62a2c999195a7b55b5da17b4a8a96705c122590b27"
+SOURCE_SNAPSHOT = "2026-11-12"
+PRICE_SHA256 = "dbf8e95e719630fa8b8d0c90bea52e9e282e7bb6c938951737d4ed65c7655eda"
 POSTCODE_SHA256 = "d75818f49dc7de39c61fcc0577d27eb548caaa4a28509adc9f602da5cbc48906"
 
 
@@ -30,12 +31,15 @@ def acquire(url: str, path: Path, checksum: str | None) -> str:
                 while chunk := response.read(1024 * 1024):
                     stream.write(chunk)
                     bar.update(len(chunk))
-        if checksum is not None and file_checksum(temporary) != checksum:
-            raise ValueError(f"Source checksum mismatch: {url}")
+        actual = file_checksum(temporary)
+        if checksum is not None and actual != checksum:
+            raise ValueError(f"Source checksum mismatch: {url}; expected SHA-256={checksum}; "
+                             f"actual SHA-256={actual}; downloaded file={temporary}")
         os.replace(temporary, path)
     actual = file_checksum(path)
     if checksum is not None and actual != checksum:
-        raise ValueError(f"Cached source checksum mismatch: {path}")
+        raise ValueError(f"Cached source checksum mismatch: {path}; expected SHA-256={checksum}; "
+                         f"actual SHA-256={actual}")
     return actual
 
 
@@ -75,6 +79,7 @@ def prepare_ukhousing(cache: str | Path = "data/ukhousing") -> tuple[np.ndarray,
         raise ValueError("Nonfinite reconstructed UKHousing data")
     manifest = {
         "dataset": "UKHousing 2018 flats reconstruction; not verified VNNGP snapshot",
+        "source_snapshot": SOURCE_SNAPSHOT,
         "source_urls": [PRICE_URL, POSTCODE_URL], "source_sha256": hashes,
         "raw_transactions": raw_count, "flats_price_at_least_1000": flat_count,
         "unmatched_or_nonfinite_coordinates": unmatched, "retained": len(frame),

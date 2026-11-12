@@ -4,6 +4,9 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Verify and explicitly repin revised official UKHousing source files;
+  preserve prior caches and fail-loud checksum validation with actual/expected hashes.
+
 - [x] Update OISST training history in place; omit single-run metric bar charts.
 - [x] OISST without reconnects: verified checkout reuse and fresh stage workers,
   live progress/visuals, preserved user settings/data/results and loud failures.
