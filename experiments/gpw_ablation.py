@@ -48,7 +48,7 @@ def make_plan(request):
     for name, mapping in (("model_overrides", overrides), ("data_overrides", data_overrides)):
         if not isinstance(mapping, dict) or set(mapping) - set(selected):
             raise ValueError(f"{name} must contain only selected dataset names")
-    controlled = {"model", "seed", "q_rank", "stitch_mode", "patches", "inducing_points", "epochs", "warmup_epochs"}
+    controlled = {"model", "seed", "q_rank", "stitch_mode", "kernel_mode", "patches", "inducing_points", "epochs", "warmup_epochs"}
     allowed = {f.name for f in fields(UKConfig) if f.name not in controlled | {"prospar"}
                and not f.name.startswith(("exact_", "vnngp_"))}
     specs, runs, summary = [], [], []

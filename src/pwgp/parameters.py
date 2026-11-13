@@ -122,6 +122,7 @@ class LocalARDHyperparameters(nn.Module):
         dtype: torch.dtype = torch.float64,
         device: torch.device | None = None,
         trainable: bool = True,
+        shared: bool = False,
     ) -> None:
         super().__init__()
         device = device or torch.device("cpu")
@@ -137,6 +138,13 @@ class LocalARDHyperparameters(nn.Module):
             os = os.repeat(patches)
         if tuple(os.shape) != (patches,):
             raise ValueError(f"Expected outputscale shape {(patches,)}, got {os.shape}")
+        if type(shared) is not bool:
+            raise TypeError("shared must be a boolean")
+        self.patches, self.shared = patches, shared
+        if shared:
+            if not torch.equal(ls, ls[:1].expand_as(ls)) or not torch.equal(os, os[:1].expand_as(os)):
+                raise ValueError("Shared kernels require identical initial parameters across patches")
+            ls, os = ls[:1].clone(), os[:1].clone()
         self.bounds = bounds
         self.raw_lengthscales = nn.Parameter(
             inverse_bounded_sigmoid(ls, *bounds.lengthscale, dtype=dtype, device=device),
@@ -152,10 +160,12 @@ class LocalARDHyperparameters(nn.Module):
         )
 
     def lengthscales(self) -> torch.Tensor:
-        return bounded_sigmoid(self.raw_lengthscales, self.bounds.lengthscale)
+        values = bounded_sigmoid(self.raw_lengthscales, self.bounds.lengthscale)
+        return values.expand(self.patches, -1) if self.shared else values
 
     def outputscales(self) -> torch.Tensor:
-        return bounded_sigmoid(self.raw_outputscales, self.bounds.outputscale)
+        values = bounded_sigmoid(self.raw_outputscales, self.bounds.outputscale)
+        return values.expand(self.patches) if self.shared else values
 
     def noise_std(self) -> torch.Tensor:
         return bounded_sigmoid(self.raw_noise, self.bounds.noise_std)

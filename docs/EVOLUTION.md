@@ -1,5 +1,32 @@
 # Evolution Log
 
+## 2026-11-13 - Approved shared-kernel GPW study
+
+- User approved12 shared-only runs across California Housing, PROTEIN, TCO and
+  OISST with seeds31,32,33,1024 observed-row supports/8 patches,rank32 and learned
+  stitches. Data/preprocessing retain seed31 and the existing protocols. Reuse
+  matching local-kernel ablation results later, not by automatic import/skip.
+- User clarified one lengthscale per input direction across all patches; after
+  explaining output variance, explicitly approved sharing that too. Implement
+  one learned ARD vector and one learned output variance. Keep one global noise
+  SD as before; no parameter tying, freezing or family change for q(U). Means,
+  block factors and rank32 V remain independently trainable. Supports/stitches,
+  bounds, numerics, warm-up, optimization and full uncertainty are unchanged.
+- Preserve default local kernels for all previous launchers. Save effective
+  kernel_mode/parameter count, geometry identity and local-reference config per
+  new run. A future reuse must check config except kernel_mode, numerical/source
+  algebra, data/preprocessing/splits and initial geometry; no local completion
+  is inferred. Keep per-run archives and20-epoch labeled logs in fresh workers.
+- User approved commit/push after verification. Full suite:317 passed with four
+  existing dependency warnings. Ruff, compileall and whitespace checks pass.
+  Dense references verify stitched prior, conditional residual, weights, both
+  variance terms and ELBO with shared kernels. Gradient checks match the sum of
+  local gradients at identical values; q means/block factors/V remain untied,
+  trainable and change after updates. Tiny three-seed workers verify matched
+  local geometry, saved configs/manifests/archives, summaries and loud failure
+  handling. Notebook generation and fresh source workers pass. No real benchmark
+  was launched locally; Kaggle GPU execution remains user-run.
+
 ## 2026-11-13 - Approved44-run comparison repeats
 
 - User approved seeds32/33 on California Housing, PROTEIN, TCO and OISST,

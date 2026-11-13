@@ -1,16 +1,20 @@
 """Build the approved source-backed GPW stitching/rank Kaggle study."""
 
+import argparse
 import json
 from pathlib import Path
 
 from experiments.build_heaton_colab import cell
 from experiments.colab_source import github_bootstrap, source_metadata
-from experiments.default_hyperparameters import gpw_ablation_defaults
+from experiments.default_hyperparameters import gpw_ablation_defaults, gpw_shared_kernel_defaults
 
 
-def build_notebook(root):
-    defaults = gpw_ablation_defaults(device="cuda:0",
+def build_notebook(root, *, shared_kernel=False):
+    factory = gpw_shared_kernel_defaults if shared_kernel else gpw_ablation_defaults
+    defaults = factory(device="cuda:0",
         input_root="/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs")
+    if shared_kernel:
+        defaults = {**defaults, "ranks": [defaults["q_rank"]], "stitch_modes": ["learned"]}
     cells = [
         cell("markdown", """
         # GPW stitching and variational-rank ablations
@@ -196,7 +200,116 @@ display(FileLink(archived["archive"]))
 print("Save a Kaggle version with outputs or download the archives to preserve them outside this session.")''',
              stage="archive", requires=("training",)),
     ]
-    target = Path(root) / "notebooks/GPW_Ablations_Kaggle.ipynb"
+    if shared_kernel:
+        cells[0] = cell("markdown", """
+        # GPW shared-kernel comparison
+
+        Enable Internet and a GPU in Kaggle. No attached input bundle is required
+        for the default four datasets. Code loads latest main in fresh workers;
+        no model/data implementations are embedded and no reconnect is required.
+
+        California Housing, PROTEIN, TCO and OISST x seeds31,32,33 =12 NEW runs.
+        Each uses1024 observed-row inducing locations in8 patches of128, rank32,
+        learned stitches and one shared learned ARD lengthscale vector/output
+        variance across patches. There is still one global observation-noise SD.
+        Supports, stitches and variational parameters remain separately trainable.
+        Sharing kernel parameters does not identify the independent local latent
+        functions or remove their stitching constraints.
+
+        Match the current local-kernel rank32/learned-stitch ablations: same
+        seed31 data splits/preprocessing and same initial supports/centers/graph/
+        stitches per dataset/model seed. Kernel/noise starts, bounds, numerics,
+        optimization and both predictive variance terms are unchanged. Only the
+        kernel parameter tying changes. Effective configs, shared parameter count,
+        initialization SHA256 and a local-reference manifest are saved per run.
+
+        This notebook trains ONLY shared kernels. It does not rerun, search for,
+        silently load or claim completion of local-kernel results. Compare those
+        later only after checking effective configs (except kernel_mode), numerical
+        algebra/source identity, data/splits and initialization fingerprints.
+
+        Defaults:100 epochs maximum/20 warm-up, training-loss patience10,
+        relative improvement0.001, evaluate last state without restoring a best
+        checkpoint. Logs identify dataset/model/seed/kernel mode and refresh
+        every20 epochs plus initial/final state. Histories remain per epoch.
+        For a smoke check set EPOCHS=3,WARMUP_EPOCHS=1 explicitly.
+
+        Review the finite12-run plan, then set RUN_TRAINING=True. Every completed
+        model saves predictions, metrics, checkpoints, initial/final point plots,
+        training/kernel histories and its ZIP before the next starts. Failures
+        stop subsequent runs. Reruns start fresh, never auto-resume/skip. Results
+        use /kaggle/working/gpw_ablation_results; download archives or save a
+        Kaggle version with outputs before session storage is lost.
+        """)
+        cells[4] = cell("markdown", """
+        ## 2. Select shared-kernel runs
+
+        SEEDS defaults to31,32,33. Data seeds stay fixed at31. MODEL_OVERRIDES
+        applies identically within each dataset, using the same call-time fields
+        as the stitching/rank study. Any override must also match the local
+        reference used later. No local result is imported by this notebook.
+        """)
+        cells[5] = cell("code", f'''from datetime import UTC, datetime
+from IPython.display import FileLink, Image, display
+import pandas as pd
+
+INPUT_ROOT = "/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs"
+DATASETS = {defaults["datasets"]!r}
+SEEDS = {defaults["seeds"]!r}
+Q_RANK = {defaults["q_rank"]}
+INDUCING_POINTS = {defaults["inducing_points"]}
+PATCHES = {defaults["patches"]}
+EPOCHS = {defaults["epochs"]}
+WARMUP_EPOCHS = {defaults["warmup_epochs"]}
+EARLY_STOPPING = {defaults["early_stopping"]!r}
+PROGRESS_EVERY_EPOCHS = {defaults["progress_every_epochs"]}
+MODEL_OVERRIDES = {{}}
+DATA_OVERRIDES = {{}}
+SAVE_INDUCING_POSITIONS = True
+
+settings = call_worker("settings", study="gpw_kernel_sharing", device="cuda:0", input_root=INPUT_ROOT,
+    datasets=DATASETS, seeds=SEEDS, q_rank=Q_RANK, inducing_points=INDUCING_POINTS, patches=PATCHES,
+    epochs=EPOCHS, warmup_epochs=WARMUP_EPOCHS, early_stopping=EARLY_STOPPING,
+    model_overrides=MODEL_OVERRIDES, data_overrides=DATA_OVERRIDES,
+    progress_every_epochs=PROGRESS_EVERY_EPOCHS, save_inducing_positions=SAVE_INDUCING_POSITIONS)
+PLAN, PLAN_SHA256 = settings["plan"], settings["plan_sha256"]
+display(pd.DataFrame(settings["summary"]))
+print("New shared-kernel runs:", settings["total_runs"], "Maximum total epochs:", settings["total_epochs"])
+display(pd.DataFrame([{{"dataset": r["dataset"], "name": r["name"], **r["config"]}} for r in PLAN["runs"]]))''',
+            stage="settings", requires=("install",), invalidates=("preflight", "training", "archive"))
+        cells[11] = cell("code", '''RUN_TRAINING = False
+LIVE_PLOTS = True
+if RUN_TRAINING is not True:
+    raise RuntimeError("Training disabled. Review the plan, then explicitly set RUN_TRAINING=True")
+training_view = display("Starting shared-kernel GPW...", display_id=True)
+metrics_view = display("No completed run yet.", display_id=True)
+
+def show_event(event):
+    path = Path(event["directory"])
+    if event["kind"] == "snapshot":
+        if LIVE_PLOTS:
+            training_view.update(Image(filename=str(path / "visuals/training.png")))
+    elif event["kind"] == "complete":
+        metrics_view.update(pd.DataFrame([{"dataset": event["dataset"], "variant": event["name"], **event["metrics"]}]))
+        print(event["dataset"], "/", event["name"], "saved:", event["archive"])
+        display(FileLink(event["archive"]))
+    else:
+        raise ValueError(f"Unknown worker event: {event['kind']}")
+
+BATCH_DIRECTORY = WORK_ROOT / datetime.now(UTC).strftime("shared_kernels_%Y%m%dT%H%M%S%fZ")
+result = call_worker("train", plan=PLAN, plan_sha256=PLAN_SHA256,
+    prepared_directory=str(PREPARED_DIRECTORY), directory=str(BATCH_DIRECTORY),
+    execute_training=RUN_TRAINING, on_event=show_event)
+display(pd.read_csv(BATCH_DIRECTORY / "comparison.csv"))
+aggregate = json.loads((BATCH_DIRECTORY / "kernel_summary.json").read_text())
+display(pd.DataFrame([{"dataset": r["dataset"], "kernel_mode": r["kernel_mode"],
+    "completed_seeds": r["completed_seeds"], **{k + "_mean": v["mean"] for k, v in r["metrics"].items()}}
+    for r in aggregate]))
+print("Shared-only seed means/sample SDs:", BATCH_DIRECTORY / "kernel_summary.json")
+print("Local reference manifests are in each run archive; no local results were loaded.")''',
+            stage="training", requires=("install", "settings", "preflight", "data"), invalidates=("archive",))
+    filename = "GPW_Shared_Kernels_Kaggle.ipynb" if shared_kernel else "GPW_Ablations_Kaggle.ipynb"
+    target = Path(root) / "notebooks" / filename
     target.write_text(json.dumps({"cells": cells, "metadata": {
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": {"name": "python"}, "gpw_source": source_metadata()},
@@ -205,4 +318,6 @@ print("Save a Kaggle version with outputs or download the archives to preserve t
 
 
 if __name__ == "__main__":
-    print(build_notebook(Path(__file__).resolve().parents[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--shared-kernel", action="store_true")
+    print(build_notebook(Path(__file__).resolve().parents[1], shared_kernel=parser.parse_args().shared_kernel))

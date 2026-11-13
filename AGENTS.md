@@ -75,8 +75,11 @@ variational precision. The current phase is the algorithm and data foundation.
   rows inward. Insufficient eligible locations raise, never reduce the budget.
 - Initial learned observation-noise SD must be positive; reject invalid user
   values before squaring. Preserve explicit noiseless Nested-Kriging references.
-- GPW/SVGP kernels are ARD RBF. SVGP has one global ARD vector. Patchwork has one ARD
-  vector and output scale per patch, plus one global observation noise.
+- GPW/SVGP kernels are ARD RBF. SVGP has one global ARD vector. Default Patchwork
+  has one ARD vector/output scale per patch and one global observation noise.
+  Explicit kernel_mode=shared for GPW ties only the ARD vector/output variance;
+  q(U) means, block factors and V remain independently trainable in their existing
+  family. Do not average mismatched per-patch starts to construct shared kernels.
 - SVGP uses `q(U) = N(m, LL^T)` and includes conditional residual variance.
 - ProSpar uses independent full-covariance q(U_j), local ARD RBF kernels, learned
   positive inducing nuggets, temperatures and exponent. Their initial values and
@@ -181,6 +184,12 @@ variational precision. The current phase is the algorithm and data foundation.
   Explicit dataset/seed selection creates fresh finite batches; never auto-resume/skip.
   Save per-run ZIPs before proceeding and descriptive seed summaries with actual
   counts; a single-seed sample SD is undefined, not zero or silently filled.
+- The separate shared-kernel notebook runs12 GPW configurations: four ablation
+  datasets,seeds31-33,1024 supports/8 patches,rank32,learned stitches. Share only
+  learned ARD/output variance; preserve free variational parameters and all other
+  ablation controls. Save local-reference configs/geometry manifests; do not
+  auto-load/rerun/claim completion of local results. Verify config, data/splits,
+  numerical algebra and geometry before any later saved-result comparison.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.

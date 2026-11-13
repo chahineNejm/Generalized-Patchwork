@@ -157,6 +157,8 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
                 "equations": "arXiv:2311.08752v1 (6)-(13), approved derived objective/prediction"})
         if config.model == "gpw":
             metadata.update({"stitch_mode": config.stitch_mode, "q_rank": config.q_rank,
+                "kernel_mode": config.kernel_mode,
+                "kernel_parameter_count": model.hyp.raw_lengthscales.numel() + model.hyp.raw_outputscales.numel(),
                 "active_stitch_count": model.stitches().numel() // model.supports().shape[-1],
                 "stitches_trainable": model.stitch.trainable})
         write_json(output / "model_metadata.json", metadata)

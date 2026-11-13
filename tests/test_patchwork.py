@@ -6,7 +6,7 @@ import torch
 from pwgp.models.patchwork import GeneralizedPatchworkGP, agreement_weights
 
 
-def _model(rank: int = 6) -> GeneralizedPatchworkGP:
+def _model(rank: int = 6, *, shared_kernel=False) -> GeneralizedPatchworkGP:
     torch.manual_seed(29)
     supports = 0.1 + 0.8 * torch.rand(3, 4, 2, dtype=torch.float64)
     edges = [(0, 1), (1, 2), (0, 2)]
@@ -14,13 +14,16 @@ def _model(rank: int = 6) -> GeneralizedPatchworkGP:
     lengthscales = torch.tensor(
         [[0.2, 0.35], [0.45, 0.23], [0.3, 0.5]], dtype=torch.float64
     )
+    if shared_kernel:
+        lengthscales = lengthscales[:1].repeat(3, 1)
     return GeneralizedPatchworkGP(
-        supports, stitches, edges, q_rank=rank, lengthscale=lengthscales
+        supports, stitches, edges, q_rank=rank, lengthscale=lengthscales, shared_kernel=shared_kernel
     )
 
 
-def test_structured_prior_matches_dense_reference() -> None:
-    model = _model()
+@pytest.mark.parametrize("shared_kernel", [False, True])
+def test_structured_prior_matches_dense_reference(shared_kernel) -> None:
+    model = _model(shared_kernel=shared_kernel)
     prior = model.prior()
     local = torch.block_diag(*prior["local_covariance"].unbind(0))
     cross = prior["support_constraint"].reshape(12, -1)
@@ -83,8 +86,9 @@ def test_no_stitch_limit_uses_local_conditional_residual() -> None:
 
 
 @pytest.mark.parametrize("rank", [0, 3, 6])
-def test_conditional_weights_and_full_variance_match_dense_reference(rank) -> None:
-    model = _model(rank=rank)
+@pytest.mark.parametrize("shared_kernel", [False, True])
+def test_conditional_weights_and_full_variance_match_dense_reference(rank, shared_kernel) -> None:
+    model = _model(rank=rank, shared_kernel=shared_kernel)
     with torch.no_grad():
         model.q.raw_inverse_d_cholesky.mul_(0.8)
         model.q.mean.normal_(std=0.2)
@@ -129,8 +133,9 @@ def test_conditional_weights_and_full_variance_match_dense_reference(rank) -> No
     assert gradient is None
 
 
-def test_conditional_residual_matches_independent_dense_conditioning() -> None:
-    model = _model(rank=3)
+@pytest.mark.parametrize("shared_kernel", [False, True])
+def test_conditional_residual_matches_independent_dense_conditioning(shared_kernel) -> None:
+    model = _model(rank=3, shared_kernel=shared_kernel)
     prior = model.prior()
     x = torch.rand(5, 2, dtype=torch.float64)
     terms = model.local_query_terms(x, prior)

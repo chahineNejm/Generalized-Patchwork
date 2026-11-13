@@ -191,6 +191,13 @@ def gpw_ablation_defaults(*, device, input_root):
             "early_stopping": comparison["early_stopping"]}
 
 
+def gpw_shared_kernel_defaults(*, device, input_root):
+    """Twelve shared-kernel runs paired to local rank32/learned ablations."""
+    defaults = gpw_ablation_defaults(device=device, input_root=input_root)
+    return {**{key:value for key,value in defaults.items() if key not in ("ranks", "stitch_modes")},
+            "seeds": [31, 32, 33], "q_rank": 32}
+
+
 def matched_runs(*, device, budget, batch_size, primary_patches, alternative_patches, dimension):
     """Fixed-budget variants; higher-dimensional Standard Patchwork uses its PC tree."""
     common = replace(ukhousing_defaults(device=device), inducing_points=budget, batch_size=batch_size,

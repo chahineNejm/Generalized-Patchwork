@@ -92,6 +92,7 @@ class GeneralizedPatchworkGP(nn.Module):
         train_supports: bool = True,
         train_stitches: bool = True,
         train_hyperparameters: bool = True,
+        shared_kernel: bool = False,
         lengthscale: float | torch.Tensor = 0.2,
         outputscale: float | torch.Tensor = 1.0,
         noise_std: float = 0.05,
@@ -123,6 +124,7 @@ class GeneralizedPatchworkGP(nn.Module):
             dtype=supports.dtype,
             device=supports.device,
             trainable=train_hyperparameters,
+            shared=shared_kernel,
         )
         self.register_buffer(
             "stitch_coefficients",

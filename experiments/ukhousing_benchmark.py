@@ -50,6 +50,7 @@ class UKConfig:
     patches: int = 8
     stitches_per_edge: int = 8
     stitch_mode: str = "learned"
+    kernel_mode: str = "local"
     q_rank: int = 32
     patch_neighbors: int = 2
     vnngp_neighbors: int = 32
@@ -137,6 +138,8 @@ def initial_gpw_points(x, reference, split):
 
 
 def build_model(config, split):
+    if config.kernel_mode not in ("local", "shared") or (config.kernel_mode == "shared" and config.model != "gpw"):
+        raise ValueError("kernel_mode must be local, or shared for GPW only")
     x, y = split["x"][split["train"]], split["y"][split["train"]]
     device = torch.device(config.device)
     numerical = NumericalConfig(weight_epsilon=config.weight_epsilon)
@@ -158,7 +161,8 @@ def build_model(config, split):
         edges = [] if config.stitch_mode == "none" else candidate_edges
         stitches = candidate_stitches[:0] if config.stitch_mode == "none" else candidate_stitches
         model = GeneralizedPatchworkGP(supports.to(device), stitches.to(device), edges,
-            q_rank=config.q_rank, train_stitches=config.stitch_mode == "learned", numerical=numerical, **options)
+            q_rank=config.q_rank, train_stitches=config.stitch_mode == "learned",
+            shared_kernel=config.kernel_mode == "shared", numerical=numerical, **options)
         model.register_buffer("initial_support_locations", supports.to(device))
         model.register_buffer("initial_cluster_centers", initial["centers"].to(device))
         model.register_buffer("source_initial_indices", torch.as_tensor(

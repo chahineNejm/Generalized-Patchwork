@@ -48,6 +48,10 @@ def archive_completed_run(directory):
 
 def make_plan(request):
     if "study" in request:
+        if request["study"] == "gpw_kernel_sharing":
+            from experiments.gpw_kernel_sharing import make_plan as kernel_plan
+
+            return kernel_plan(request)
         if request["study"] == "benchmark_repeats":
             from experiments.benchmark_repeats import make_plan as repeat_plan
 
@@ -133,7 +137,7 @@ def execute(request):
         raise ValueError("Execution plan changed since settings; rerun settings explicitly")
     specs = [DatasetSpec(**values) for values in plan["data"]]
     study = plan["study"]["type"] if "study" in plan else None
-    if study not in (None, "gpw_stitch_rank", "benchmark_repeats"):
+    if study not in (None, "gpw_stitch_rank", "benchmark_repeats", "gpw_kernel_sharing"):
         raise ValueError(f"Unknown execution study: {study}")
     directory = Path(request["directory"])
     if action == "preflight":
@@ -200,14 +204,17 @@ def execute(request):
                     if values["prospar"] is not None:
                         values["prospar"] = ProSparConfig(**values["prospar"])
                     config = UKConfig(**values)
-                    if study == "gpw_stitch_rank":
+                    if study in ("gpw_stitch_rank", "gpw_kernel_sharing"):
                         from experiments.gpw_ablation import bind_initialization
 
-                        if plan["study"]["type"] != "gpw_stitch_rank" or config.model != "gpw":
+                        if config.model != "gpw":
                             raise ValueError("GPW ablation plan must contain only the declared GPW study")
                         if initialization_seed != config.seed:
                             bind_initialization(split, config)
                             initialization_seed = config.seed
+                    if study == "gpw_kernel_sharing" and (
+                            config.kernel_mode != "shared" or config.stitch_mode != "learned"):
+                        raise ValueError("Kernel-sharing study requires shared GPW kernels and learned stitches")
                     result = run_model(config, split, directory=output / f"run_{index:02d}",
                         save_inducing_positions=plan["save_inducing_positions"],
                         early_stopping=plan.get("early_stopping"),
@@ -215,6 +222,10 @@ def execute(request):
                         progress_every_epochs=plan["progress_every_epochs"] if "study" in plan else 1,
                         on_snapshot=lambda path, epoch: emit("snapshot", directory=str(path), epoch=epoch))
                     metrics = json.loads((result / "metrics.json").read_text(encoding="utf-8"))
+                    if study == "gpw_kernel_sharing":
+                        from experiments.gpw_kernel_sharing import reference_record
+
+                        write_json(result / "kernel_comparison_reference.json", reference_record(config, split))
                     summary = {"dataset": spec.name, "model": row["name"], "directory": str(result), **metrics}
                     if study is not None:
                         summary.update({"seed": config.seed, "data_seed": spec.seed,
@@ -222,6 +233,8 @@ def execute(request):
                             "inducing_points": config.inducing_points, "patches": config.patches})
                     if study == "benchmark_repeats":
                         summary["base_model"] = row["base_name"]
+                    if study == "gpw_kernel_sharing":
+                        summary["kernel_mode"] = config.kernel_mode
                     local_rows.append(summary)
                     summaries.append(summary)
                     pd.DataFrame(local_rows).to_csv(output / "comparison.csv", index=False)
@@ -230,6 +243,12 @@ def execute(request):
                         from experiments.gpw_ablation import summarize_results
 
                         write_json(directory / "ablation_summary.json", summarize_results(summaries))
+                    if study == "gpw_kernel_sharing":
+                        from experiments.gpw_kernel_sharing import (
+                            summarize_results as kernel_summary,
+                        )
+
+                        write_json(directory / "kernel_summary.json", kernel_summary(summaries))
                     if spec.kind == "modis":
                         (result / "source_rows.npy").write_bytes((output / "source_rows.npy").read_bytes())
                     archive = archive_completed_run(result)

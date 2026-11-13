@@ -8,6 +8,28 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## Shared-Kernel GPW
+
+Open `notebooks/GPW_Shared_Kernels_Kaggle.ipynb` in Kaggle with Internet/GPU.
+No attached data bundle is required for the default selection. Run stages1-4,
+review the12-run plan, then set `RUN_TRAINING=True` in stage5 and archive in6.
+
+Defaults: California Housing, PROTEIN, TCO and OISST; model seeds31,32,33;
+fixed seed31 data;1024 supports in8 patches,rank32,learned stitches; existing
+100/20 schedule and stopping. Only the ARD lengthscale vector and output
+variance are tied across patches. Variational means, block factors and V remain
+independently trainable in the same family. Global noise is unchanged.
+
+This trains12 shared-kernel models only. It does not rerun or load local-kernel
+models. Each archive includes effective configs, geometry identity and
+`kernel_comparison_reference.json` for later checks against local rank32/learned
+ablations. Verify config except `kernel_mode`, source/numerical algebra,
+data/preprocessing/splits and initial geometry before comparing saved results.
+`MODEL_OVERRIDES` must also match that reference. Data reuse is explicit and
+checksummed; no automatic recovery, resume or skip. Outputs/ZIPs save after each
+run under `/kaggle/working/gpw_ablation_results`, with20-epoch progress updates,
+per-epoch histories and seed means/sample SDs in `kernel_summary.json`.
+
 ## Benchmark Repeats
 
 Open `notebooks/Benchmark_Repeats_Kaggle.ipynb` in Kaggle with Internet/GPU.

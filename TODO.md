@@ -49,6 +49,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Add12 shared-kernel GPW runs: California/PROTEIN/TCO/OISST, seeds31-33,
+  1024 supports/8 patches,rank32,learned stitches. Share learned ARD/output
+  variance only; leave q trainable/untied. Save local-reference manifests;
+  no automatic loading/rerunning local results. Verify dense algebra and push.
+
 - [x] Add a separate44-run Kaggle comparison for seeds32/33 on California,
   PROTEIN, TCO and OISST with fixed seed31 data; preserve audited configurations,
   including explicit historical ProSpar T=1/c=1. Verify, commit and push.
