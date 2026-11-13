@@ -27,7 +27,7 @@ def test_approved_defaults_and_explicit_overrides():
     for _, config in runs:
         assert (config.epochs, config.warmup_epochs, config.inducing_points) == (100, 20, 512)
     prospar = runs[2][1].prospar
-    assert asdict(prospar) == {"temperatures": 1, "exponent": 1,
+    assert asdict(prospar) == {"temperatures": 0.1, "exponent": 2,
                               "inducing_nuggets": 0.01, "prior_jitter": 0}
     changed = replace(runs[1][1], epochs=150)
     assert changed.epochs == 150 and oisst_defaults(device="cpu")[1][1][1].epochs == 100

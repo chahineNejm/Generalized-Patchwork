@@ -46,6 +46,8 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Set future ProSpar experiment starts to author T_j=0.1 and c=2, preserving
+  independent temperatures and all other settings; verify defaults and weighting.
 - [x] Reduced61-run Kaggle batch: no FLIGHT/VNNGP, PC-tree-only Standard
   Patchwork, both existing GPW/ProSpar sizes, D5/train50k synthetic pair;
   100/20 schedule with approved training-loss early stopping, patience10,

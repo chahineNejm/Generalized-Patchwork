@@ -92,6 +92,21 @@ def test_one_expert_recovers_prior_and_integrated_conditional_objective():
     torch.testing.assert_close(model.elbo_batch(x, y, len(x))[0], expected)
 
 
+def test_equal_temperatures_do_not_cancel_or_tie_experts():
+    model = example()
+    with torch.no_grad():
+        model.hyp.raw_temperatures.copy_(inverse_softplus(torch.full_like(model.hyp.raw_temperatures, .1)))
+        model.hyp.raw_exponent.copy_(inverse_softplus(torch.tensor(2., dtype=torch.float64)))
+    x = torch.tensor([[.15, .25], [.8, .7]], dtype=torch.float64)
+    terms = model.conditional_terms(x)
+    residual = terms["local_residual"]
+    expected = torch.softmax(-.1 * residual.square(), dim=1)
+    torch.testing.assert_close(terms["alpha"], expected)
+    assert not torch.allclose(expected, torch.full_like(expected, .5))
+    assert not torch.allclose(expected, torch.softmax(-residual.square(), dim=1))
+    assert model.hyp.raw_temperatures.shape == (2,) and model.hyp.raw_temperatures.requires_grad
+
+
 def test_minibatch_elbo_scaling_subtracts_kl_once():
     model = example()
     x = torch.tensor([[0.1, 0.2], [0.4, 0.6], [0.7, 0.8], [0.9, 0.4]], dtype=torch.float64)

@@ -39,6 +39,10 @@ def test_catalog_all_approved_capacities_and_schedules():
     assert (plan["total_runs"], plan["total_epochs"]) == (179, 537)
     assert all(row["config"]["epochs"] == 3 for row in plan["plan"]["runs"])
     for name, spec in data.items():
+        for _, config in runs[name]:
+            if config.model == "prospar":
+                assert config.prospar.temperatures == .1 and config.prospar.exponent == 2.
+                assert config.prospar.inducing_nuggets == .01 and config.prospar.prior_jitter == 0.
         if spec.synthetic is not None:
             assert spec.synthetic["test_points"] == spec.synthetic["training_points"] // 4
             assert spec.synthetic["noise_variance"] == 1e-8

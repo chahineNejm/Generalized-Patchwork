@@ -1,5 +1,30 @@
 # Evolution Log
 
+## 2026-11-13 - ProSpar author-code audit and approved weighting initialization
+
+- Located the official journal supplement at Figshare article28765094, code
+  file53548667 (prospargp_code.zip); MD5 035199fac400d54a22d4fc8d96a3e4ca,
+  SHA256 4967ac9a89ab582b79dbace617116cd4a22b3e2a916d6c6ea0b124c4b86b047e.
+  Read models.py and the reproduction notebook without executing author code.
+  Mean, variance and ELBO match algebraically under whitening conversion; a
+  fixed-parameter numeric check agrees below3e-17. No author GitHub was verified.
+- Author fitc code names the shared exponent T_tens[0] and expert temperatures
+  Tc_tens; the checked reproduction initializes exponent2 and temperatures0.1.
+  User approved only these initial-value changes for future ProSpar presets.
+- Update OISST, UKHousing and multi-dataset ProSpar presets to T_j=0.1 and c=2.
+  Equal initialization does not tie the separately learned temperatures or
+  cancel their effect on the softmax. General model constructors still require
+  explicit initialization; existing user overrides and saved runs are unchanged.
+- Preserve unwhitened inference, positivity/bounds, nuggets0.01, fixed jitter0,
+  supports/initialization, learning rates, batch sizes, budgets,100/20 schedule,
+  early stopping and all data choices. This is not full author reproduction.
+- Update launcher description and reference tests. All57 focused ProSpar,
+  OISST, UKHousing comparison and multi-dataset launcher tests pass, including
+  dense algebra/gradients, complete preset coverage, independent temperature
+  parameters and non-cancellation of a common temperature. Four dependency
+  warnings remain; Ruff, compileall and whitespace checks pass. No real
+  benchmarks were run. User explicitly approved commit/push after verification.
+
 ## 2026-11-12 - Reduced batch and approved training-loss stopping
 
 - User approved retaining all real datasets except FLIGHT, excluding VNNGP,

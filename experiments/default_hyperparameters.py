@@ -20,7 +20,7 @@ def oisst_defaults(*, device="cuda:0"):
         learning_rate_hyperparameters=0.001, exact_learning_rate=0.01,
         weight_epsilon=0.01, seed=31, threads=2, snapshot_every=10, device=device,
     )
-    prospar = ProSparConfig(temperatures=1.0, exponent=1.0,
+    prospar = ProSparConfig(temperatures=0.1, exponent=2.0,
                            inducing_nuggets=0.01, prior_jitter=0.0)
     runs = [("SVGP", replace(common, model="svgp")),
             ("GPW", replace(common, model="gpw")),
@@ -96,7 +96,7 @@ def periodic_heat_defaults(*, device):
 def ukhousing_comparison_defaults(*, device):
     """Approved 1,024-point comparison; retain the legacy four-model preset."""
     common = ukhousing_defaults(device=device)
-    prospar = ProSparConfig(temperatures=1.0, exponent=1.0,
+    prospar = ProSparConfig(temperatures=0.1, exponent=2.0,
                            inducing_nuggets=0.01, prior_jitter=0.0)
     runs = [("SVGP", replace(common, model="svgp")),
             ("GPW", replace(common, model="gpw", patches=8)),
@@ -173,7 +173,7 @@ def matched_runs(*, device, budget, batch_size, primary_patches, alternative_pat
     """Fixed-budget variants; higher-dimensional Standard Patchwork uses its PC tree."""
     common = replace(ukhousing_defaults(device=device), inducing_points=budget, batch_size=batch_size,
                      patches=primary_patches)
-    prospar = ProSparConfig(temperatures=1., exponent=1., inducing_nuggets=.01, prior_jitter=0.)
+    prospar = ProSparConfig(temperatures=.1, exponent=2., inducing_nuggets=.01, prior_jitter=0.)
     runs = [("SVGP", replace(common, model="svgp")), ("GPW", replace(common, model="gpw")),
         ("GPW (alternative)", replace(common, model="gpw", patches=alternative_patches)),
         ("ProSpar", replace(common, model="prospar", prospar=prospar)),

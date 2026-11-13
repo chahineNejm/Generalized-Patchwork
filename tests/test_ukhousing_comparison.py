@@ -26,7 +26,7 @@ def test_approved_sizes_and_protocol():
         assert config.inducing_points == 1024
         assert (config.epochs, config.warmup_epochs) == (100, 20)
         if config.model == "prospar":
-            assert asdict(config.prospar) == {"temperatures": 1.0, "exponent": 1.0,
+            assert asdict(config.prospar) == {"temperatures": 0.1, "exponent": 2.0,
                                              "inducing_nuggets": 0.01, "prior_jitter": 0.0}
     assert [c.vnngp_neighbors for _, c in runs if c.model == "vnngp"] == [32, 128]
     assert ukhousing_defaults(device="cpu").exact_training_points == "all"

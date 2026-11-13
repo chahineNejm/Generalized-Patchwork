@@ -25,7 +25,7 @@ def build_notebook(root):
         Approved protocol: ARD RBF, float64, 100 epochs, 20 kernel/noise warm-up
         for variational models. Standard Patchwork uses 100 joint-likelihood
         updates without warm-up. Other existing UKHousing settings are retained.
-        ProSpar starts with temperatures=1, exponent=1, nuggets=0.01, prior_jitter=0.
+        ProSpar starts with temperatures=0.1, exponent=2, nuggets=0.01, prior_jitter=0.
 
         The 2018-flats reconstruction is not the verified VNNGP snapshot.
         This is NOT a reproduction: that paper used Matern-5/2, other initial

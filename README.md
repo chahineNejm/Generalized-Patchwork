@@ -115,7 +115,10 @@ seed for the PC tree, evenly spaced for the other two). Empty
 cells raise; no region is dropped and no point is substituted. GPW still learns
 from all training observations: these are reduced-data, not equal-information,
 comparisons. Historical all-data Patchwork results are a different protocol.
-ProSpar starts with T=1, c=1, nuggets=0.01 and explicit prior_jitter=0.
+ProSpar starts with T_j=0.1, c=2, nuggets=0.01 and explicit prior_jitter=0.
+Temperatures start equally but remain independently learned per expert; a common
+temperature scales softmax logits and does not cancel. Only the temperature and
+exponent initialization match the newly checked author code; other settings stay.
 Variational runs use 100 epochs/20 warm-up, batch 512, q LR 0.002 and other
 learned-parameter LR 0.001. Exact Patchwork retains its existing LR 0.01,
 100 full-data updates and no variational warm-up. Targets use training-only
@@ -274,7 +277,10 @@ This implementation follows the generative model (6)-(13) in the supplied
 ELBO/prediction rather than the inconsistent printed (14)/(16). The likelihood
 integrates the conditional residual before taking its expectation over q(U).
 Predictive latent variance is `lambda + sum_j b_j^2 A_j S_j A_j^T`; observation
-noise is added once. No author source implementation has been verified.
+noise is added once. The core mean/variance/ELBO algebra was checked against
+`models.py` in the [official author supplement](https://ndownloader.figshare.com/files/53548667),
+after accounting for their whitened coordinates. This is still an independent
+implementation, not a reproduction of their parameterization or training settings.
 
 Heaton and UKHousing runners accept `model="prospar"` with
 `prospar=ProSparConfig(temperatures=..., exponent=..., inducing_nuggets=...,

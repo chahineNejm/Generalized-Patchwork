@@ -85,7 +85,12 @@ variational precision. The current phase is the algorithm and data foundation.
   Use the approved generative derivation from arXiv:2311.08752v1 (6)-(13), not
   literal printed (14)/(16): integrate f before the expected log likelihood;
   prediction propagates q variance with squared b_j, not squared lambda_j.
-  This is a paper-derived implementation, not verified author code.
+  This is an independent paper-derived implementation. Core mean/variance/ELBO
+  algebra was checked against the official author supplement after converting
+  whitened coordinates; optimization and parameter constraints are not identical.
+  Approved experiment starts are T_j=0.1 for every expert and c=2. Temperatures
+  remain independently learned, not tied. Nuggets0.01/prior_jitter0 and all
+  other approved settings remain unchanged; this is not full author replication.
 - Patchwork uses `q(U) = N(m, (D + VV^T)^-1)` with block-diagonal `D`.
 - Stitching conditions exactly on `Delta_S = 0` using one coherent regularized
   prior. Do not add independent jitter to the Schur complement.
