@@ -4,6 +4,9 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Label ablation training progress with dataset/model/seed/rank/stitches and
+  refresh logs every20 epochs plus final state, retaining per-epoch histories.
+
 - [x] Verify and explicitly repin revised official UKHousing source files;
   preserve prior caches and fail-loud checksum validation with actual/expected hashes.
 

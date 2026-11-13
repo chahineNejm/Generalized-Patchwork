@@ -234,7 +234,9 @@ def progress_figure(path, model, split, losses, config):
     plt.close(fig)
 
 
-def train(model, split, config, callback):
+def train(model, split, config, callback, *, progress_description=None, progress_every_epochs=1):
+    if type(progress_every_epochs) is not int or progress_every_epochs < 1:
+        raise ValueError("progress_every_epochs must be a positive integer")
     x, y = split["x"][split["train"]], split["y"][split["train"]]
     if config.model in ("gpw", "svgp", "prospar"):
         optimizer = OptimizerConfig(
@@ -246,25 +248,31 @@ def train(model, split, config, callback):
         )
         return fit(model, x, y, epochs=config.epochs, batch_size=config.batch_size,
                    seed=config.seed, optimizer=optimizer,
+                   progress_description=progress_description, progress_every_epochs=progress_every_epochs,
                    on_epoch=lambda epoch, current, history: callback(epoch, history.losses)).losses
     losses = []
+    progress_options = {"total": config.epochs, "unit": "epoch", "miniters": progress_every_epochs,
+                        "mininterval": 0, "maxinterval": float("inf")}
     if config.model == "patchwork":
         optimizer = torch.optim.Adam(model.parameters(), lr=config.exact_learning_rate)
-        for epoch in (bar := tqdm(range(config.epochs), desc="train:standard-patchwork", unit="epoch")):
-            model.train()
-            optimizer.zero_grad()
-            loss = model.loss()
-            if not bool(torch.isfinite(loss)):
-                raise FloatingPointError("Nonfinite exact Patchwork likelihood")
-            loss.backward()
-            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
-            if not bool(torch.isfinite(norm)):
-                raise FloatingPointError("Nonfinite exact Patchwork gradient")
-            optimizer.step()
-            losses.append(float(loss.detach()))
-            bar.set_postfix(loss=losses[-1])
-            if callback(epoch + 1, losses) is True:
-                break
+        description = "train:standard-patchwork" if progress_description is None else progress_description
+        with tqdm(desc=description, **progress_options) as bar:
+            for epoch in range(config.epochs):
+                model.train()
+                optimizer.zero_grad()
+                loss = model.loss()
+                if not bool(torch.isfinite(loss)):
+                    raise FloatingPointError("Nonfinite exact Patchwork likelihood")
+                loss.backward()
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+                if not bool(torch.isfinite(norm)):
+                    raise FloatingPointError("Nonfinite exact Patchwork gradient")
+                optimizer.step()
+                losses.append(float(loss.detach()))
+                bar.set_postfix(loss=losses[-1], refresh=False)
+                bar.update(1)
+                if callback(epoch + 1, losses) is True:
+                    break
         return losses
     q_parameters = list(model.variational_parameters())
     hyperparameters = list(model.hyperparameters())
@@ -272,30 +280,33 @@ def train(model, split, config, callback):
                                   {"params": hyperparameters, "lr": 0.0}])
     objective = gpytorch.mlls.VariationalELBO(model.likelihood, model, num_data=len(x))
     y = y.to(config.device)
-    for epoch in (bar := tqdm(range(config.epochs), desc="train:vnngp", unit="epoch")):
-        model.train()
-        if epoch == config.warmup_epochs:
-            optimizer.param_groups[1]["lr"] = config.learning_rate_hyperparameters
-        accumulated = seen = 0
-        for _ in range(model.variational_strategy._total_training_batches):
-            optimizer.zero_grad()
-            with strict_gpytorch():
-                output = model(None)
-                indices = model.variational_strategy.current_training_indices.to(y.device)
-                loss = -objective(output, y[indices])
-            if not bool(torch.isfinite(loss)):
-                raise FloatingPointError("Nonfinite VNNGP objective")
-            loss.backward()
-            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
-            if not bool(torch.isfinite(norm)):
-                raise FloatingPointError("Nonfinite VNNGP gradient")
-            optimizer.step()
-            accumulated += float(loss.detach()) * len(indices)
-            seen += len(indices)
-        losses.append(accumulated / seen)
-        bar.set_postfix(loss=losses[-1])
-        if callback(epoch + 1, losses) is True:
-            break
+    description = "train:vnngp" if progress_description is None else progress_description
+    with tqdm(desc=description, **progress_options) as bar:
+        for epoch in range(config.epochs):
+            model.train()
+            if epoch == config.warmup_epochs:
+                optimizer.param_groups[1]["lr"] = config.learning_rate_hyperparameters
+            accumulated = seen = 0
+            for _ in range(model.variational_strategy._total_training_batches):
+                optimizer.zero_grad()
+                with strict_gpytorch():
+                    output = model(None)
+                    indices = model.variational_strategy.current_training_indices.to(y.device)
+                    loss = -objective(output, y[indices])
+                if not bool(torch.isfinite(loss)):
+                    raise FloatingPointError("Nonfinite VNNGP objective")
+                loss.backward()
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+                if not bool(torch.isfinite(norm)):
+                    raise FloatingPointError("Nonfinite VNNGP gradient")
+                optimizer.step()
+                accumulated += float(loss.detach()) * len(indices)
+                seen += len(indices)
+            losses.append(accumulated / seen)
+            bar.set_postfix(loss=losses[-1], refresh=False)
+            bar.update(1)
+            if callback(epoch + 1, losses) is True:
+                break
     return losses
 
 

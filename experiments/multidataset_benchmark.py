@@ -89,12 +89,15 @@ def plot_predictions(truth, mean, variance, *, destination):
     plt.close(fig)
 
 
-def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=None, early_stopping=None):
+def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=None, early_stopping=None,
+              progress_description=None, progress_every_epochs=1):
     output = Path(directory)
     output.mkdir(parents=True, exist_ok=False)
     with record_failures(output, status_key="state"):
         if config.epochs < 1 or config.snapshot_every < 1:
             raise ValueError("epochs and snapshot_every must be positive")
+        if type(progress_every_epochs) is not int or progress_every_epochs < 1:
+            raise ValueError("progress_every_epochs must be a positive integer")
         if config.model != "patchwork" and not 0 <= config.warmup_epochs < config.epochs:
             raise ValueError("Require 0 <= warmup_epochs < epochs; no automatic warm-up adjustment")
         if config.model == "prospar" and config.prospar is None:
@@ -105,7 +108,8 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
         stopper = None if stop_config is None else TrainingLossStopper(stop_config, warmup_epochs=config.warmup_epochs)
         write_json(output / "training_control.json", {"early_stopping": early_stopping,
             "monitor": "epoch training loss", "monitor_after_epoch": config.warmup_epochs,
-            "evaluated_model": "last trained parameters; no restoration"})
+            "evaluated_model": "last trained parameters; no restoration",
+            "progress_description": progress_description, "progress_every_epochs": progress_every_epochs})
         torch.set_num_threads(config.threads)
         faiss.omp_set_num_threads(config.threads)
         torch.manual_seed(config.seed)
@@ -204,7 +208,8 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
 
         snapshot(0, [])
         started = time.perf_counter()
-        losses = train(model, split, config, snapshot)
+        losses = train(model, split, config, snapshot, progress_description=progress_description,
+                       progress_every_epochs=progress_every_epochs)
         if device.type == "cuda":
             torch.cuda.synchronize(device)
         training_seconds = time.perf_counter() - started

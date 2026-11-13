@@ -175,6 +175,7 @@ def gpw_ablation_defaults(*, device, input_root):
     return {"datasets": ["california", "protein", "tco", "oisst"], "inducing_points": 1024, "patches": 8,
             "seeds": [31, 32, 33], "ranks": [0, 32],
             "stitch_modes": ["none", "fixed", "learned"],
+            "progress_every_epochs": 20,
             "epochs": comparison["epochs"], "warmup_epochs": comparison["warmup_epochs"],
             "early_stopping": comparison["early_stopping"]}
 

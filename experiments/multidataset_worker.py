@@ -204,6 +204,8 @@ def execute(request):
                     result = run_model(config, split, directory=output / f"run_{index:02d}",
                         save_inducing_positions=plan["save_inducing_positions"],
                         early_stopping=plan.get("early_stopping"),
+                        progress_description=f"train:{spec.name} / {row['name']}",
+                        progress_every_epochs=plan["progress_every_epochs"] if "study" in plan else 1,
                         on_snapshot=lambda path, epoch: emit("snapshot", directory=str(path), epoch=epoch))
                     metrics = json.loads((result / "metrics.json").read_text(encoding="utf-8"))
                     summary = {"dataset": spec.name, "model": row["name"], "directory": str(result), **metrics}

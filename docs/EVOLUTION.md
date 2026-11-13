@@ -1,5 +1,22 @@
 # Evolution Log
 
+## 2026-11-13 - Identifiable, sparse ablation progress logs
+
+- User requested dataset/model labels and training tqdm updates every20 epochs.
+  Ablation labels also identify seed, rank and stitch mode. Expose the interval
+  in notebook settings and save effective progress controls with each run.
+- Suppress the extra postfix refresh; use explicit epoch progress updates so
+  final counts remain correct on early stopping. Keep all loss histories and
+  callbacks per epoch, snapshot schedules and optimization unchanged. Existing
+  running Kaggle jobs are unaffected. Other multi-dataset jobs gain labels but
+  retain their existing per-epoch refresh interval.
+- Focused tests:62 passed, including exact training-state/loss equivalence,
+  refresh counts, early-stop display and notebook/worker propagation. Disable
+  timed background refreshes too;24 training/control tests pass after this check,
+  including unchanged nonzero-learning-rate parameter updates. Full suite:
+  284 passed with four existing dependency warnings. Ruff, compileall and
+  whitespace checks pass. No real benchmark was started.
+
 ## 2026-11-13 - Three-seed default ablation study
 
 - User approved reducing model/training seeds to31,32,33. The four selected

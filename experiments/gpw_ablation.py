@@ -38,6 +38,9 @@ def make_plan(request):
         raise ValueError("Require integer 0 <= warmup_epochs < epochs; no automatic adjustment")
     if type(request["save_inducing_positions"]) is not bool:
         raise TypeError("save_inducing_positions must be an explicit boolean")
+    interval = request["progress_every_epochs"]
+    if type(interval) is not int or interval < 1:
+        raise ValueError("progress_every_epochs must be a positive integer")
     stopping = request["early_stopping"]
     if stopping is not None:
         EarlyStoppingConfig(**stopping)
@@ -77,6 +80,7 @@ def make_plan(request):
             "initialization_policy": "identical geometry across variants within each dataset/model seed",
             "kernel_comparison": "deferred; separate learned local kernels unchanged"},
         "data": specs, "runs": runs, "save_inducing_positions": request["save_inducing_positions"],
+        "progress_every_epochs": interval,
         "early_stopping": stopping, "excluded_model_types": ["svgp", "prospar", "vnngp", "patchwork"],
         "deferred": deferred}
     return {"plan": plan, "plan_sha256": plan_hash(plan), "summary": summary,

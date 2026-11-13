@@ -168,7 +168,10 @@ variational precision. The current phase is the algorithm and data foundation.
   stitches; none removes constraints, never the GPW model. Preserve existing
   rank/prior-dependent q initialization, uncertainty and optimization settings.
   Shared-kernel and powered-product studies are not part of this batch. Explicit
-  dataset/seed selection creates fresh finite batches; never auto-resume/skip.
+  training labels include dataset/model/seed/rank/stitch mode. Ablation tqdm
+  refreshes every20 epochs plus initial/final state by default; preserve per-epoch
+  histories/callbacks and existing visual snapshot timing. Save progress controls.
+  Explicit dataset/seed selection creates fresh finite batches; never auto-resume/skip.
   Save per-run ZIPs before proceeding and descriptive seed summaries with actual
   counts; a single-seed sample SD is undefined, not zero or silently filled.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and

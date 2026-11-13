@@ -42,6 +42,10 @@ def build_notebook(root):
         without checkpoint restoration. All parameters and effective overrides
         are saved. Epochs/warm-up are editable; for an explicit smoke test choose
         EPOCHS=3, WARMUP_EPOCHS=1. No real dataset is silently made smaller.
+        Training bars name the dataset/model/seed/rank/stitch mode and refresh
+        every20 epochs, plus their initial/final state. Histories still save every
+        epoch; visual snapshots keep their existing schedule. Current runs are
+        not changed by this source update.
 
         Select DATASETS and SEEDS explicitly to divide the study into finite
         GPU-session batches. One seed across these four datasets gives24 runs.
@@ -102,11 +106,13 @@ EARLY_STOPPING = {defaults["early_stopping"]!r}
 MODEL_OVERRIDES = {{}}
 DATA_OVERRIDES = {{}}
 SAVE_INDUCING_POSITIONS = True
+PROGRESS_EVERY_EPOCHS = {defaults["progress_every_epochs"]}
 
 settings = call_worker("settings", study="gpw_stitch_rank", device="cuda:0", input_root=INPUT_ROOT,
     datasets=DATASETS, seeds=SEEDS, ranks=RANKS, stitch_modes=STITCH_MODES,
     inducing_points=INDUCING_POINTS, patches=PATCHES, epochs=EPOCHS, warmup_epochs=WARMUP_EPOCHS,
     early_stopping=EARLY_STOPPING, model_overrides=MODEL_OVERRIDES, data_overrides=DATA_OVERRIDES,
+    progress_every_epochs=PROGRESS_EVERY_EPOCHS,
     save_inducing_positions=SAVE_INDUCING_POSITIONS)
 PLAN, PLAN_SHA256 = settings["plan"], settings["plan_sha256"]
 display(pd.DataFrame(settings["summary"]))

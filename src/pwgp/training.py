@@ -34,10 +34,14 @@ def fit(
     seed: int = 0,
     optimizer: OptimizerConfig = DEFAULT_OPTIMIZER_CONFIG,
     on_epoch: Callable[[int, torch.nn.Module, FitHistory], bool | None] | None = None,
+    progress_description: str | None = None,
+    progress_every_epochs: int = 1,
 ) -> FitHistory:
     """Optimize the objective; an epoch callback returning True explicitly stops training."""
     if epochs < 1 or batch_size < 1:
         raise ValueError("epochs and batch_size must be positive")
+    if type(progress_every_epochs) is not int or progress_every_epochs < 1:
+        raise ValueError("progress_every_epochs must be a positive integer")
     if x.ndim != 2 or y.ndim != 1 or len(x) != len(y):
         raise ValueError("Expected x [N,D] and y [N]")
     device = _device_of(model)
@@ -100,46 +104,49 @@ def fit(
         torch.cuda.reset_peak_memory_stats(device)
     history = FitHistory()
     started = time.perf_counter()
-    progress = tqdm(range(epochs), desc=f"train:{model.kind}", unit="epoch")
-    for epoch in progress:
-        if epoch == warmup_epochs:
-            for group in adam.param_groups:
-                if group.get("name") == "hyperparameters":
-                    group["lr"] = optimizer.learning_rate_hyperparameters
-        model.train()
-        accumulated = 0.0
-        seen = 0
-        for batch_x, batch_y in loader:
-            batch_x = batch_x.to(device, non_blocking=device.type == "cuda")
-            batch_y = batch_y.to(device, non_blocking=device.type == "cuda")
-            for phase in phases:
-                if alternating:
-                    for parameter in q_parameters:
-                        parameter.requires_grad_(phase == "q")
-                    for parameter in structure_parameters:
-                        parameter.requires_grad_(phase == "structure")
-                adam.zero_grad(set_to_none=True)
-                elbo, _, _, kl = model.elbo_batch(batch_x, batch_y, len(x))
-                loss = -elbo / len(x)
-                if not torch.isfinite(loss) or not torch.isfinite(kl):
-                    raise FloatingPointError(
-                        f"Non-finite objective at epoch {epoch}, phase {phase}"
+    description = f"train:{model.kind}" if progress_description is None else progress_description
+    with tqdm(total=epochs, desc=description, unit="epoch", miniters=progress_every_epochs,
+              mininterval=0, maxinterval=float("inf")) as progress:
+        for epoch in range(epochs):
+            if epoch == warmup_epochs:
+                for group in adam.param_groups:
+                    if group.get("name") == "hyperparameters":
+                        group["lr"] = optimizer.learning_rate_hyperparameters
+            model.train()
+            accumulated = 0.0
+            seen = 0
+            for batch_x, batch_y in loader:
+                batch_x = batch_x.to(device, non_blocking=device.type == "cuda")
+                batch_y = batch_y.to(device, non_blocking=device.type == "cuda")
+                for phase in phases:
+                    if alternating:
+                        for parameter in q_parameters:
+                            parameter.requires_grad_(phase == "q")
+                        for parameter in structure_parameters:
+                            parameter.requires_grad_(phase == "structure")
+                    adam.zero_grad(set_to_none=True)
+                    elbo, _, _, kl = model.elbo_batch(batch_x, batch_y, len(x))
+                    loss = -elbo / len(x)
+                    if not torch.isfinite(loss) or not torch.isfinite(kl):
+                        raise FloatingPointError(
+                            f"Non-finite objective at epoch {epoch}, phase {phase}"
+                        )
+                    loss.backward()
+                    gradient_norm = torch.nn.utils.clip_grad_norm_(
+                        [parameter for parameter in all_parameters if parameter.requires_grad],
+                        optimizer.gradient_clip,
                     )
-                loss.backward()
-                gradient_norm = torch.nn.utils.clip_grad_norm_(
-                    [parameter for parameter in all_parameters if parameter.requires_grad],
-                    optimizer.gradient_clip,
-                )
-                if not torch.isfinite(gradient_norm):
-                    raise FloatingPointError(f"Non-finite gradient at epoch {epoch}, phase {phase}")
-                adam.step()
-            accumulated += float(loss.detach()) * len(batch_x)
-            seen += len(batch_x)
-        history.losses.append(accumulated / seen)
-        progress.set_postfix(loss=f"{history.losses[-1]:.5f}")
-        history.elapsed_seconds = time.perf_counter() - started
-        if on_epoch is not None and on_epoch(epoch + 1, model, history) is True:
-            break
+                    if not torch.isfinite(gradient_norm):
+                        raise FloatingPointError(f"Non-finite gradient at epoch {epoch}, phase {phase}")
+                    adam.step()
+                accumulated += float(loss.detach()) * len(batch_x)
+                seen += len(batch_x)
+            history.losses.append(accumulated / seen)
+            progress.set_postfix(loss=f"{history.losses[-1]:.5f}", refresh=False)
+            progress.update(1)
+            history.elapsed_seconds = time.perf_counter() - started
+            if on_epoch is not None and on_epoch(epoch + 1, model, history) is True:
+                break
     for parameter in all_parameters:
         parameter.requires_grad_(True)
     if device.type == "cuda":

@@ -42,6 +42,12 @@ are saved. Review the plan and set `RUN_TRAINING=True` to authorize training.
 No silent resume, automatic skipping or overwrite of previous runs is performed.
 The separate shared-kernel experiment remains planned, not selected.
 
+Training bars name the dataset, model, seed, rank and stitch mode.
+`PROGRESS_EVERY_EPOCHS=20` controls log refreshes, with initial/final states also
+shown. Saved loss histories still contain every epoch; snapshot timing is
+unchanged. Progress settings are saved in `training_control.json`. This update
+applies to new runs, not a job already running on Kaggle.
+
 Every completed run is archived before the next starts. Histories update one
 notebook display; all final plots/positions/checkpoints/predictions remain in
 its ZIP. `comparison.csv` retains each seed; `ablation_summary.json` records

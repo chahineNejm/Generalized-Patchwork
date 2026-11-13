@@ -47,6 +47,7 @@ def test_approved_default_plan_has_72_runs_and_fixed_data_seed():
     assert {c["stitch_mode"] for c in configs} == {"none", "fixed", "learned"}
     assert {(c["inducing_points"], c["patches"]) for c in configs} == {(1024, 8)}
     assert all(c["epochs"] == 100 and c["warmup_epochs"] == 20 for c in configs)
+    assert result["plan"]["progress_every_epochs"] == 20
     baseline = {r["dataset"]: r["config"] for r in result["plan"]["runs"] if r["config"]["seed"] == 31}
     for row in result["plan"]["runs"]:
         local = {k: v for k,v in row["config"].items() if k not in ("seed", "q_rank", "stitch_mode")}
@@ -68,6 +69,7 @@ def test_original_eleven_dataset_study_remains_explicitly_available(seeds, total
     {"model_overrides": {"oisst": {"q_rank": 8}}},
     {"model_overrides": {"oisst": {"vnngp_neighbors": 32}}},
     {"study": "unknown"},
+    {"progress_every_epochs": 0}, {"progress_every_epochs": True},
 ])
 def test_invalid_ablation_plans_fail_without_adjustment(updates):
     with pytest.raises((ValueError, TypeError)):
@@ -148,6 +150,7 @@ def test_notebook_is_reproducible_configuration_only_and_stage_guarded(tmp_path)
     assert "RUN_TRAINING = False" in code and "training_view.update(Image" in code
     assert "SEEDS = [31, 32, 33]" in code and "RANKS = [0, 32]" in code
     assert "INDUCING_POINTS = 1024" in code and "PATCHES = 8" in code
+    assert "PROGRESS_EVERY_EPOCHS = 20" in code
     assert "_OISST_STAGES" in code and "class " not in code
     imports = [n.module for n in ast.walk(ast.parse(code)) if isinstance(n, ast.ImportFrom)]
     assert not any(n and n.startswith(("experiments", "pwgp")) for n in imports)
@@ -178,6 +181,9 @@ def test_short_ablation_worker_saves_six_runs_and_stops_on_error(tmp_path, monke
         folder = batch / "tiny" / f"run_{i:02d}"
         identity = json.loads((folder / "initialization_identity.json").read_text())
         identities.append(identity["geometry_sha256"])
+        control = json.loads((folder / "training_control.json").read_text())
+        assert control["progress_description"] == f"train:tiny / {row['name']}"
+        assert control["progress_every_epochs"] == 20
         assert identity["data_seed"] == 31 and identity["model_training_seed"] == 32
         mode = row["config"]["stitch_mode"]
         with np.load(folder / "stitches_epoch_0.npz", allow_pickle=False) as a, np.load(
