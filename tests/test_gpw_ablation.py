@@ -14,6 +14,7 @@ from experiments import multidataset_worker as worker
 from experiments.build_gpw_ablation_kaggle import build_notebook
 from experiments.default_hyperparameters import (
     gpw_ablation_defaults,
+    gpw_flight_ablation_defaults,
     multidataset_notebook_defaults,
 )
 from experiments.gpw_ablation import (
@@ -33,6 +34,48 @@ def request(**updates):
     defaults = gpw_ablation_defaults(device="cpu", input_root="manual")
     return {**defaults, "study": "gpw_stitch_rank", "device": "cpu", "input_root": "manual",
             "save_inducing_positions": True, "model_overrides": {}, "data_overrides": {}, **updates}
+
+
+def test_flight_plan_preserves_protocol_and_six_requested_conditions(tmp_path):
+    defaults = gpw_flight_ablation_defaults(device="cpu", input_root="manual")
+    result = worker.make_plan(request(**defaults))
+    assert result["total_runs"] == 6 and result["total_epochs"] == 600
+    assert len(result["plan"]["data"]) == 1
+    spec = result["plan"]["data"][0]
+    assert (spec["name"], spec["seed"], spec["train_fraction"], spec["validation_fraction"]) == ("flight", 31, .8, 0.)
+    assert Path(spec["input_path"]).name == "airline.npz"
+    configs = [r["config"] for r in result["plan"]["runs"]]
+    assert {(c["q_rank"], c["stitch_mode"]) for c in configs} == {
+        (r, m) for r in (0, 64) for m in ("none", "fixed", "learned")}
+    assert {(c["seed"], c["inducing_points"], c["patches"], c["batch_size"]) for c in configs} == {(31, 1024, 8, 2048)}
+    (tmp_path / "notebooks").mkdir()
+    notebook = json.loads(build_notebook(tmp_path, flight=True).read_text())
+    assert notebook == json.loads((ROOT / "notebooks/GPW_FLIGHT_Ablations_Kaggle.ipynb").read_text())
+    code = "\n".join("".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code")
+    for entry in notebook["cells"]:
+        if entry["cell_type"] == "code":
+            compile("".join(entry["source"]), "flight-ablation", "exec")
+            assert entry["outputs"] == []
+    assert "DATASETS = ['flight']" in code and "SEEDS = [31]" in code and "RANKS = [0, 64]" in code
+    assert "RUN_TRAINING = False" in code and "_OISST_STAGES" in code
+    with pytest.raises(ValueError, match="not both"):
+        build_notebook(tmp_path, flight=True, shared_kernel=True)
+
+
+@pytest.mark.parametrize("mode", ["none", "fixed", "learned"])
+def test_rank64_model_has_finite_gradients_and_matched_geometry(mode):
+    torch.set_num_threads(2)
+    split = tiny_split()
+    config = UKConfig(device="cpu", seed=31, inducing_points=80, patches=4,
+                      q_rank=64, stitch_mode=mode, stitches_per_edge=2)
+    reference = bind_initialization(split, config)
+    model = build_model(config, split)
+    assert verify_geometry(model, split) == geometry_digest(reference)
+    loss = -model.elbo_batch(split["x"][:8], split["y"][:8], 200)[0]
+    assert torch.isfinite(loss)
+    loss.backward()
+    assert model.q.v.shape[1] == 64
+    assert model.q.v.grad is not None and torch.isfinite(model.q.v.grad).all()
 
 
 def test_approved_default_plan_has_72_runs_and_fixed_data_seed():

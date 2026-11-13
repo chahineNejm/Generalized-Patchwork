@@ -190,6 +190,11 @@ variational precision. The current phase is the algorithm and data foundation.
   ablation controls. Save local-reference configs/geometry manifests; do not
   auto-load/rerun/claim completion of local results. Verify config, data/splits,
   numerical algebra and geometry before any later saved-result comparison.
+- The separate FLIGHT-only ablation notebook selects seed31,ranks0/64 and
+  none/fixed/learned stitches: six runs,1024 supports/8 patches,existing100/20
+  schedule/stopping and full approved FLIGHT data. Do not subsample implicitly.
+  result_archives/ is the local ZIP inbox; track archive experiments/verification
+  in its INDEX.csv, never add archive binaries to Git or infer completion by name.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.

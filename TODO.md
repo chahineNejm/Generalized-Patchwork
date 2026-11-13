@@ -49,6 +49,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Add FLIGHT-only six-run Kaggle ablations: seed31,ranks0/64,none/fixed/
+  learned stitches,1024 supports/8 patches,existing100/20 and stopping controls.
+  Add a local ZIP inbox and tracked experiment index;321 tests, Ruff and
+  compileall pass. Real FLIGHT GPU training remains user-run.
+
 - [x] Add12 shared-kernel GPW runs: California/PROTEIN/TCO/OISST, seeds31-33,
   1024 supports/8 patches,rank32,learned stitches. Share learned ARD/output
   variance only; leave q trainable/untied. Save local-reference manifests;

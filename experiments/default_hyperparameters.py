@@ -191,6 +191,12 @@ def gpw_ablation_defaults(*, device, input_root):
             "early_stopping": comparison["early_stopping"]}
 
 
+def gpw_flight_ablation_defaults(*, device, input_root):
+    """Six FLIGHT-only runs with the existing matched-budget ablation controls."""
+    defaults = gpw_ablation_defaults(device=device, input_root=input_root)
+    return {**defaults, "datasets": ["flight"], "seeds": [31], "ranks": [0, 64]}
+
+
 def gpw_shared_kernel_defaults(*, device, input_root):
     """Twelve shared-kernel runs paired to local rank32/learned ablations."""
     defaults = gpw_ablation_defaults(device=device, input_root=input_root)

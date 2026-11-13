@@ -17,6 +17,9 @@ build/
 /checkpoints/
 /results/
 /airline.pickle
+/result_archives/*
+!/result_archives/README.md
+!/result_archives/INDEX.csv
 *.pt
 *.pth
 

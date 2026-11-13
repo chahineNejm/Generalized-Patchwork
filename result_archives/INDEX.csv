@@ -1,0 +1,3 @@
+archive_path,experiment,datasets,completed_runs,model_seeds,factors,status,notes
+all_results_20261113T083032200644Z.zip,Main multi-dataset comparison,11 datasets,61,31,Multiple models and existing dataset-specific capacities,Audited,"Audit: results/archive_audit_20261113/audit.json; historical ProSpar T=1 c=1; not size-matched to 1024-point ablations on every dataset"
+gpw_ablations_20261113T195502818109Z.zip,GPW stitching and rank ablation,California;PROTEIN;TCO;OISST,72,31;32;33,"1024 supports;8 patches;ranks 0/32;stitches none/fixed/learned",Audited,"72 completed; predictions and metrics verified; matched geometry in 12 dataset/seed groups; source c767edbf439f563338f54f4399272ec5ccd5148f"

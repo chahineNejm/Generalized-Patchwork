@@ -1,5 +1,26 @@
 # Evolution Log
 
+## 2026-11-13 - FLIGHT-only stitching/rank batch and result inbox
+
+- User requested FLIGHT only for the next batch, one initial seed and ranks0/64
+  crossed with none/fixed/learned stitches. Retain existing ablation seed31,
+  1024 supports/8 patches,100/20 schedule and early stopping. Existing FLIGHT
+  full-data source,80/20 split,preprocessing,batch2048 and other settings remain.
+  No subsampling, extra seeds, rank128 or increased stitch count was introduced.
+- Separate source-backed notebook reuses the existing worker, matched geometry,
+  per-run archives, loud failures and progress controls. Original notebooks and
+  model equations remain unchanged. Real GPU training is for the user on Kaggle.
+- Added result_archives/ as a ZIP inbox with a tracked INDEX.csv and instructions.
+  Existing root ZIPs stay untouched; index distinguishes audited outputs from
+  planned experiments. New ZIP contents are excluded from Git.
+- Verification:321 tests pass with four existing dependency warnings; Ruff,
+  compileall and whitespace checks pass. Added six-condition plan/protocol and
+  reproducible output-free notebook checks, exclusive-study validation, and
+  rank64 matched-geometry/finite-gradient tests in every stitch mode. Archive
+  ignore rules preserve tracked index/guide while excluding new ZIP contents.
+  No full FLIGHT training was launched locally. User approved committing and
+  pushing the verified notebook and archive index to main.
+
 ## 2026-11-13 - Approved shared-kernel GPW study
 
 - User approved12 shared-only runs across California Housing, PROTEIN, TCO and

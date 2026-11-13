@@ -626,6 +626,25 @@ figure shows training loss, predictive uncertainty, support movement, and the
 learned Patchwork stitch. Set the notebook's single `REPOSITORY_URL` value
 after this repository is published on GitHub.
 
+## FLIGHT Ablation and Result Archives
+
+Open `notebooks/GPW_FLIGHT_Ablations_Kaggle.ipynb` on Kaggle with Internet/GPU
+enabled. Attach `airline.npz` and `airline.json` under the displayed `INPUT_ROOT`.
+The six-run plan uses seed31,ranks0/64,none/fixed/learned stitches,1024 supports
+in8 patches and100/20 epochs with the existing early stopping. It uses all
+5,929,413 rows, not the paper's800,000-row subset. Review settings, then explicitly
+set `RUN_TRAINING=True`. Each completed model is archived before the next starts.
+
+To regenerate this configuration-only notebook:
+
+```powershell
+python -m experiments.build_gpw_ablation_kaggle --flight
+```
+
+Put downloaded result ZIPs in `result_archives/` and record their experiments,
+seeds, factors and verification status in `result_archives/INDEX.csv`. ZIPs stay
+outside Git. Existing root archives have not been moved.
+
 ## References
 
 - Hensman, Fusi, and Lawrence (2013), *Gaussian Processes for Big Data*.

@@ -6,11 +6,21 @@ from pathlib import Path
 
 from experiments.build_heaton_colab import cell
 from experiments.colab_source import github_bootstrap, source_metadata
-from experiments.default_hyperparameters import gpw_ablation_defaults, gpw_shared_kernel_defaults
+from experiments.default_hyperparameters import (
+    gpw_ablation_defaults,
+    gpw_flight_ablation_defaults,
+    gpw_shared_kernel_defaults,
+)
 
 
-def build_notebook(root, *, shared_kernel=False):
-    factory = gpw_shared_kernel_defaults if shared_kernel else gpw_ablation_defaults
+def build_notebook(root, *, shared_kernel=False, flight=False):
+    if shared_kernel and flight:
+        raise ValueError("Select either shared-kernel or FLIGHT ablations, not both")
+    factory = gpw_ablation_defaults
+    if shared_kernel:
+        factory = gpw_shared_kernel_defaults
+    elif flight:
+        factory = gpw_flight_ablation_defaults
     defaults = factory(device="cuda:0",
         input_root="/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs")
     if shared_kernel:
@@ -308,7 +318,56 @@ display(pd.DataFrame([{"dataset": r["dataset"], "kernel_mode": r["kernel_mode"],
 print("Shared-only seed means/sample SDs:", BATCH_DIRECTORY / "kernel_summary.json")
 print("Local reference manifests are in each run archive; no local results were loaded.")''',
             stage="training", requires=("install", "settings", "preflight", "data"), invalidates=("archive",))
-    filename = "GPW_Shared_Kernels_Kaggle.ipynb" if shared_kernel else "GPW_Ablations_Kaggle.ipynb"
+    if flight:
+        cells[0] = cell("markdown", """
+        # FLIGHT: stitching and variational-rank ablations
+
+        Enable Internet and a GPU in Kaggle. Attach gpw-kaggle-inputs containing
+        airline.npz and airline.json at INPUT_ROOT. Both files are required;
+        checksums/provenance are verified. No pickle reader or substitute source.
+
+        Six runs: FLIGHT only, model seed31, ranks0/64 crossed with no, fixed and
+        learned stitches. Use1024 inducing points in8 patches of128. All six
+        runs share identical initial observed rows, supports, centers, candidate
+        graph and candidate stitches, checked by a saved geometry fingerprint.
+        Separate local ARD RBF kernels and variational parameters remain free.
+        None removes constraints, fixed freezes only stitches, learned moves them.
+        Preserve prior-dependent q initialization; initial q covariance can differ.
+
+        Full5,929,413-row trusted author-prepared FLIGHT file, eight features,
+        existing80/20 split with data seed31, all-row input min-max scaling and
+        training-only target scaling. No subsampling. Existing FLIGHT batch size,
+        learning rates, initialization, bounds, numerics and stitch count remain.
+        The1024-support ablation budget differs from the2048-point main preset.
+
+        Defaults100 epochs maximum/20 kernel-noise warm-up; training-loss early
+        stopping patience10, relative improvement0.001, evaluate the last state.
+        Supports and learned stitches are not frozen during warm-up. Logs name
+        dataset/model/seed/rank/stitch mode every20 epochs plus initial/final state;
+        histories save every epoch. Change EPOCHS=3,WARMUP_EPOCHS=1 for an explicit
+        short smoke check. No configuration is adjusted automatically.
+
+        Review the complete plan, then set RUN_TRAINING=True. Code loads latest
+        main in fresh workers without reconnects. Every completed model saves
+        predictions, metrics, initial/final positions, histories, checkpoints,
+        effective configuration/provenance and a ZIP before the next begins.
+        Failures stop subsequent runs. Reruns start fresh, never resume/skip.
+        Download ZIPs or save Kaggle outputs: session-local files are not a backup.
+        """)
+        cells[4] = cell("markdown", """
+        ## 2. Review the six-run FLIGHT plan
+
+        DATASETS=["flight"], SEEDS=[31], RANKS=[0,64] and all three stitch modes.
+        INPUT_ROOT must contain both airline.npz and airline.json. Hyperparameters
+        remain editable here; MODEL_OVERRIDES applies equally to all six variants.
+        Data preprocessing and seed remain unchanged. One seed cannot estimate
+        between-seed variability; summary sample SD is undefined, not zero.
+        """)
+    filename = "GPW_Ablations_Kaggle.ipynb"
+    if shared_kernel:
+        filename = "GPW_Shared_Kernels_Kaggle.ipynb"
+    elif flight:
+        filename = "GPW_FLIGHT_Ablations_Kaggle.ipynb"
     target = Path(root) / "notebooks" / filename
     target.write_text(json.dumps({"cells": cells, "metadata": {
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
@@ -319,5 +378,8 @@ print("Local reference manifests are in each run archive; no local results were 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--shared-kernel", action="store_true")
-    print(build_notebook(Path(__file__).resolve().parents[1], shared_kernel=parser.parse_args().shared_kernel))
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--shared-kernel", action="store_true")
+    selection.add_argument("--flight", action="store_true")
+    args = parser.parse_args()
+    print(build_notebook(Path(__file__).resolve().parents[1], shared_kernel=args.shared_kernel, flight=args.flight))
