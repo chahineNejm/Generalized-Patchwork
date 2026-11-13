@@ -49,6 +49,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Change only the FLIGHT ablation notebook to an approved800,000-row seeded
+  subset,80/20 split; preserve six variants and save source rows/checksums per
+  run. Subset identity,reuse failures and full-data compatibility verified;
+  329 tests,Ruff and compileall pass. GPU training remains user-run.
+
 - [x] Add FLIGHT-only six-run Kaggle ablations: seed31,ranks0/64,none/fixed/
   learned stitches,1024 supports/8 patches,existing100/20 and stopping controls.
   Add a local ZIP inbox and tracked experiment index;321 tests, Ruff and

@@ -192,7 +192,11 @@ variational precision. The current phase is the algorithm and data foundation.
   numerical algebra and geometry before any later saved-result comparison.
 - The separate FLIGHT-only ablation notebook selects seed31,ranks0/64 and
   none/fixed/learned stitches: six runs,1024 supports/8 patches,existing100/20
-  schedule/stopping and full approved FLIGHT data. Do not subsample implicitly.
+  schedule/stopping. Its explicitly approved800,000-row uniform subset uses
+  sampling without replacement with data seed31 before the80/20 split
+  (640,000/160,000) and preprocessing. Share source rows/split across variants;
+  save source indices/checksums in each archive. This is not the paper's exact
+  sample or90/10 split. Other FLIGHT presets still use full data unless explicit.
   result_archives/ is the local ZIP inbox; track archive experiments/verification
   in its INDEX.csv, never add archive binaries to Git or infer completion by name.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and

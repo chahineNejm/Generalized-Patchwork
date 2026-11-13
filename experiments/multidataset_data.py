@@ -1,7 +1,7 @@
 """Approved dataset policies, immutable preparation and verified reuse."""
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +26,26 @@ class DatasetSpec:
     day: str | None = None
     bounds: tuple[float, float, float, float] | None = None
     synthetic: dict | None = None
+    subset_size: int | None = None
+
+
+def spec_record(spec):
+    """Preserve the existing full-data identity when no subset is requested."""
+    record = asdict(spec)
+    if spec.subset_size is None:
+        del record["subset_size"]
+    return json.loads(json.dumps(record))
+
+
+def flight_subset(dataset, *, size, seed):
+    """Uniform observed-row sampling without replacement, before preprocessing."""
+    if type(size) is not int or not 1 < size <= len(dataset.y):
+        raise ValueError("FLIGHT subset_size must be an integer in [2, source row count]")
+    rows = np.random.default_rng(seed).choice(len(dataset.y), size=size, replace=False)
+    return replace(dataset, x=dataset.x[rows], y=dataset.y[rows], metadata={**dataset.metadata,
+        "subset": {"size": size, "source_rows": len(dataset.y), "seed": seed,
+            "sampling": "numpy.default_rng.choice without replacement before preprocessing/split",
+            "reference_status": "size-matched only; not verified paper records"}}), rows
 
 
 def verify_manual_inputs(specs):
@@ -49,6 +69,8 @@ def verify_manual_inputs(specs):
 
 def acquire_split(spec, *, data_root):
     root = Path(data_root)
+    if spec.subset_size is not None and spec.kind != "flight":
+        raise ValueError("Explicit subset_size is supported only for FLIGHT")
     if spec.kind == "modis" and (spec.train_fraction is not None or spec.validation_fraction != 0):
         raise ValueError("MODIS uses the official split; train_fraction must be None and validation_fraction zero")
     if spec.kind not in ("oisst", "ukhousing", "modis") and spec.validation_fraction != 0:
@@ -95,7 +117,11 @@ def acquire_split(spec, *, data_root):
             dataset = synthetic_dataset(spec.kind, dimension=spec.dimension, seed=spec.seed, **spec.synthetic)
         else:
             dataset = load_real(spec.kind, cache=root / spec.kind, input_path=spec.input_path)
+        if spec.subset_size is not None:
+            dataset, source_rows = flight_subset(dataset, size=spec.subset_size, seed=spec.seed)
         split = prepare_split(dataset, train_fraction=spec.train_fraction, seed=spec.seed)
+        if spec.subset_size is not None:
+            split["source_rows"] = source_rows
         if spec.synthetic is not None and (len(split["train"]) != spec.synthetic["training_points"]
                 or len(split["test"]) != spec.synthetic["test_points"]):
             raise ValueError("Synthetic requested counts do not match the declared split fraction")
@@ -127,7 +153,7 @@ def prepare_dataset(spec, *, directory, data_root):
                   for key in ("x", "y", "raw_x", "raw_y", "train", "validation", "test", "target_offset")}
         np.savez_compressed(directory / "data.npz", **arrays)
         np.savez_compressed(directory / "split.npz", **{key: split[key] for key in ("train", "validation", "test")})
-        if spec.kind == "modis":
+        if "source_rows" in split:
             np.save(directory / "source_rows.npy", split["source_rows"])
             manifest["source_row_indices_sha256"] = file_checksum(directory / "source_rows.npy")
         metadata = {key: split[key] for key in ("target_mean", "target_std", "feature_names", "target_name",
@@ -136,9 +162,9 @@ def prepare_dataset(spec, *, directory, data_root):
         write_json(directory / "data_manifest.json", manifest)
         write_json(directory / "preprocessing.json", split["preprocessing"])
         names = ["data.npz", "split.npz", "metadata.json", "data_manifest.json", "preprocessing.json"]
-        if spec.kind == "modis":
+        if "source_rows" in split:
             names.append("source_rows.npy")
-        write_json(directory / "prepared.json", {"data": asdict(spec),
+        write_json(directory / "prepared.json", {"data": spec_record(spec),
             "checksums": {name: file_checksum(directory / name) for name in names}})
         write_json(directory / "status.json", {"state": "complete"})
     return directory
@@ -149,7 +175,7 @@ def load_prepared(spec, directory):
     if json.loads((directory / "status.json").read_text(encoding="utf-8"))["state"] != "complete":
         raise ValueError("Prepared dataset did not complete successfully")
     prepared = json.loads((directory / "prepared.json").read_text(encoding="utf-8"))
-    if prepared["data"] != json.loads(json.dumps(asdict(spec))):
+    if prepared["data"] != spec_record(spec):
         raise ValueError("Prepared dataset configuration identity mismatch; no automatic rebuilding")
     for name, checksum in prepared["checksums"].items():
         if file_checksum(directory / name) != checksum:
@@ -161,5 +187,7 @@ def load_prepared(spec, directory):
             if not np.array_equal(split[key], arrays[key]):
                 raise ValueError(f"Prepared split identity mismatch: {key}")
     split["x"], split["y"] = torch.from_numpy(split["x"]), torch.from_numpy(split["y"])
+    if spec.kind == "modis" or spec.subset_size is not None:
+        split["source_rows"] = np.load(directory / "source_rows.npy", allow_pickle=False)
     split.update(json.loads((directory / "metadata.json").read_text(encoding="utf-8")))
     return split

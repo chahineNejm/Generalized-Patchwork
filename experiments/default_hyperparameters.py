@@ -194,7 +194,8 @@ def gpw_ablation_defaults(*, device, input_root):
 def gpw_flight_ablation_defaults(*, device, input_root):
     """Six FLIGHT-only runs with the existing matched-budget ablation controls."""
     defaults = gpw_ablation_defaults(device=device, input_root=input_root)
-    return {**defaults, "datasets": ["flight"], "seeds": [31], "ranks": [0, 64]}
+    return {**defaults, "datasets": ["flight"], "seeds": [31], "ranks": [0, 64],
+            "data_overrides": {"flight": {"subset_size": 800000}}}
 
 
 def gpw_shared_kernel_defaults(*, device, input_root):

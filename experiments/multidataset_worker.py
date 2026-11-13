@@ -194,7 +194,7 @@ def execute(request):
                 for name in ("split.npz", "preprocessing.json", "data_manifest.json", "prepared.json", "metadata.json"):
                     (output / name).write_bytes((prepared / spec.name / name).read_bytes())
                 shutil.copytree(prepared / spec.name / "visuals", output / "data_visuals")
-                if spec.kind == "modis":
+                if spec.kind == "modis" or spec.subset_size is not None:
                     (output / "source_rows.npy").write_bytes((prepared / spec.name / "source_rows.npy").read_bytes())
                 local_rows = []
                 initialization_seed = None
@@ -249,7 +249,7 @@ def execute(request):
                         )
 
                         write_json(directory / "kernel_summary.json", kernel_summary(summaries))
-                    if spec.kind == "modis":
+                    if spec.kind == "modis" or spec.subset_size is not None:
                         (result / "source_rows.npy").write_bytes((output / "source_rows.npy").read_bytes())
                     archive = archive_completed_run(result)
                     emit("complete", dataset=spec.name, name=row["name"], directory=str(result),

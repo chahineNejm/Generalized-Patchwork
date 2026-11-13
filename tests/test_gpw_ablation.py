@@ -44,6 +44,7 @@ def test_flight_plan_preserves_protocol_and_six_requested_conditions(tmp_path):
     spec = result["plan"]["data"][0]
     assert (spec["name"], spec["seed"], spec["train_fraction"], spec["validation_fraction"]) == ("flight", 31, .8, 0.)
     assert Path(spec["input_path"]).name == "airline.npz"
+    assert spec["subset_size"] == 800000
     configs = [r["config"] for r in result["plan"]["runs"]]
     assert {(c["q_rank"], c["stitch_mode"]) for c in configs} == {
         (r, m) for r in (0, 64) for m in ("none", "fixed", "learned")}

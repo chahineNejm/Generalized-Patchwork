@@ -118,7 +118,7 @@ EPOCHS = {defaults["epochs"]}
 WARMUP_EPOCHS = {defaults["warmup_epochs"]}
 EARLY_STOPPING = {defaults["early_stopping"]!r}
 MODEL_OVERRIDES = {{}}
-DATA_OVERRIDES = {{}}
+DATA_OVERRIDES = {defaults.get("data_overrides", {})!r}
 SAVE_INDUCING_POSITIONS = True
 PROGRESS_EVERY_EPOCHS = {defaults["progress_every_epochs"]}
 
@@ -334,9 +334,13 @@ print("Local reference manifests are in each run archive; no local results were 
         None removes constraints, fixed freezes only stitches, learned moves them.
         Preserve prior-dependent q initialization; initial q covariance can differ.
 
-        Full5,929,413-row trusted author-prepared FLIGHT file, eight features,
-        existing80/20 split with data seed31, all-row input min-max scaling and
-        training-only target scaling. No subsampling. Existing FLIGHT batch size,
+        Uniform800,000-row subset without replacement from the5,929,413-row
+        trusted author-prepared FLIGHT file, eight features,subset seed31 and
+        80/20 split with data seed31:640,000 train/160,000 test. Input min-max
+        scaling uses all selected rows; target scaling uses training rows only.
+        This is size-matched, not the paper's exact records or90/10 split.
+        Source-row indices and checksums are saved in every run archive.
+        Existing FLIGHT batch size,
         learning rates, initialization, bounds, numerics and stitch count remain.
         The1024-support ablation budget differs from the2048-point main preset.
 
@@ -358,7 +362,8 @@ print("Local reference manifests are in each run archive; no local results were 
         ## 2. Review the six-run FLIGHT plan
 
         DATASETS=["flight"], SEEDS=[31], RANKS=[0,64] and all three stitch modes.
-        INPUT_ROOT must contain both airline.npz and airline.json. Hyperparameters
+        DATA_OVERRIDES explicitly selects800,000 rows with subset_size. INPUT_ROOT
+        must contain both airline.npz and airline.json. Hyperparameters
         remain editable here; MODEL_OVERRIDES applies equally to all six variants.
         Data preprocessing and seed remain unchanged. One seed cannot estimate
         between-seed variability; summary sample SD is undefined, not zero.

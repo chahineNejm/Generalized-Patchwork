@@ -631,8 +631,11 @@ after this repository is published on GitHub.
 Open `notebooks/GPW_FLIGHT_Ablations_Kaggle.ipynb` on Kaggle with Internet/GPU
 enabled. Attach `airline.npz` and `airline.json` under the displayed `INPUT_ROOT`.
 The six-run plan uses seed31,ranks0/64,none/fixed/learned stitches,1024 supports
-in8 patches and100/20 epochs with the existing early stopping. It uses all
-5,929,413 rows, not the paper's800,000-row subset. Review settings, then explicitly
+in8 patches and100/20 epochs with the existing early stopping. It explicitly
+samples800,000 rows without replacement using seed31,then splits80/20 into
+640,000 training/160,000 test rows. This is size-matched,not the paper's exact
+sample or90/10 split. Source-row indices/checksums are saved per run. Other
+FLIGHT presets still use all rows unless explicitly configured. Review settings,then
 set `RUN_TRAINING=True`. Each completed model is archived before the next starts.
 
 To regenerate this configuration-only notebook:

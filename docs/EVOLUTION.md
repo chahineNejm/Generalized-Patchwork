@@ -1,5 +1,25 @@
 # Evolution Log
 
+## 2026-11-13 - Explicit FLIGHT800k subset
+
+- User approved800,000 uniformly sampled FLIGHT rows and retained80/20 rather
+  than the paper's90/10 split. Use existing data seed31,sampling without
+  replacement before preprocessing/splitting. Thus640,000 train/160,000 test,
+  shared across all six seed31 rank0/64 stitching ablations. Kernels,model size,
+  optimization,numerics and100/20 training schedule remain unchanged.
+- Sampling is explicit in notebook DATA_OVERRIDES; full-data FLIGHT presets are
+  unchanged. Input scaling uses all selected rows and targets training rows only.
+  Save selected source-row indices/checksums in prepared data and each run ZIP.
+  This is size-matched,not a verified reproduction of the paper's exact rows.
+  Subset/full-data prepared configurations cannot be interchanged. Preserve
+  existing full-data prepared identities when no subset is requested.
+- Verification:329 tests pass with four existing dependency warnings; Ruff,
+  compileall and whitespace checks pass. Tests cover exact seeded selection,
+  distinct source rows,selected-row scaling,80/20 counts,prepared identity and
+  checksum failures,unsupported/invalid requests,and unchanged full-data identity.
+  Notebook generation and the six-run plan pass. No real FLIGHT training was
+  launched locally. User approved committing/pushing after verification.
+
 ## 2026-11-13 - FLIGHT-only stitching/rank batch and result inbox
 
 - User requested FLIGHT only for the next batch, one initial seed and ranks0/64
