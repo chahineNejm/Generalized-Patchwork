@@ -12,7 +12,10 @@ import torch
 
 from experiments import multidataset_worker as worker
 from experiments.build_gpw_ablation_kaggle import build_notebook
-from experiments.default_hyperparameters import gpw_ablation_defaults
+from experiments.default_hyperparameters import (
+    gpw_ablation_defaults,
+    multidataset_notebook_defaults,
+)
 from experiments.gpw_ablation import (
     bind_initialization,
     geometry_digest,
@@ -32,9 +35,10 @@ def request(**updates):
             "save_inducing_positions": True, "model_overrides": {}, "data_overrides": {}, **updates}
 
 
-def test_approved_plan_has_330_runs_and_fixed_data_seed():
+def test_approved_default_plan_has_120_runs_and_fixed_data_seed():
     result = worker.make_plan(request())
-    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (11, 330, 33000)
+    assert [s["name"] for s in result["plan"]["data"]] == ["california", "protein", "tco", "oisst"]
+    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (4, 120, 12000)
     assert {spec["seed"] for spec in result["plan"]["data"]} == {31}
     configs = [row["config"] for row in result["plan"]["runs"]]
     assert {c["model"] for c in configs} == {"gpw"}
@@ -47,6 +51,12 @@ def test_approved_plan_has_330_runs_and_fixed_data_seed():
     for row in result["plan"]["runs"]:
         local = {k: v for k,v in row["config"].items() if k not in ("seed", "q_rank", "stitch_mode")}
         assert local == {k:v for k,v in baseline[row["dataset"]].items() if k not in ("seed", "q_rank", "stitch_mode")}
+
+
+def test_original_eleven_dataset_study_remains_explicitly_available():
+    datasets = multidataset_notebook_defaults(device="cpu", input_root="manual")["datasets"]
+    result = worker.make_plan(request(datasets=datasets))
+    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (11, 330, 33000)
 
 
 @pytest.mark.parametrize("updates", [
@@ -220,7 +230,7 @@ def test_ablation_settings_use_fresh_workers_without_reconnect(github_checkout, 
 first=client(ROOT, request, module="experiments.multidataset_worker", jobs_directory=ROOT.parent / "logs")
 second=client(ROOT, request, module="experiments.multidataset_worker", jobs_directory=ROOT.parent / "logs")
 assert first["worker_pid"] != os.getpid() and second["worker_pid"] != first["worker_pid"]
-assert first["total_runs"] == 330 and first["plan"] == second["plan"]
+assert first["total_runs"] == 120 and first["plan"] == second["plan"]
 '''
     result = subprocess.run([sys.executable, "-X", "utf8", "-I", "-"], input=script,
                             text=True, capture_output=True, cwd=tmp_path, check=False)

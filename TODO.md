@@ -46,6 +46,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Narrow default GPW ablation selection to California Housing, PROTEIN,
+  TCO and OISST (120 runs), preserving all factors/protocols and explicit
+  access to the original11-dataset study;27 ablation checks, notebook/settings
+  reproducibility, isolated workers, Ruff and compileall pass on CPU.
+
 - [x] Verify the approved330-run GPW ablation notebook: stitches none/fixed/
   learned, V ranks0/32, seeds31-35,1024 supports in8 patches, matched initial
   geometry per dataset/model seed and preserved existing data seed/splits;

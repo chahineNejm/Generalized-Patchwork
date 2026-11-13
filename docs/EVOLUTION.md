@@ -1,5 +1,20 @@
 # Evolution Log
 
+## 2026-11-13 - Four-dataset default ablation selection
+
+- User selected California Housing, PROTEIN, TCO and OISST; TCO was repeated
+  in the message and is included once. Default order follows that selection.
+  Four datasets x five seeds x two ranks x three stitch modes gives120 runs;
+  one selected model seed gives24. Original11 datasets remain explicitly
+  selectable for330 runs; no dataset adapter or full-catalog preset is removed.
+- Preserve1024 points/eight patches, seeds31-35, ranks0/32, stitch modes,
+  data splits/preprocessing,100/20 schedule, stopping, geometry matching and
+  output contracts. Only the notebook's default dataset selection changes.
+- Regenerate the launcher and test default120-run settings, retained330-run
+  selection, notebook reproducibility and isolated workers. All27 ablation tests,
+  Ruff, compileall and whitespace checks pass; four existing dependency warnings
+  remain. No real datasets or full benchmarks are run for this selection change.
+
 ## 2026-11-13 - Approved 330-run GPW stitching/rank notebook
 
 - User explicitly approved1024 inducing points in8 patches of128, seeds31-35,

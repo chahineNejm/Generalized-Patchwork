@@ -20,8 +20,9 @@ def build_notebook(root):
         below is its exact mounted directory. Other datasets use the existing
         approved download/preprocessing protocols, with no source substitution.
 
-        Default study: 11 datasets x 5 seeds x ranks {0,32} x stitch modes
-        {none,fixed,learned} = 330 runs. Every dataset uses 1024 inducing points,
+        Default study: California Housing, PROTEIN, TCO and OISST x 5 seeds x
+        ranks {0,32} x stitch modes {none,fixed,learned} = 120 runs. TCO is
+        included once. Every dataset uses 1024 inducing points,
         eight patches of128. Model seeds are31-35. Data splits and synthetic
         realizations retain their existing seed31; model seeds vary initialization
         and training only. Six variants per dataset/seed share exactly the same
@@ -42,9 +43,9 @@ def build_notebook(root):
         are saved. Epochs/warm-up are editable; for an explicit smoke test choose
         EPOCHS=3, WARMUP_EPOCHS=1. No real dataset is silently made smaller.
 
-        The full study is not intended to fit a single GPU session. Select
-        DATASETS and SEEDS explicitly to divide it into finite batches. Previously
-        measured T4 times suggest roughly50-90 GPU-hours, not a runtime guarantee.
+        Select DATASETS and SEEDS explicitly to divide the study into finite
+        GPU-session batches. One seed across these four datasets gives24 runs.
+        Other existing datasets remain available for explicit later selection.
         Rerunning training starts fresh in a new directory, never resumes/skips.
         Prepared arrays can be reused only through the explicit verified load stage.
 
@@ -75,8 +76,8 @@ def call_worker(action, *, on_event=None, **values):
         cell("markdown", """
         ## 2. Select the finite batch and review all effective settings
 
-        DATASETS and SEEDS select the current batch. The full defaults give330
-        runs; one seed gives66. MODEL_OVERRIDES={dataset:{field:value}} applies
+        DATASETS and SEEDS select the current batch. The defaults give120
+        runs; one seed gives24. MODEL_OVERRIDES={dataset:{field:value}} applies
         identically to every selected variant for that dataset, for example
         {"oisst":{"learning_rate_structure":0.001}}. Factorial controls have
         dedicated variables and cannot be overridden per condition. Unknown or

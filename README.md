@@ -15,8 +15,10 @@ enabled. Attach the existing `gpw-kaggle-inputs` dataset; only `icethk.txt` is
 required from it. The notebook loads latest main and fresh workers, with no
 kernel reconnect. Defaults live in `experiments/default_hyperparameters.py`.
 
-The approved study is11 datasets x seeds31-35 x ranks0/32 x stitch modes
-none/fixed/learned:330 GPW runs. All use1024 inducing points,8 patches of128,
+The default study selects California Housing, PROTEIN, TCO and OISST x
+seeds31-35 x ranks0/32 x stitch modes none/fixed/learned:120 GPW runs.
+Other existing datasets remain available for explicit selection; the original
+11-dataset selection gives330 runs. All use1024 inducing points,8 patches of128,
 100 epochs maximum/20 kernel-noise warm-up and existing training-loss stopping.
 Data splits and synthetic realizations retain seed31; the five seeds control
 model initialization/training only. Every condition within each dataset/seed
@@ -32,7 +34,7 @@ removes V but does not remove the dependence induced by active stitches. No
 powered-product or shared-kernel change is part of this study.
 
 Change `DATASETS` and `SEEDS` to select finite session-sized batches (one seed
-across all datasets gives66 runs). `EPOCHS`, `WARMUP_EPOCHS`, `RANKS`,
+across the four selected datasets gives24 runs). `EPOCHS`, `WARMUP_EPOCHS`, `RANKS`,
 `STITCH_MODES` and `MODEL_OVERRIDES={dataset:{field:value}}` remain explicit.
 For a short check set `EPOCHS=3`, `WARMUP_EPOCHS=1`. All effective configurations
 are saved. Review the plan and set `RUN_TRAINING=True` to authorize training.

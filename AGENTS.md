@@ -156,8 +156,10 @@ variational precision. The current phase is the algorithm and data foundation.
   trees, with linear-program bounds/shared-face detection and exact uniform
   rejection sampling on shared faces. Never substitute an approximate sampler.
   Save full-dimensional geometry/positions; label 2-feature plots as projections.
-- The separate GPW ablation notebook selects11 existing datasets,1024 supports
-  in8 patches, seeds31-35, ranks0/32 and none/fixed/learned stitches (330 runs).
+- The separate GPW ablation notebook defaults to California Housing, PROTEIN,
+  TCO and OISST (TCO once),1024 supports in8 patches, seeds31-35, ranks0/32
+  and none/fixed/learned stitches (120 runs). Other existing datasets remain
+  explicitly selectable; the original11-dataset selection still gives330 runs.
   Preserve data/synthetic seed31 and existing preprocessing/splits. Model seeds
   vary initialization/training; six variants within each dataset/seed must share
   source rows, initial supports/centers, candidate graph and candidate stitches,
