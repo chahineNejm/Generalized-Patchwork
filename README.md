@@ -8,6 +8,28 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## Benchmark Repeats
+
+Open `notebooks/Benchmark_Repeats_Kaggle.ipynb` in Kaggle with Internet/GPU.
+No attached input bundle is needed for this selection. Run stages in order,
+review the44-run plan, then set `RUN_TRAINING=True` in the training cell.
+
+Defaults: California Housing, PROTEIN, TCO and OISST; model seeds32/33;
+unchanged seed31 data splits/preprocessing;100 epochs maximum/20 warm-up and
+existing training-loss stopping. California/PROTEIN/TCO retain SVGP, both
+GPW/ProSpar sizes and reduced-data PC-tree Patchwork; OISST retains its four
+tested models. VNNGP/FLIGHT are excluded. ProSpar explicitly uses historical
+T=1/c=1 to match the saved seed31 runs, not the newer general T=0.1/c=2 defaults.
+
+Change `SEEDS`, `DATASETS`, model selections or explicit overrides in settings;
+for a smoke test set `EPOCHS=3`, `WARMUP_EPOCHS=1`. Logs name dataset/model/seed
+and refresh every20 epochs plus final state; full histories remain per epoch.
+Each completed run saves metrics/ZIP before the next. `comparison.csv` records
+both seeds and base model name. Existing seed31 results are not rerun or loaded
+automatically. Outputs remain under `/kaggle/working/gpw_results`; download them
+or save a Kaggle version with outputs before ending the session. This notebook
+does not modify an already-running ablation job or enforce a5-hour time limit.
+
 ## GPW Stitching/Rank Ablations
 
 Open `notebooks/GPW_Ablations_Kaggle.ipynb` in Kaggle with Internet and GPU

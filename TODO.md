@@ -49,6 +49,14 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Add a separate44-run Kaggle comparison for seeds32/33 on California,
+  PROTEIN, TCO and OISST with fixed seed31 data; preserve audited configurations,
+  including explicit historical ProSpar T=1/c=1. Verify, commit and push.
+
+- [x] Add evidence-based experiment completion categories and distinct seed counts
+  to the Excel plan; retain actual run configurations and add dataset-specific
+  GPW scaling studies with unapproved protocol/grid choices left UNDECIDED.
+
 - [x] Change the four-dataset ablation defaults to seeds31-33 (72 runs),
   preserving all other controls and explicit seed/dataset selection; verify
   generated notebook and settings in fresh workers;28 ablation tests, Ruff,

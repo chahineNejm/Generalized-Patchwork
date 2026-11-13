@@ -1,5 +1,49 @@
 # Evolution Log
 
+## 2026-11-13 - Approved44-run comparison repeats
+
+- User approved seeds32/33 on California Housing, PROTEIN, TCO and OISST,
+  keeping the tested model sizes and100/20 schedule/early stopping. Six models
+  per seed on California/PROTEIN/TCO, four on OISST:44 runs. Exclude VNNGP/FLIGHT.
+  Data splits/preprocessing remain seed31; model initialization/training vary.
+- Found that archived ProSpar starts were T=1/c=1, unlike current T=0.1/c=2.
+  Asked explicitly; user approved preserving the historical starts for these
+  repetitions. Keep all newer general defaults unchanged. Explicit notebook
+  ProSpar overrides are saved in effective configs. Do not silently pool starts.
+- Separate repeat-study dispatch preserves generic comparison/ablation modes.
+  Rebind reduced-data PC-tree references to the same model seed's primary GPW
+  initialization. Keep per-run archives, loud failures, fresh workers and20-epoch
+  progress labels; save both model/data seeds and original model names in CSV.
+  Existing seed31 results are neither rerun nor automatically loaded/pooled.
+- User approved commit/push after verification. Full suite:295 passed with four
+  existing dependency warnings; Ruff, compileall and whitespace checks pass.
+  Tests cover44-run plan/config identity, notebook reproducibility, fresh source
+  workers, unchanged prepared split, matched GPW/PC-tree rows for both seeds,
+  per-run archives and fail-fast preservation of completed outputs. Independently
+  compared all saved seed31 configuration keys against the archive audit: no
+  differences after the explicit ProSpar overrides. No real benchmark launched.
+
+## 2026-11-13 - Experiment execution tracking and planned GPW scaling
+
+- User requested completed/not-completed categories, completed seed counts and
+  GPW scaling experiments across datasets. Update the existing Excel plan using
+  the verified61-run archive audit; every archived configuration uses seed31.
+  Distinguish distinct seeds from alternative model sizes and partial model
+  coverage. Preserve original plan/paper settings and record saved effective
+  run parameters separately rather than silently rewriting historical presets.
+- Treat the current72-run ablation batch as reported in progress, not completed
+  from a notebook plan. The screenshot establishes one saved OISST seed31,
+  rank0/no-stitch condition; full local ablation evidence is not yet available.
+- Add12 dataset-specific GPW scaling planning rows, including currently excluded
+  FLIGHT. Scaling axes, grids, controls, seeds, hardware and training/timing
+  protocols remain UNDECIDED. No model, hyperparameter, preprocessing or runner
+  change and no new experiments launched. Verified61 inventory rows,4158 saved
+  parameter rows,12 scaling studies and696 explicit scaling parameter fields.
+  Reopened the exported XLSX, inspected status/counts/links, scanned formula
+  errors and rendered all changed views. Original plan rows, configuration rows,
+  reference links and unrelated sheet values were checked unchanged. Whitespace
+  validation passes; no model tests needed for this planning-only update.
+
 ## 2026-11-13 - Identifiable, sparse ablation progress logs
 
 - User requested dataset/model labels and training tqdm updates every20 epochs.

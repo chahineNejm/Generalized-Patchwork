@@ -48,6 +48,10 @@ def archive_completed_run(directory):
 
 def make_plan(request):
     if "study" in request:
+        if request["study"] == "benchmark_repeats":
+            from experiments.benchmark_repeats import make_plan as repeat_plan
+
+            return repeat_plan(request)
         if request["study"] != "gpw_stitch_rank":
             raise ValueError(f"Unknown study: {request['study']}; no substitute comparison")
         from experiments.gpw_ablation import make_plan as ablation_plan
@@ -128,6 +132,9 @@ def execute(request):
     if request["plan_sha256"] != plan_hash(plan):
         raise ValueError("Execution plan changed since settings; rerun settings explicitly")
     specs = [DatasetSpec(**values) for values in plan["data"]]
+    study = plan["study"]["type"] if "study" in plan else None
+    if study not in (None, "gpw_stitch_rank", "benchmark_repeats"):
+        raise ValueError(f"Unknown execution study: {study}")
     directory = Path(request["directory"])
     if action == "preflight":
         import torch
@@ -193,7 +200,7 @@ def execute(request):
                     if values["prospar"] is not None:
                         values["prospar"] = ProSparConfig(**values["prospar"])
                     config = UKConfig(**values)
-                    if "study" in plan:
+                    if study == "gpw_stitch_rank":
                         from experiments.gpw_ablation import bind_initialization
 
                         if plan["study"]["type"] != "gpw_stitch_rank" or config.model != "gpw":
@@ -209,15 +216,17 @@ def execute(request):
                         on_snapshot=lambda path, epoch: emit("snapshot", directory=str(path), epoch=epoch))
                     metrics = json.loads((result / "metrics.json").read_text(encoding="utf-8"))
                     summary = {"dataset": spec.name, "model": row["name"], "directory": str(result), **metrics}
-                    if "study" in plan:
+                    if study is not None:
                         summary.update({"seed": config.seed, "data_seed": spec.seed,
                             "q_rank": config.q_rank, "stitch_mode": config.stitch_mode,
                             "inducing_points": config.inducing_points, "patches": config.patches})
+                    if study == "benchmark_repeats":
+                        summary["base_model"] = row["base_name"]
                     local_rows.append(summary)
                     summaries.append(summary)
                     pd.DataFrame(local_rows).to_csv(output / "comparison.csv", index=False)
                     pd.DataFrame(summaries).to_csv(directory / "comparison.csv", index=False)
-                    if "study" in plan:
+                    if study == "gpw_stitch_rank":
                         from experiments.gpw_ablation import summarize_results
 
                         write_json(directory / "ablation_summary.json", summarize_results(summaries))
@@ -227,7 +236,7 @@ def execute(request):
                     emit("complete", dataset=spec.name, name=row["name"], directory=str(result),
                          archive=str(archive), metrics=metrics)
                 write_json(output / "status.json", {"state": "complete"})
-            if "study" in plan:
+            if study == "gpw_stitch_rank":
                 from experiments.gpw_ablation import plot_summary
 
                 plot_summary(summaries, directory / "visuals")

@@ -1,15 +1,25 @@
 """Build a source-backed, explicitly gated Kaggle experiment notebook."""
 
+import argparse
 import json
 from pathlib import Path
 
 from experiments.build_heaton_colab import cell
 from experiments.colab_source import github_bootstrap, source_metadata
-from experiments.default_hyperparameters import multidataset_notebook_defaults
+from experiments.default_hyperparameters import (
+    benchmark_repeat_defaults,
+    multidataset_notebook_defaults,
+)
 
 
-def build_notebook(root):
-    defaults = multidataset_notebook_defaults(device="cuda:0", input_root="/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs")
+def build_notebook(root, *, repeats=False):
+    factory = benchmark_repeat_defaults if repeats else multidataset_notebook_defaults
+    defaults = factory(device="cuda:0", input_root="/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs")
+    seed_settings = (f'SEEDS = {defaults["seeds"]!r}\nPROGRESS_EVERY_EPOCHS = {defaults["progress_every_epochs"]}\n'
+                     if repeats else "")
+    repeat_arguments = ('study="benchmark_repeats", seeds=SEEDS, progress_every_epochs=PROGRESS_EVERY_EPOCHS,\n    '
+                        if repeats else "")
+    model_overrides = json.dumps(defaults["model_overrides"], indent=4) if repeats else "{}"
     cells = [
         cell("markdown", """
         # GPW multi-dataset experiments: Kaggle
@@ -111,14 +121,14 @@ INPUT_ROOT = "/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs"
 DATASETS = {defaults["datasets"]!r}
 EXCLUDED_MODEL_TYPES = ["vnngp"]
 MODELS_BY_DATASET = {json.dumps(defaults["models"], indent=4)}
-MODEL_OVERRIDES = {{}}
+MODEL_OVERRIDES = {model_overrides}
 DATA_OVERRIDES = {{}}
 EPOCHS = {defaults["epochs"]}
 WARMUP_EPOCHS = {defaults["warmup_epochs"]}
 EARLY_STOPPING = {defaults["early_stopping"]!r}
 SAVE_INDUCING_POSITIONS = True
-
-settings = call_worker("settings", device="cuda:0", input_root=INPUT_ROOT, datasets=DATASETS,
+{seed_settings}
+settings = call_worker("settings", {repeat_arguments}device="cuda:0", input_root=INPUT_ROOT, datasets=DATASETS,
     excluded_model_types=EXCLUDED_MODEL_TYPES,
     early_stopping=EARLY_STOPPING,
     models=MODELS_BY_DATASET, model_overrides=MODEL_OVERRIDES, data_overrides=DATA_OVERRIDES,
@@ -213,7 +223,49 @@ display(FileLink(archived["archive"]))
 print("Worker requests/logs/failures:", WORK_ROOT / "worker_jobs")
 print("Save a Kaggle version with outputs to preserve all files.")''', stage="archive", requires=("training",)),
     ]
-    target = Path(root) / "notebooks/All_Datasets_Kaggle.ipynb"
+    if repeats:
+        cells[0] = cell("markdown", """
+        # Benchmark repeats: seeds32 and33
+
+        Enable Internet and one GPU on Kaggle. Run stages in order; no attached
+        input bundle is required for these four automatically downloaded datasets.
+        Source loads latest main from chahineNejm/Generalized-Patchwork in fresh
+        workers. No model/data implementations are embedded here.
+
+        This finite batch has44 runs: California Housing12, PROTEIN12, TCO12,
+        OISST8. Seeds32 and33 vary model initialization/training only. Data splits
+        and preprocessing stay seed31. Existing seed31 results are not rerun,
+        automatically loaded or pooled. All settings and seed identities are saved.
+
+        Retain the tested configurations: SVGP, GPW8/4 patches and ProSpar8/4
+        experts for California/PROTEIN/TCO, plus reduced-data PC-tree Patchwork.
+        OISST retains its tested SVGP, GPW8, ProSpar8 and PC-tree Patchwork only.
+        Total budgets:512 for California/OISST,1024 for PROTEIN/TCO. This is not
+        the1024-point stitching/rank ablation. No VNNGP, FLIGHT or other datasets.
+
+        Standard Patchwork uses the primary eight-patch GPW initial observed rows
+        for each model seed and their targets; it does not train on all targets.
+        GPW/SVGP/ProSpar train on all training observations. Keep the existing
+        ARD RBF kernels, initialization, bounds, numerics, learning rates,
+        ProSpar T=1/c=1/nuggets=0.01/prior_jitter=0 and other tested settings.
+        Those explicit ProSpar overrides match the saved seed31 archive; they
+        do not change the newer general defaults T=0.1/c=2. Do not pool results
+        from different ProSpar starts as identical configurations.
+
+        EPOCHS=100 maximum, WARMUP_EPOCHS=20; training-loss early stopping has
+        patience10 and relative minimum improvement0.001 after warm-up. Evaluate
+        the last state, not a restored best checkpoint. For a smoke test explicitly
+        set EPOCHS=3 and WARMUP_EPOCHS=1. Review the plan, then RUN_TRAINING=True.
+
+        Dataset/model/seed labels refresh every20 epochs plus initial/final state.
+        Full loss history stays per epoch; visuals update one existing display.
+        Completed metrics and ZIPs save before each next run. Results live under
+        /kaggle/working/gpw_results. Download archives or save a Kaggle version
+        with outputs before session storage is lost. Failures stop subsequent runs;
+        no auto-resume/skip or overwrite. An estimated4-5h is not a runtime limit.
+        """)
+    filename = "Benchmark_Repeats_Kaggle.ipynb" if repeats else "All_Datasets_Kaggle.ipynb"
+    target = Path(root) / "notebooks" / filename
     target.write_text(json.dumps({"cells": cells, "metadata": {
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": {"name": "python"}, "gpw_source": source_metadata()},
@@ -222,4 +274,6 @@ print("Save a Kaggle version with outputs to preserve all files.")''', stage="ar
 
 
 if __name__ == "__main__":
-    print(build_notebook(Path(__file__).resolve().parents[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repeats", action="store_true")
+    print(build_notebook(Path(__file__).resolve().parents[1], repeats=parser.parse_args().repeats))

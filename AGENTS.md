@@ -156,6 +156,13 @@ variational precision. The current phase is the algorithm and data foundation.
   trees, with linear-program bounds/shared-face detection and exact uniform
   rejection sampling on shared faces. Never substitute an approximate sampler.
   Save full-dimensional geometry/positions; label 2-feature plots as projections.
+- The separate benchmark-repeat notebook selects California/PROTEIN/TCO/OISST,
+  model seeds32/33 with fixed seed31 data,44 runs; retain their tested sizes,
+  100/20 training/stopping and PC-tree-only Standard Patchwork. Rebind each
+  baseline's primary GPW initialization reference to its model seed. Explicit
+  historical ProSpar T=1/c=1 overrides match the archived seed31 runs; general
+  defaults remain T=0.1/c=2. Save model/data seeds, names and20-epoch progress;
+  never auto-rerun seed31 or pool its existing results implicitly.
 - The separate GPW ablation notebook defaults to California Housing, PROTEIN,
   TCO and OISST (TCO once),1024 supports in8 patches, seeds31-33, ranks0/32
   and none/fixed/learned stitches (72 runs). Other existing datasets remain

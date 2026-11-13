@@ -169,6 +169,17 @@ def multidataset_notebook_defaults(*, device, input_root):
             "early_stopping": {"patience": 10, "relative_min_improvement": 0.001}}
 
 
+def benchmark_repeat_defaults(*, device, input_root):
+    """Approved second/third model seeds, preserving seed31 data and capacities."""
+    comparison = multidataset_notebook_defaults(device=device, input_root=input_root)
+    datasets = ["california", "protein", "tco", "oisst"]
+    overrides = {name: {label: {"prospar": {"temperatures": 1.0, "exponent": 1.0,
+        "inducing_nuggets": 0.01, "prior_jitter": 0.0}}
+        for label in comparison["models"][name] if label.startswith("ProSpar")} for name in datasets}
+    return {**comparison, "datasets": datasets, "models": {name: comparison["models"][name] for name in datasets},
+            "model_overrides": overrides, "seeds": [32, 33], "progress_every_epochs": 20}
+
+
 def gpw_ablation_defaults(*, device, input_root):
     """Approved four-dataset ablation selection; retain existing data protocols."""
     comparison = multidataset_notebook_defaults(device=device, input_root=input_root)
