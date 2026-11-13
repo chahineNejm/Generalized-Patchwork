@@ -8,6 +8,45 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## GPW Stitching/Rank Ablations
+
+Open `notebooks/GPW_Ablations_Kaggle.ipynb` in Kaggle with Internet and GPU
+enabled. Attach the existing `gpw-kaggle-inputs` dataset; only `icethk.txt` is
+required from it. The notebook loads latest main and fresh workers, with no
+kernel reconnect. Defaults live in `experiments/default_hyperparameters.py`.
+
+The approved study is11 datasets x seeds31-35 x ranks0/32 x stitch modes
+none/fixed/learned:330 GPW runs. All use1024 inducing points,8 patches of128,
+100 epochs maximum/20 kernel-noise warm-up and existing training-loss stopping.
+Data splits and synthetic realizations retain seed31; the five seeds control
+model initialization/training only. Every condition within each dataset/seed
+shares selected training rows, initial supports, centers, candidate edges and
+candidate stitches. SHA256 geometry identity is checked before training and
+saved in `initialization_identity.json`. Rank/prior-dependent variational
+initialization is unchanged; it is not forced to be identical between conditions.
+
+No-stitch removes constraints without changing to another model. Fixed freezes
+stitch positions only; inducing locations and local kernels still train. Learned
+stitches are independent trainable points, not constrained to a line. Rank0
+removes V but does not remove the dependence induced by active stitches. No
+powered-product or shared-kernel change is part of this study.
+
+Change `DATASETS` and `SEEDS` to select finite session-sized batches (one seed
+across all datasets gives66 runs). `EPOCHS`, `WARMUP_EPOCHS`, `RANKS`,
+`STITCH_MODES` and `MODEL_OVERRIDES={dataset:{field:value}}` remain explicit.
+For a short check set `EPOCHS=3`, `WARMUP_EPOCHS=1`. All effective configurations
+are saved. Review the plan and set `RUN_TRAINING=True` to authorize training.
+No silent resume, automatic skipping or overwrite of previous runs is performed.
+The separate shared-kernel experiment remains planned, not selected.
+
+Every completed run is archived before the next starts. Histories update one
+notebook display; all final plots/positions/checkpoints/predictions remain in
+its ZIP. `comparison.csv` retains each seed; `ablation_summary.json` records
+per-condition means/sample SDs and completed seed counts (SD is explicitly
+undefined for one seed). Final figures show means and sample SDs, not confidence
+intervals. Output is under `/kaggle/working/gpw_ablation_results`; save a Kaggle
+version with outputs or download archives for persistence outside the session.
+
 ## All-Dataset Kaggle Notebook
 
 Open `notebooks/All_Datasets_Kaggle.ipynb` in Kaggle, enable Internet and GPU,

@@ -3,7 +3,8 @@ Experiment	Dataset
 - Shared vs local kernel hyperparameters	Synthetic 1D with localized rapid variation (not priority)
 - Aggregation and uncertainty comparison	Nested Kriging’s synthetic Matérn example (YES)
 - Time and memory scaling	Increasing synthetic dataset sizes (Already did something like that we will think about it/not priority for now)
-- No stitches vs fixed vs learned stitches: anisotropic synthetic. (yes on one of the datasets? not necessarily that one)
+- GPW crossed ablation: no / fixed / learned stitches x V rank {0,32}, seeds {31,32,33,34,35}; 11 completed-batch datasets, 330 runs. Approved common budget1024 in8 patches of128. Same initial rows/supports/centers/candidate graph/stitches across variants within each dataset/model seed; preserve data seed31 and existing splits. Notebook: notebooks/GPW_Ablations_Kaggle.ipynb. CPU regression/algebra/archive/fresh-worker checks pass; no full benchmarks run.
+- Kernel-hyperparameter control on the same datasets: user requested the same kernel hyperparameters. Shared learned parameters versus fixed common values UNDECIDED; do not assign defaults or multiply into the stitching/rank study without approval.
 - Higher-dimensional nonstationarity: Michalewicz and G-function.(yes)
 - Include ProSpar-GP as a close baseline. (Yes)
 

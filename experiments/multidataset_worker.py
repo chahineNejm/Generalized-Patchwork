@@ -47,6 +47,12 @@ def archive_completed_run(directory):
 
 
 def make_plan(request):
+    if "study" in request:
+        if request["study"] != "gpw_stitch_rank":
+            raise ValueError(f"Unknown study: {request['study']}; no substitute comparison")
+        from experiments.gpw_ablation import make_plan as ablation_plan
+
+        return ablation_plan(request)
     from experiments.default_hyperparameters import multidataset_defaults
     from experiments.run_selection import select_runs
 
@@ -180,27 +186,49 @@ def execute(request):
                 if spec.kind == "modis":
                     (output / "source_rows.npy").write_bytes((prepared / spec.name / "source_rows.npy").read_bytes())
                 local_rows = []
+                initialization_seed = None
                 for index, row in enumerate(tqdm([r for r in plan["runs"] if r["dataset"] == spec.name],
                                                   desc=f"compare:{spec.name}", unit="model")):
                     values = dict(row["config"])
                     if values["prospar"] is not None:
                         values["prospar"] = ProSparConfig(**values["prospar"])
-                    result = run_model(UKConfig(**values), split, directory=output / f"run_{index:02d}",
+                    config = UKConfig(**values)
+                    if "study" in plan:
+                        from experiments.gpw_ablation import bind_initialization
+
+                        if plan["study"]["type"] != "gpw_stitch_rank" or config.model != "gpw":
+                            raise ValueError("GPW ablation plan must contain only the declared GPW study")
+                        if initialization_seed != config.seed:
+                            bind_initialization(split, config)
+                            initialization_seed = config.seed
+                    result = run_model(config, split, directory=output / f"run_{index:02d}",
                         save_inducing_positions=plan["save_inducing_positions"],
                         early_stopping=plan.get("early_stopping"),
                         on_snapshot=lambda path, epoch: emit("snapshot", directory=str(path), epoch=epoch))
                     metrics = json.loads((result / "metrics.json").read_text(encoding="utf-8"))
                     summary = {"dataset": spec.name, "model": row["name"], "directory": str(result), **metrics}
+                    if "study" in plan:
+                        summary.update({"seed": config.seed, "data_seed": spec.seed,
+                            "q_rank": config.q_rank, "stitch_mode": config.stitch_mode,
+                            "inducing_points": config.inducing_points, "patches": config.patches})
                     local_rows.append(summary)
                     summaries.append(summary)
                     pd.DataFrame(local_rows).to_csv(output / "comparison.csv", index=False)
                     pd.DataFrame(summaries).to_csv(directory / "comparison.csv", index=False)
+                    if "study" in plan:
+                        from experiments.gpw_ablation import summarize_results
+
+                        write_json(directory / "ablation_summary.json", summarize_results(summaries))
                     if spec.kind == "modis":
                         (result / "source_rows.npy").write_bytes((output / "source_rows.npy").read_bytes())
                     archive = archive_completed_run(result)
                     emit("complete", dataset=spec.name, name=row["name"], directory=str(result),
                          archive=str(archive), metrics=metrics)
                 write_json(output / "status.json", {"state": "complete"})
+            if "study" in plan:
+                from experiments.gpw_ablation import plot_summary
+
+                plot_summary(summaries, directory / "visuals")
             write_json(directory / "status.json", {"state": "complete"})
         return {"directory": str(directory)}
     if action == "archive":

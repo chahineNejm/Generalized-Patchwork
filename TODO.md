@@ -46,6 +46,15 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Verify the approved330-run GPW ablation notebook: stitches none/fixed/
+  learned, V ranks0/32, seeds31-35,1024 supports in8 patches, matched initial
+  geometry per dataset/model seed and preserved existing data seed/splits;
+  per-run archives, live plots and descriptive seed means/sample SDs. Full
+  regression suite and final ablation/fresh-worker checks pass on CPU; Kaggle
+  GPU execution remains user-run, not locally verified.
+- [ ] Add the requested kernel-hyperparameter comparison; clarify shared learned
+  kernels versus frozen common values and its relationship to the factorial study.
+
 - [x] Set future ProSpar experiment starts to author T_j=0.1 and c=2, preserving
   independent temperatures and all other settings; verify defaults and weighting.
 - [x] Reduced61-run Kaggle batch: no FLIGHT/VNNGP, PC-tree-only Standard

@@ -151,11 +151,20 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
                 "capacity_ratio_to_paper": config.inducing_points / 5000,
                 "capacity_note": "Matched budget; not the paper's 200x25 expert configuration",
                 "equations": "arXiv:2311.08752v1 (6)-(13), approved derived objective/prediction"})
+        if config.model == "gpw":
+            metadata.update({"stitch_mode": config.stitch_mode, "q_rank": config.q_rank,
+                "active_stitch_count": model.stitches().numel() // model.supports().shape[-1],
+                "stitches_trainable": model.stitch.trainable})
         write_json(output / "model_metadata.json", metadata)
         torch.save(model.state_dict(), output / "initial_model.pt")
         if config.model == "gpw":
-            np.savez_compressed(output / "initialization.npz", supports=model.initial_support_locations.cpu().numpy(),
-                centers=model.initial_cluster_centers.cpu().numpy(), indices=model.source_initial_indices.cpu().numpy())
+            from experiments.gpw_ablation import model_geometry, verify_geometry
+
+            identity = verify_geometry(model, split)
+            np.savez_compressed(output / "initialization.npz", **model_geometry(model))
+            write_json(output / "initialization_identity.json", {"geometry_sha256": identity,
+                "data_seed": split["seed"], "model_training_seed": config.seed,
+                "includes": ["selected rows", "supports", "centers", "candidate edges", "candidate stitches"]})
         if config.model == "patchwork":
             np.savez_compressed(output / "partition.npz", points=model.train_x.cpu().numpy(),
                 targets=model.train_y.cpu().numpy(), indices=model.source_training_indices.cpu().numpy(),
@@ -185,8 +194,9 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
                 if config.model == "gpw":
                     stitch_history.append(model.stitches().detach().cpu().numpy())
                     np.savez_compressed(output / f"stitches_epoch_{epoch}.npz", stitches=stitch_history[-1])
-                    plot_locations(stitch_history[0], stitch_history[-1],
-                                   destination=visuals / "stitches.png", title="Stitch locations")
+                    if model.stitches().numel():
+                        plot_locations(stitch_history[0], stitch_history[-1],
+                                       destination=visuals / "stitches.png", title="Stitch locations")
                 torch.save(model.state_dict(), output / "checkpoint.pt")
                 if on_snapshot is not None:
                     on_snapshot(output, epoch)

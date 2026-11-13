@@ -156,6 +156,18 @@ variational precision. The current phase is the algorithm and data foundation.
   trees, with linear-program bounds/shared-face detection and exact uniform
   rejection sampling on shared faces. Never substitute an approximate sampler.
   Save full-dimensional geometry/positions; label 2-feature plots as projections.
+- The separate GPW ablation notebook selects11 existing datasets,1024 supports
+  in8 patches, seeds31-35, ranks0/32 and none/fixed/learned stitches (330 runs).
+  Preserve data/synthetic seed31 and existing preprocessing/splits. Model seeds
+  vary initialization/training; six variants within each dataset/seed must share
+  source rows, initial supports/centers, candidate graph and candidate stitches,
+  verified by a saved geometry fingerprint before training. Fixed freezes only
+  stitches; none removes constraints, never the GPW model. Preserve existing
+  rank/prior-dependent q initialization, uncertainty and optimization settings.
+  Shared-kernel and powered-product studies are not part of this batch. Explicit
+  dataset/seed selection creates fresh finite batches; never auto-resume/skip.
+  Save per-run ZIPs before proceeding and descriptive seed summaries with actual
+  counts; a single-seed sample SD is undefined, not zero or silently filled.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.

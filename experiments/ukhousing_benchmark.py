@@ -49,6 +49,7 @@ class UKConfig:
     inducing_points: int = 1024
     patches: int = 8
     stitches_per_edge: int = 8
+    stitch_mode: str = "learned"
     q_rank: int = 32
     patch_neighbors: int = 2
     vnngp_neighbors: int = 32
@@ -145,19 +146,26 @@ def build_model(config, split):
         supports = observed_supports(x, config.inducing_points, seed=config.seed)
         return SVGP(supports.to(device), numerical=numerical, **options)
     if config.model == "gpw":
+        if config.stitch_mode not in ("none", "fixed", "learned"):
+            raise ValueError("GPW stitch_mode must be none, fixed or learned")
         if config.inducing_points % config.patches:
             raise ValueError("GPW inducing budget must divide evenly across patches")
         initial = initial_gpw_points(x, {key: getattr(config, key)
             for key in ("inducing_points", "patches", "seed", "threads")}, split)
         supports = initial["supports"]
-        edges = patch_neighbor_graph(supports, neighbors=config.patch_neighbors)
-        stitches = initialize_stitches(supports, edges, config.stitches_per_edge)
+        candidate_edges = patch_neighbor_graph(supports, neighbors=config.patch_neighbors)
+        candidate_stitches = initialize_stitches(supports, candidate_edges, config.stitches_per_edge)
+        edges = [] if config.stitch_mode == "none" else candidate_edges
+        stitches = candidate_stitches[:0] if config.stitch_mode == "none" else candidate_stitches
         model = GeneralizedPatchworkGP(supports.to(device), stitches.to(device), edges,
-                                       q_rank=config.q_rank, numerical=numerical, **options)
+            q_rank=config.q_rank, train_stitches=config.stitch_mode == "learned", numerical=numerical, **options)
         model.register_buffer("initial_support_locations", supports.to(device))
         model.register_buffer("initial_cluster_centers", initial["centers"].to(device))
         model.register_buffer("source_initial_indices", torch.as_tensor(
             split["train"][initial["indices"].numpy()], device=device))
+        model.register_buffer("candidate_stitch_locations", candidate_stitches.to(device))
+        model.register_buffer("candidate_edge_pairs", torch.tensor(candidate_edges, dtype=torch.int64,
+                                                                   device=device).reshape(-1, 2))
         return model
     if config.model == "prospar":
         if config.prospar is None:

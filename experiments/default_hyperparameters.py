@@ -169,6 +169,16 @@ def multidataset_notebook_defaults(*, device, input_root):
             "early_stopping": {"patience": 10, "relative_min_improvement": 0.001}}
 
 
+def gpw_ablation_defaults(*, device, input_root):
+    """Approved 330-run stitching/rank study; retain existing data protocols."""
+    comparison = multidataset_notebook_defaults(device=device, input_root=input_root)
+    return {"datasets": comparison["datasets"], "inducing_points": 1024, "patches": 8,
+            "seeds": [31, 32, 33, 34, 35], "ranks": [0, 32],
+            "stitch_modes": ["none", "fixed", "learned"],
+            "epochs": comparison["epochs"], "warmup_epochs": comparison["warmup_epochs"],
+            "early_stopping": comparison["early_stopping"]}
+
+
 def matched_runs(*, device, budget, batch_size, primary_patches, alternative_patches, dimension):
     """Fixed-budget variants; higher-dimensional Standard Patchwork uses its PC tree."""
     common = replace(ukhousing_defaults(device=device), inducing_points=budget, batch_size=batch_size,

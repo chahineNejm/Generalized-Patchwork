@@ -1,5 +1,48 @@
 # Evolution Log
 
+## 2026-11-13 - Approved 330-run GPW stitching/rank notebook
+
+- User explicitly approved1024 inducing points in8 patches of128, seeds31-35,
+  V ranks0/32, none/fixed/learned stitches across the11 existing batch datasets.
+  Keep the shared-kernel study planned, not implemented/crossed into these runs.
+  User approved commit/push after verification. No real benchmarks were launched.
+- Preserve existing seed31 data splits, synthetic realizations and preprocessing;
+  the five model seeds change initialization and training only. Reuse exact
+  selected rows/supports/centers across six conditions; candidate graph/stitches
+  also match. Verify the SHA256 geometry identity before training each variant.
+- Expose stitch_mode in UKConfig, with learned as the unchanged legacy default.
+  Fixed freezes only stitches; none removes constraints, not the GPW model.
+  Preserve local learned kernels, q initialization, prior/variance equations,
+  rank-dependent q family,100/20 schedule and approved early-stopping settings.
+- Add GPW_Ablations_Kaggle.ipynb using latest-main source and fresh workers,
+  editable finite dataset/seed selections, effective overrides, explicit training
+  gate, verified prepared-array reuse, in-place history updates and immediate
+  per-run ZIP links. Every completed run is saved before the next begins;
+  failures re-raise with traceback. No resume/skip, reconnect or fallback added.
+- Save all seed metrics and descriptive means/sample SDs with completed counts;
+  SD for one seed is explicitly undefined. Final error bars are sample SDs, not
+  confidence intervals. Verification:271-test full regression suite passes;
+  final25 ablation checks and a fresh-worker test pass, including dense moments/
+  gradients in all six conditions, matched geometry and mismatch errors,
+  fixed/moving/absent stitches, archive/failure behavior, notebook reproducibility,
+  invalid/irrelevant controls and two consecutive isolated settings workers.
+  Ruff, compileall and whitespace checks pass. Four existing dependency warnings
+  remain. CPU-only verification; no full benchmark or Kaggle GPU run performed.
+
+## 2026-11-13 - Planned matched-initialization GPW ablations
+
+- User selected no/fixed/learned stitches, V ranks0/32, five seeds and the same
+  inducing-point count, with matched initial locations across variants, for the
+  requested datasets. The common budget value and seed IDs remain undecided.
+  Match locations within each dataset/seed; different datasets have different
+  domains/dimensions. No new initialization or seed-generation rule is adopted.
+- User also requested a same-kernel-hyperparameter experiment. Whether this
+  means tying learned local kernels or freezing common values remains unresolved,
+  as does whether to cross this factor with the stitching/rank study.
+- Updated target.txt and TODO.md only as planning records. No model, defaults,
+  notebook, data protocol or training code changed; no experiments were run.
+  Verification: documentation diff and whitespace review only.
+
 ## 2026-11-13 - ProSpar author-code audit and approved weighting initialization
 
 - Located the official journal supplement at Figshare article28765094, code
