@@ -1,5 +1,17 @@
 # Evolution Log
 
+## 2026-11-13 - Three-seed default ablation study
+
+- User approved reducing model/training seeds to31,32,33. The four selected
+  datasets now yield72 runs (4 x3 x2 ranks x3 stitch modes),7200 maximum epochs.
+  Keep data seed31,1024 supports/eight patches, rank0/32, stitch modes,100/20
+  schedule, early stopping, geometry matching and output contracts unchanged.
+- The original11 datasets remain explicitly selectable:198 runs with three
+  seeds, or330 when five seeds are explicitly requested. Regenerate the launcher
+  and update count/seed assertions and user-facing documentation. All28 ablation
+  tests, Ruff, compileall and whitespace checks pass on CPU; four existing
+  dependency warnings remain. No real benchmark is run or existing result modified.
+
 ## 2026-11-13 - Four-dataset default ablation selection
 
 - User selected California Housing, PROTEIN, TCO and OISST; TCO was repeated

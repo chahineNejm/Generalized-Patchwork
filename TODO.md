@@ -46,6 +46,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Change the four-dataset ablation defaults to seeds31-33 (72 runs),
+  preserving all other controls and explicit seed/dataset selection; verify
+  generated notebook and settings in fresh workers;28 ablation tests, Ruff,
+  compileall and whitespace checks pass on CPU.
+
 - [x] Narrow default GPW ablation selection to California Housing, PROTEIN,
   TCO and OISST (120 runs), preserving all factors/protocols and explicit
   access to the original11-dataset study;27 ablation checks, notebook/settings

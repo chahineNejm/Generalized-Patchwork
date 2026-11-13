@@ -16,11 +16,12 @@ required from it. The notebook loads latest main and fresh workers, with no
 kernel reconnect. Defaults live in `experiments/default_hyperparameters.py`.
 
 The default study selects California Housing, PROTEIN, TCO and OISST x
-seeds31-35 x ranks0/32 x stitch modes none/fixed/learned:120 GPW runs.
+seeds31-33 x ranks0/32 x stitch modes none/fixed/learned:72 GPW runs.
 Other existing datasets remain available for explicit selection; the original
-11-dataset selection gives330 runs. All use1024 inducing points,8 patches of128,
+11-dataset selection gives198 runs with three seeds, or330 if five seeds are
+explicitly selected. All use1024 inducing points,8 patches of128,
 100 epochs maximum/20 kernel-noise warm-up and existing training-loss stopping.
-Data splits and synthetic realizations retain seed31; the five seeds control
+Data splits and synthetic realizations retain seed31; the three seeds control
 model initialization/training only. Every condition within each dataset/seed
 shares selected training rows, initial supports, centers, candidate edges and
 candidate stitches. SHA256 geometry identity is checked before training and

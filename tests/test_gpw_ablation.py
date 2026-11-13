@@ -35,14 +35,14 @@ def request(**updates):
             "save_inducing_positions": True, "model_overrides": {}, "data_overrides": {}, **updates}
 
 
-def test_approved_default_plan_has_120_runs_and_fixed_data_seed():
+def test_approved_default_plan_has_72_runs_and_fixed_data_seed():
     result = worker.make_plan(request())
     assert [s["name"] for s in result["plan"]["data"]] == ["california", "protein", "tco", "oisst"]
-    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (4, 120, 12000)
+    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (4, 72, 7200)
     assert {spec["seed"] for spec in result["plan"]["data"]} == {31}
     configs = [row["config"] for row in result["plan"]["runs"]]
     assert {c["model"] for c in configs} == {"gpw"}
-    assert {c["seed"] for c in configs} == {31, 32, 33, 34, 35}
+    assert {c["seed"] for c in configs} == {31, 32, 33}
     assert {c["q_rank"] for c in configs} == {0, 32}
     assert {c["stitch_mode"] for c in configs} == {"none", "fixed", "learned"}
     assert {(c["inducing_points"], c["patches"]) for c in configs} == {(1024, 8)}
@@ -53,10 +53,11 @@ def test_approved_default_plan_has_120_runs_and_fixed_data_seed():
         assert local == {k:v for k,v in baseline[row["dataset"]].items() if k not in ("seed", "q_rank", "stitch_mode")}
 
 
-def test_original_eleven_dataset_study_remains_explicitly_available():
+@pytest.mark.parametrize("seeds,total", [([31, 32, 33], 198), ([31, 32, 33, 34, 35], 330)])
+def test_original_eleven_dataset_study_remains_explicitly_available(seeds, total):
     datasets = multidataset_notebook_defaults(device="cpu", input_root="manual")["datasets"]
-    result = worker.make_plan(request(datasets=datasets))
-    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (11, 330, 33000)
+    result = worker.make_plan(request(datasets=datasets, seeds=seeds))
+    assert (len(result["plan"]["data"]), result["total_runs"], result["total_epochs"]) == (11, total, total*100)
 
 
 @pytest.mark.parametrize("updates", [
@@ -145,7 +146,7 @@ def test_notebook_is_reproducible_configuration_only_and_stage_guarded(tmp_path)
             compile("".join(entry["source"]), "ablation", "exec")
             assert entry["outputs"] == []
     assert "RUN_TRAINING = False" in code and "training_view.update(Image" in code
-    assert "SEEDS = [31, 32, 33, 34, 35]" in code and "RANKS = [0, 32]" in code
+    assert "SEEDS = [31, 32, 33]" in code and "RANKS = [0, 32]" in code
     assert "INDUCING_POINTS = 1024" in code and "PATCHES = 8" in code
     assert "_OISST_STAGES" in code and "class " not in code
     imports = [n.module for n in ast.walk(ast.parse(code)) if isinstance(n, ast.ImportFrom)]
@@ -230,7 +231,7 @@ def test_ablation_settings_use_fresh_workers_without_reconnect(github_checkout, 
 first=client(ROOT, request, module="experiments.multidataset_worker", jobs_directory=ROOT.parent / "logs")
 second=client(ROOT, request, module="experiments.multidataset_worker", jobs_directory=ROOT.parent / "logs")
 assert first["worker_pid"] != os.getpid() and second["worker_pid"] != first["worker_pid"]
-assert first["total_runs"] == 120 and first["plan"] == second["plan"]
+assert first["total_runs"] == 72 and first["plan"] == second["plan"]
 '''
     result = subprocess.run([sys.executable, "-X", "utf8", "-I", "-"], input=script,
                             text=True, capture_output=True, cwd=tmp_path, check=False)

@@ -157,9 +157,10 @@ variational precision. The current phase is the algorithm and data foundation.
   rejection sampling on shared faces. Never substitute an approximate sampler.
   Save full-dimensional geometry/positions; label 2-feature plots as projections.
 - The separate GPW ablation notebook defaults to California Housing, PROTEIN,
-  TCO and OISST (TCO once),1024 supports in8 patches, seeds31-35, ranks0/32
-  and none/fixed/learned stitches (120 runs). Other existing datasets remain
-  explicitly selectable; the original11-dataset selection still gives330 runs.
+  TCO and OISST (TCO once),1024 supports in8 patches, seeds31-33, ranks0/32
+  and none/fixed/learned stitches (72 runs). Other existing datasets remain
+  explicitly selectable;11 datasets give198 runs with three seeds, or330 when
+  the original five seeds are explicitly selected.
   Preserve data/synthetic seed31 and existing preprocessing/splits. Model seeds
   vary initialization/training; six variants within each dataset/seed must share
   source rows, initial supports/centers, candidate graph and candidate stitches,

@@ -20,10 +20,10 @@ def build_notebook(root):
         below is its exact mounted directory. Other datasets use the existing
         approved download/preprocessing protocols, with no source substitution.
 
-        Default study: California Housing, PROTEIN, TCO and OISST x 5 seeds x
-        ranks {0,32} x stitch modes {none,fixed,learned} = 120 runs. TCO is
+        Default study: California Housing, PROTEIN, TCO and OISST x 3 seeds x
+        ranks {0,32} x stitch modes {none,fixed,learned} = 72 runs. TCO is
         included once. Every dataset uses 1024 inducing points,
-        eight patches of128. Model seeds are31-35. Data splits and synthetic
+        eight patches of128. Model seeds are31-33. Data splits and synthetic
         realizations retain their existing seed31; model seeds vary initialization
         and training only. Six variants per dataset/seed share exactly the same
         selected training rows, support coordinates, centers, candidate graph and
@@ -76,7 +76,7 @@ def call_worker(action, *, on_event=None, **values):
         cell("markdown", """
         ## 2. Select the finite batch and review all effective settings
 
-        DATASETS and SEEDS select the current batch. The defaults give120
+        DATASETS and SEEDS select the current batch. The defaults give72
         runs; one seed gives24. MODEL_OVERRIDES={dataset:{field:value}} applies
         identically to every selected variant for that dataset, for example
         {"oisst":{"learning_rate_structure":0.001}}. Factorial controls have
