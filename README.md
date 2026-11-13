@@ -630,13 +630,20 @@ after this repository is published on GitHub.
 
 Open `notebooks/GPW_FLIGHT_Ablations_Kaggle.ipynb` on Kaggle with Internet/GPU
 enabled. Attach `airline.npz` and `airline.json` under the displayed `INPUT_ROOT`.
-The six-run plan uses seed31,ranks0/64,none/fixed/learned stitches,1024 supports
-in8 patches and100/20 epochs with the existing early stopping. It explicitly
+The nine-run overnight plan uses FLIGHT,TCO.L2 and ICETHICK,seed31,rank64 ONLY,
+none/fixed/learned stitches,1024 supports in8 patches and100/20 epochs with
+existing early stopping. Attach icethk.txt too. TCO.L2/ICETHICK retain their full
+approved data and preprocessing. The provisional6-9-hour estimate is not a
+14-hour guarantee or permission to truncate/skip runs. FLIGHT explicitly
 samples800,000 rows without replacement using seed31,then splits80/20 into
 640,000 training/160,000 test rows. This is size-matched,not the paper's exact
 sample or90/10 split. Source-row indices/checksums are saved per run. Other
 FLIGHT presets still use all rows unless explicitly configured. Review settings,then
 set `RUN_TRAINING=True`. Each completed model is archived before the next starts.
+
+Edit `SEEDS=[31]` in the configuration cell to replace/add model seeds; for
+example `[31,32,33]` selects27 runs instead of9 and takes roughly three times
+as long. Data/subset/split seed remains31. Review the printed count before training.
 
 To regenerate this configuration-only notebook:
 

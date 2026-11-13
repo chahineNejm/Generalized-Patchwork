@@ -1,5 +1,31 @@
 # Evolution Log
 
+## 2026-11-13 - Overnight nine-run rank64 stitching study
+
+- User added TCO.L2 and ICETHICK to the FLIGHT800k notebook and explicitly
+  removed rank0: rank64 ONLY,seed31,none/fixed/learned stitches,nine runs.
+  Preserve1024 supports/8 patches,100 epochs maximum/20 warm-up,early stopping,
+  numerics,initialization and per-dataset optimizer/batch/preprocessing settings.
+  TCO.L2 and ICETHICK use full approved data; FLIGHT retains explicit800k/80:20.
+- Keep the existing notebook filename/download URL. Require icethk.txt alongside
+  airline.npz/json. Matched geometry is per dataset/seed,not across datasets.
+  Save every completed run before the next;no skips or implicit deadline cuts.
+- User requires directly editable/addable model seeds now and in future notebooks.
+  Existing SEEDS control is documented prominently: one seed gives9 runs,three
+  give27. Data/subset/split seed remains31; each model seed gets matched geometry
+  across its three stitch modes. New tests cover replacing/adding seeds. Preserve
+  seed31 as the default; more seeds are not silently included in overnight timing.
+- Estimate6-9 hours on comparable hardware is provisional: historical GPW100
+  epochs took1903.7s on TCO.L2 and331.4s on ICETHICK (rank32,learned stitches).
+  FLIGHT800k and rank64 timings are extrapolated,not measured. No14-hour guarantee.
+- Verification:45 focused ablation/subset tests pass with four existing
+  dependency warnings;Ruff,compileall and whitespace checks pass. Plan checks
+  require9 runs,rank64 only,900 maximum epochs,seed31,three datasets,FLIGHT-only
+  subsampling and unchanged per-dataset batch sizes. Generated notebook matches
+  its builder and all code cells compile. No model equations changed; no real
+  benchmark training launched locally. User explicitly approved commit/push
+  including the editable/addable seed list after verification.
+
 ## 2026-11-13 - Explicit FLIGHT800k subset
 
 - User approved800,000 uniformly sampled FLIGHT rows and retained80/20 rather

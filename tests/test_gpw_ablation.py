@@ -36,19 +36,23 @@ def request(**updates):
             "save_inducing_positions": True, "model_overrides": {}, "data_overrides": {}, **updates}
 
 
-def test_flight_plan_preserves_protocol_and_six_requested_conditions(tmp_path):
+def test_overnight_plan_preserves_protocol_and_nine_rank64_conditions(tmp_path):
     defaults = gpw_flight_ablation_defaults(device="cpu", input_root="manual")
     result = worker.make_plan(request(**defaults))
-    assert result["total_runs"] == 6 and result["total_epochs"] == 600
-    assert len(result["plan"]["data"]) == 1
+    assert result["total_runs"] == 9 and result["total_epochs"] == 900
+    assert [s["name"] for s in result["plan"]["data"]] == ["flight", "tco_l2", "icethick"]
+    assert all(s["subset_size"] is None for s in result["plan"]["data"][1:])
     spec = result["plan"]["data"][0]
     assert (spec["name"], spec["seed"], spec["train_fraction"], spec["validation_fraction"]) == ("flight", 31, .8, 0.)
     assert Path(spec["input_path"]).name == "airline.npz"
     assert spec["subset_size"] == 800000
     configs = [r["config"] for r in result["plan"]["runs"]]
     assert {(c["q_rank"], c["stitch_mode"]) for c in configs} == {
-        (r, m) for r in (0, 64) for m in ("none", "fixed", "learned")}
-    assert {(c["seed"], c["inducing_points"], c["patches"], c["batch_size"]) for c in configs} == {(31, 1024, 8, 2048)}
+        (64, m) for m in ("none", "fixed", "learned")}
+    assert {(c["seed"], c["inducing_points"], c["patches"]) for c in configs} == {(31, 1024, 8)}
+    assert {(r["dataset"], r["config"]["batch_size"]) for r in result["plan"]["runs"]} == {
+        ("flight", 2048), ("tco_l2", 1024), ("icethick", 1024)}
+    assert all(c["epochs"] == 100 and c["warmup_epochs"] == 20 for c in configs)
     (tmp_path / "notebooks").mkdir()
     notebook = json.loads(build_notebook(tmp_path, flight=True).read_text())
     assert notebook == json.loads((ROOT / "notebooks/GPW_FLIGHT_Ablations_Kaggle.ipynb").read_text())
@@ -57,10 +61,20 @@ def test_flight_plan_preserves_protocol_and_six_requested_conditions(tmp_path):
         if entry["cell_type"] == "code":
             compile("".join(entry["source"]), "flight-ablation", "exec")
             assert entry["outputs"] == []
-    assert "DATASETS = ['flight']" in code and "SEEDS = [31]" in code and "RANKS = [0, 64]" in code
+    assert "DATASETS = ['flight', 'tco_l2', 'icethick']" in code and "SEEDS = [31]" in code and "RANKS = [64]" in code
     assert "RUN_TRAINING = False" in code and "_OISST_STAGES" in code
     with pytest.raises(ValueError, match="not both"):
         build_notebook(tmp_path, flight=True, shared_kernel=True)
+
+
+@pytest.mark.parametrize("seeds", [[42], [31, 32, 33], [31, 32, 33, 34, 35]])
+def test_overnight_seeds_are_explicitly_replaceable_and_extendable(seeds):
+    defaults = gpw_flight_ablation_defaults(device="cpu", input_root="manual")
+    result = worker.make_plan(request(**{**defaults, "seeds": seeds}))
+    assert result["total_runs"] == 9 * len(seeds)
+    assert {r["config"]["seed"] for r in result["plan"]["runs"]} == set(seeds)
+    assert {s["seed"] for s in result["plan"]["data"]} == {31}
+    assert {r["config"]["q_rank"] for r in result["plan"]["runs"]} == {64}
 
 
 @pytest.mark.parametrize("mode", ["none", "fixed", "learned"])

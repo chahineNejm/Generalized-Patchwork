@@ -192,9 +192,9 @@ def gpw_ablation_defaults(*, device, input_root):
 
 
 def gpw_flight_ablation_defaults(*, device, input_root):
-    """Six FLIGHT-only runs with the existing matched-budget ablation controls."""
+    """Nine rank64 stitching runs on FLIGHT800k, TCO.L2 and ICETHICK."""
     defaults = gpw_ablation_defaults(device=device, input_root=input_root)
-    return {**defaults, "datasets": ["flight"], "seeds": [31], "ranks": [0, 64],
+    return {**defaults, "datasets": ["flight", "tco_l2", "icethick"], "seeds": [31], "ranks": [64],
             "data_overrides": {"flight": {"subset_size": 800000}}}
 
 

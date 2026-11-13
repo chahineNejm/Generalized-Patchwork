@@ -320,15 +320,16 @@ print("Local reference manifests are in each run archive; no local results were 
             stage="training", requires=("install", "settings", "preflight", "data"), invalidates=("archive",))
     if flight:
         cells[0] = cell("markdown", """
-        # FLIGHT: stitching and variational-rank ablations
+        # Rank64 stitching ablations: FLIGHT, TCO.L2 and ICETHICK
 
         Enable Internet and a GPU in Kaggle. Attach gpw-kaggle-inputs containing
-        airline.npz and airline.json at INPUT_ROOT. Both files are required;
+        airline.npz,airline.json and icethk.txt at INPUT_ROOT. All are required;
         checksums/provenance are verified. No pickle reader or substitute source.
 
-        Six runs: FLIGHT only, model seed31, ranks0/64 crossed with no, fixed and
-        learned stitches. Use1024 inducing points in8 patches of128. All six
-        runs share identical initial observed rows, supports, centers, candidate
+        Nine runs: FLIGHT800k,TCO.L2 and ICETHICK,model seed31,rank64 ONLY,
+        each with no,fixed and learned stitches. Use1024 inducing points in8
+        patches of128. Three modes within each dataset share identical initial
+        observed rows,supports,centers,candidate
         graph and candidate stitches, checked by a saved geometry fingerprint.
         Separate local ARD RBF kernels and variational parameters remain free.
         None removes constraints, fixed freezes only stitches, learned moves them.
@@ -340,6 +341,8 @@ print("Local reference manifests are in each run archive; no local results were 
         scaling uses all selected rows; target scaling uses training rows only.
         This is size-matched, not the paper's exact records or90/10 split.
         Source-row indices and checksums are saved in every run archive.
+        TCO.L2 and ICETHICK use their full approved datasets and existing80/20
+        splits/preprocessing with data seed31. TCO.L2 is not the smaller TCO.
         Existing FLIGHT batch size,
         learning rates, initialization, bounds, numerics and stitch count remain.
         The1024-support ablation budget differs from the2048-point main preset.
@@ -351,6 +354,11 @@ print("Local reference manifests are in each run archive; no local results were 
         histories save every epoch. Change EPOCHS=3,WARMUP_EPOCHS=1 for an explicit
         short smoke check. No configuration is adjusted automatically.
 
+        Provisional overnight estimate:6-9 hours on comparable GPU hardware,
+        based on saved GPW timings and extrapolation for FLIGHT800k/rank64.
+        This is not a measured FLIGHT runtime or a14-hour guarantee. The batch
+        is finite; no time-triggered truncation,skipping or parameter changes.
+
         Review the complete plan, then set RUN_TRAINING=True. Code loads latest
         main in fresh workers without reconnects. Every completed model saves
         predictions, metrics, initial/final positions, histories, checkpoints,
@@ -359,12 +367,21 @@ print("Local reference manifests are in each run archive; no local results were 
         Download ZIPs or save Kaggle outputs: session-local files are not a backup.
         """)
         cells[4] = cell("markdown", """
-        ## 2. Review the six-run FLIGHT plan
+        ## 2. Review the nine-run rank64 plan
 
-        DATASETS=["flight"], SEEDS=[31], RANKS=[0,64] and all three stitch modes.
-        DATA_OVERRIDES explicitly selects800,000 rows with subset_size. INPUT_ROOT
-        must contain both airline.npz and airline.json. Hyperparameters
-        remain editable here; MODEL_OVERRIDES applies equally to all six variants.
+        Edit SEEDS in the configuration cell before running settings:
+        SEEDS=[31] gives9 runs; SEEDS=[31,32,33] gives27 runs. Any nonempty list
+        of distinct nonnegative integer model seeds is accepted. Each added seed
+        adds9 fresh runs,not a resume. Keep[31] for the6-9-hour overnight estimate;
+        three seeds would provisionally take18-27 hours. Data/split/subset seed
+        stays31; model seeds change initialization/training only. The complete
+        run count and effective seeds are printed before authorization.
+
+        DATASETS=["flight","tco_l2","icethick"],SEEDS=[31],RANKS=[64],all three
+        stitch modes. DATA_OVERRIDES explicitly selects800,000 FLIGHT rows only.
+        INPUT_ROOT must contain airline.npz,airline.json and icethk.txt.
+        Hyperparameters remain editable here; MODEL_OVERRIDES applies equally
+        to all three modes within the named dataset.
         Data preprocessing and seed remain unchanged. One seed cannot estimate
         between-seed variability; summary sample SD is undefined, not zero.
         """)

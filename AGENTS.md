@@ -49,6 +49,10 @@ variational precision. The current phase is the algorithm and data foundation.
 - Keep code compact. Use brief docstrings for functions and comments only for
   mathematically dense blocks.
 - Put tunable values in explicit arguments or configuration dataclasses.
+- Every new experiment notebook must prominently expose an editable model-seed
+  list before settings/preflight/training. Users can replace/add distinct seeds
+  at call time; print/save effective seeds and total runs. Do not silently alter
+  data/split/subset seeds. Explain that adding seeds multiplies compute time.
 - Every training loop displays `tqdm` progress with the current loss.
 - Dataset files, checkpoints, and generated results stay outside Git.
 - Preserve complete configuration and provenance with every saved result.
@@ -190,13 +194,16 @@ variational precision. The current phase is the algorithm and data foundation.
   ablation controls. Save local-reference configs/geometry manifests; do not
   auto-load/rerun/claim completion of local results. Verify config, data/splits,
   numerical algebra and geometry before any later saved-result comparison.
-- The separate FLIGHT-only ablation notebook selects seed31,ranks0/64 and
-  none/fixed/learned stitches: six runs,1024 supports/8 patches,existing100/20
+- The FLIGHT-named overnight notebook now selects FLIGHT,TCO.L2 and ICETHICK,
+  seed31,rank64 ONLY,none/fixed/learned stitches: nine runs,1024 supports/8 patches,existing100/20
   schedule/stopping. Its explicitly approved800,000-row uniform subset uses
   sampling without replacement with data seed31 before the80/20 split
   (640,000/160,000) and preprocessing. Share source rows/split across variants;
   save source indices/checksums in each archive. This is not the paper's exact
   sample or90/10 split. Other FLIGHT presets still use full data unless explicit.
+  TCO.L2/ICETHICK use their full approved data and unchanged preprocessing/splits.
+  The6-9-hour estimate is provisional,not a deadline or measured FLIGHT runtime;
+  never change values,skip runs or truncate training to enforce a time budget.
   result_archives/ is the local ZIP inbox; track archive experiments/verification
   in its INDEX.csv, never add archive binaries to Git or infer completion by name.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and

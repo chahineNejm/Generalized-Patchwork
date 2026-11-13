@@ -49,6 +49,12 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Update the FLIGHT-named overnight notebook to FLIGHT800k,TCO.L2 and
+  ICETHICK: rank64 ONLY,seed31,none/fixed/learned stitches,nine runs. Preserve
+  1024 supports/8 patches,100/20 and stopping. Prominent editable/addable SEEDS
+  with fixed data seed31;45 focused tests,Ruff,compileall
+  and generated plan/notebook verification pass; no real training launched.
+
 - [x] Change only the FLIGHT ablation notebook to an approved800,000-row seeded
   subset,80/20 split; preserve six variants and save source rows/checksums per
   run. Subset identity,reuse failures and full-data compatibility verified;
