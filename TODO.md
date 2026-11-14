@@ -49,6 +49,17 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Model Evaluation
 
+- [x] Add a separate two-capacity stitching notebook:8x32 supports/8 stitches
+  per edge and4x256 supports/16 per edge,rank64,all three modes,existing three
+  datasets,seed31 editable.18 runs,shared verified data,independent geometry
+  references per capacity,per-run and per-capacity archives.50 focused tests,
+  Ruff,compileall and whitespace checks pass;real GPU schedule remains unrun.
+
+- [ ] Review received FLIGHT/TCO.L2/ICETHICK rank64 results with the user before
+  revisiting five-seed confirmation. User will choose dataset and adjust
+  configuration; no new run or final protocol approved yet. Proposed
+  seeds31-35 and matched none/fixed/learned modes are discussion,not a launch plan.
+
 - [x] Update the FLIGHT-named overnight notebook to FLIGHT800k,TCO.L2 and
   ICETHICK: rank64 ONLY,seed31,none/fixed/learned stitches,nine runs. Preserve
   1024 supports/8 patches,100/20 and stopping. Prominent editable/addable SEEDS
@@ -207,6 +218,17 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 - [ ] Visual diagnostics for support and stitch movement during training.
 
 ## Results
+
+- [x] Index stitch_ablation_64.zip and audit9 completed seed31 rank64 runs:
+  CRC/config/split checks,independent RMSE/NLPD recomputation in both scales,
+  matched initial geometry,FLIGHT800k source-row/checksum identity. Report in
+  results/stitch_rank64_audit_20261114/. No model algebra or training rerun.
+
+- [x] Group the three received result ZIPs in result_archives/ without changing
+  contents;verify pre/post SHA256 and update INDEX.csv with experiment/seed/run
+  scope. Shared-kernel archive contains12 complete runs;outer CRC checked.
+- [ ] Fully audit results_shared_kernel.zip and compare shared kernels with
+  matching local-kernel runs after config,data,geometry and numerical checks.
 
 - [ ] Immutable record per model, dataset, split, seed, and configuration.
 - [ ] Complete model, optimizer, data, runtime, and environment configuration.

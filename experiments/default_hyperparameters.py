@@ -205,6 +205,15 @@ def gpw_shared_kernel_defaults(*, device, input_root):
             "seeds": [31, 32, 33], "q_rank": 32}
 
 
+def gpw_size_ablation_defaults(*, device, input_root):
+    """Two explicitly approved capacities with size-specific stitch counts."""
+    base = gpw_flight_ablation_defaults(device=device, input_root=input_root)
+    return {**{k: v for k, v in base.items() if k not in ("inducing_points", "patches")},
+        "configurations": [
+            {"name": "8x32_stitches8", "inducing_points": 256, "patches": 8, "stitches_per_edge": 8},
+            {"name": "4x256_stitches16", "inducing_points": 1024, "patches": 4, "stitches_per_edge": 16}]}
+
+
 def matched_runs(*, device, budget, batch_size, primary_patches, alternative_patches, dimension):
     """Fixed-budget variants; higher-dimensional Standard Patchwork uses its PC tree."""
     common = replace(ukhousing_defaults(device=device), inducing_points=budget, batch_size=batch_size,

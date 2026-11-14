@@ -655,6 +655,23 @@ Put downloaded result ZIPs in `result_archives/` and record their experiments,
 seeds, factors and verification status in `result_archives/INDEX.csv`. ZIPs stay
 outside Git. Existing root archives have not been moved.
 
+## Two-Capacity Stitching Study
+
+`notebooks/GPW_Two_Sizes_Kaggle.ipynb` explicitly compares8x32 supports with
+8 stitches per connected pair against4x256 supports with16 per pair. Both use
+rank64 and none/fixed/learned modes on FLIGHT800k,TCO.L2 and ICETHICK. Editable
+`SEEDS=[31]` selects18 runs. Keep100/20 and existing controls unless explicitly
+changed. This is not size-matched: capacity,patch count and stitch density vary.
+
+The two fresh-worker batches share verified prepared data. Per-model archives
+are saved immediately,and each capacity's collection is archived before the
+next batch. Source/model/data code is not embedded. The old6-9-hour estimate
+does not cover this combined schedule;no time limit silently truncates it.
+
+```powershell
+python -m experiments.build_gpw_sizes_kaggle
+```
+
 ## References
 
 - Hensman, Fusi, and Lawrence (2013), *Gaussian Processes for Big Data*.

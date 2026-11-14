@@ -206,6 +206,12 @@ variational precision. The current phase is the algorithm and data foundation.
   never change values,skip runs or truncate training to enforce a time budget.
   result_archives/ is the local ZIP inbox; track archive experiments/verification
   in its INDEX.csv, never add archive binaries to Git or infer completion by name.
+- The separate two-capacity notebook uses8x32 supports/8 stitches per pair and
+  4x256 supports/16 per pair,rank64,none/fixed/learned,editable seeds31 by default.
+  Current three datasets give18 runs per seed. Prepared data are identical across
+  capacities;initial geometry is matched only within each capacity/dataset/seed.
+  This is not size-matched and has no measured runtime guarantee. Archive each
+  completed capacity before starting the next;failures block later work.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.

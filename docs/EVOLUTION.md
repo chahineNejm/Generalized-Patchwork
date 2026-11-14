@@ -1,5 +1,69 @@
 # Evolution Log
 
+## 2026-11-14 - Two explicit capacities with size-specific stitching
+
+- User chose8 patches x32 supports (256 total) and4 x256 (1024 total),retaining
+  rank64 and none/fixed/learned modes. Approved16 stitches per connected pair
+  only for the larger model;smaller retains8. Changing patch count also changes
+  the graph,so a larger per-pair count does not guarantee a larger global count.
+- Separate GPW_Two_Sizes_Kaggle notebook preserves the completed-run launcher.
+  Retain current FLIGHT800k,TCO.L2,ICETHICK selection,seed31 editable,100/20,
+  stopping,local kernels,q initialization,numerics and optimizer settings.18 runs
+  per seed;not a size-matched comparison since capacity/patches/stitches differ.
+- Orchestrate two explicit existing-worker batches with identical prepared data
+  verified for both plans. Match geometry only within each capacity/dataset/seed.
+  Save each model ZIP,and each completed capacity archive before the next batch.
+  Any failure stops later work;no implicit retries,skips or automatic resume.
+- Old6-9-hour estimate does not apply to the combined schedule;no measured
+  duration or14-hour guarantee. Verification:50 focused tests pass with four
+  existing dependency warnings;Ruff,compileall,whitespace checks pass. Execute
+  generated cells against deterministic worker/display doubles to verify exact
+  18/54-run plans,size-specific counts,fixed data seeds,data reuse,training gate,
+  archive-before-next-capacity ordering,collection contents and blocked downstream
+  stages after preflight/second-capacity failure. Models/worker algebra unchanged;
+  no real GPU benchmark launched. User explicitly approved committing/pushing
+  the verified two-configuration notebook while preserving the existing one.
+
+## 2026-11-14 - Received rank64 stitching results
+
+- Indexed result_archives/stitch_ablation_64.zip (source7eeec45):9/9 completed
+  seed31,rank64,1024-support/8-patch runs,none/fixed/learned stitches on FLIGHT800k,
+  TCO.L2 and ICETHICK. All completed100 epochs. Archive remains unchanged/ignored.
+- Read-only saved-artifact audit passes outer CRC,plan/config/status checks,
+  shared initial geometry/non-ablated configs per dataset,split/preprocessing
+  checksums,and recomputed RMSE/NLPD in both original and standardized units.
+  FLIGHT source-row hashes/uniqueness and640000/160000 counts verified. Report
+  and CSV saved in results/stitch_rank64_audit_20261114/. No training,checkpoint
+  loading or model algebra rerun. Total recorded training6.67538 hours.
+- Learned stitches beat fixed on RMSE/NLPD in all3 datasets. Versus none,learned
+  RMSE improves0.03949% on FLIGHT,but worsens1.42816% on TCO.L2 and2.45557% on
+  ICETHICK;NLPD has the same ordering. These are single-seed comparisons,not
+  significance/repeatability claims. Confirmation design stays pending user
+  review;no new experiment/default change was approved or launched.
+
+## 2026-11-13 - Group received result archives and index shared kernels
+
+- User asked whether results had actually been grouped. Earlier only the folder
+  and index existed;the two original ZIPs remained at root. Moved those and the
+  newly supplied results_shared_kernel.zip into result_archives/,preserving names
+  and contents. Verified resolved workspace paths and identical pre/post SHA256.
+- Updated INDEX.csv with current relative paths,hashes and distinct verification
+  scopes. Shared archive has12 planned/metric rows,12 complete run statuses and
+  12 test-prediction files across California,PROTEIN,TCO,OISST,seeds31-33;
+  rank32,learned stitches,shared kernels,1024 supports/8 patches. Source8b4976f.
+  No failure records;outer ZIP CRC passes. Embedded ZIPs are duplicate packaging,
+  not additional independent experiments. Full metric/reference audit is pending.
+- No model,experiment protocol or existing result contents changed. Archive
+  binaries remain ignored by Git;earlier audit records retain historical paths.
+
+## 2026-11-13 - Defer confirmation design until FLIGHT/TCO.L2 results
+
+- User requested keeping the proposed five-seed stitching confirmation in TODO,
+  pending current FLIGHT and TCO.L2 results. Dataset and configuration will be
+  adjusted with the user afterwards. This is not approval to launch runs,fix the
+  final seed/protocol choices or change existing notebook defaults.
+- Documentation only; no model,notebook or experiment behavior changed.
+
 ## 2026-11-13 - Overnight nine-run rank64 stitching study
 
 - User added TCO.L2 and ICETHICK to the FLIGHT800k notebook and explicitly
