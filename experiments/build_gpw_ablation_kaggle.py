@@ -81,7 +81,7 @@ def build_notebook(root, *, shared_kernel=False, flight=False):
         cell("code", github_bootstrap("/kaggle/working/gpw_source", isolated=True), stage="checkout",
              invalidates=("install", "settings", "preflight", "data", "training", "archive")),
         cell("code", '''subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
-    "--editable", str(ROOT) + "[data,ukhousing,benchmark]"], check=True)
+    "--editable", str(ROOT) + "[data,ukhousing,benchmark,heat]"], check=True)
 import runpy
 run_worker = runpy.run_path(str(ROOT / "experiments/colab_client.py"))["run_worker"]
 WORK_ROOT = Path("/kaggle/working/gpw_ablation_results")

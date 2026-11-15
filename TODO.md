@@ -4,6 +4,9 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [~] Run the approved local exponential-GP toy: two capacities, rank64,
+  none/fixed/learned stitches; show means, both variances and initial/final points.
+
 - [x] Label ablation training progress with dataset/model/seed/rank/stitches and
   refresh logs every20 epochs plus final state, retaining per-epoch histories.
 

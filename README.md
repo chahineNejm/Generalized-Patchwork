@@ -8,6 +8,16 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## Local Exponential-GP Toy
+
+Run `python -m experiments.exponential_toy` locally on CPU. Approved settings
+live in `gpw_exponential_toy_defaults`:8000 joint exponential-GP samples,80/20,
+seed31,two capacities8x32/4x256,rank64,none/fixed/learned stitches,100/20.
+The fitted kernels remain ARD RBF,not the generating exponential kernel.
+Each fresh results directory saves data/provenance,per-run archives,metrics,
+predictive means,both latent and observation variances,and initial/final points.
+Comparison maps share scales within each field. No retries or automatic resume.
+
 ## Shared-Kernel GPW
 
 Open `notebooks/GPW_Shared_Kernels_Kaggle.ipynb` in Kaggle with Internet/GPU.

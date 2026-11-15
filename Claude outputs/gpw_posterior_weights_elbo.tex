@@ -1,0 +1,177 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,bm}
+
+\newcommand{\KUU}{K^{PW}_{UU}}
+\newcommand{\iKUU}{(K^{PW}_{UU})^{-1}}
+\newcommand{\Fx}{(f_i(x))_i}
+\newcommand{\N}{\mathcal N}
+\newcommand{\KL}{\mathrm{KL}}
+\newtheorem{remark}{Remark}
+
+\title{GPW with posterior-dependent agreement weights:\\ generative model and ELBO}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Generative model}
+
+\paragraph{Stitched local prior.}
+For $i=1,\dots,p$,
+\[
+f_i \sim \mathcal{GP}(m_i,k_i), \qquad f_i \perp f_j \ (i\neq j),
+\]
+conditioned on the agreement at the stitching points, $\Delta_S = 0$. With regression
+inducing points $Z_i$ and $U_i = f_i(Z_i)$, $U=(U_1,\dots,U_p)$,
+\[
+U \sim \N\!\left(0, \KUU\right).
+\]
+
+\paragraph{Local values given $U$.}
+\[
+\Fx \mid U \sim \N\!\left(K^{PW}_{\Fx U}\,\iKUU U,\; R(x,x)\right),
+\qquad
+R(x,x') = K^{PW}_{\Fx (f_i(x'))_i} - K^{PW}_{\Fx U}\iKUU K^{PW}_{U (f_i(x'))_i}.
+\]
+
+\paragraph{Posterior-dependent agreement weights.}
+For a weight function $\alpha$, define on the training inputs $X=(x_1,\dots,x_N)$
+\[
+C_X = \left[\alpha(x_n)\, K^{PW}_{(f_i(x_n))_i U}\right]_{n=1}^N,
+\qquad
+r(x_n,x_m) = \alpha(x_n)\, R(x_n,x_m)\, \alpha(x_m)^\top ,
+\]
+and the posterior covariance of $U$ under the optimal variational distribution
+(Section~\ref{sec:optimal})
+\[
+S^\ast = \KUU\left(\KUU + \sigma^{-2} C_X^\top C_X\right)^{-1}\KUU .
+\]
+The posterior covariance of the local values at $x$ is
+\[
+\Sigma(x) = K^{PW}_{\Fx U}\iKUU S^\ast \iKUU K^{PW}_{U\Fx} + R(x,x),
+\]
+and the agreement condition $\Delta_x = 0$ gives
+\[
+\alpha(x) = \arg\min_{\alpha(x)\mathbf 1_p = 1} \alpha(x)\,\Sigma(x)\,\alpha(x)^\top .
+\]
+Since $C_X$ depends on $\alpha(X)$ and $\alpha(X)$ depends on $S^\ast$, the weights on $X$
+are defined as a fixed point $\alpha = \Phi(\alpha)$. The weights at any other point follow
+from $S^\ast$. $S^\ast$ depends on $X$, the kernels, $Z$, $S$ and $\sigma^2$, but not on $Y$.
+
+\paragraph{Observations.}
+\[
+f(X)\mid U \sim \N\!\left(C_X \iKUU U,\; r(X,X)\right),
+\qquad
+Y = f(X) + \epsilon, \quad \epsilon \sim \N(0,\sigma^2 I).
+\]
+
+\begin{remark}
+For fixed hyperparameters $\theta$ (local kernels, $Z$, $S$, $\sigma^2$), $\alpha$ is a
+deterministic function of $(\theta, X)$. Hence $p(f(X)\mid U)$ is a fixed conditional
+distribution, independent of $Y$ and of the variational distribution. The prior over $f$
+depends on the training inputs $X$; it is a family of models indexed by $X$ rather than a
+single consistent stochastic process.
+\end{remark}
+
+\section{ELBO}
+
+\paragraph{Marginal likelihood.}
+\[
+p(Y) = \int\!\!\int p(Y\mid f(X))\, p(f(X)\mid U)\, p(U)\; df(X)\, dU .
+\]
+
+\paragraph{Variational distribution.}
+Take $q(f(X),U) = p(f(X)\mid U)\, q(U)$ with
+\[
+q(U) = \N(m, S_q), \qquad S_q = (D + VV^\top)^{-1}, \quad D = \mathrm{blockdiag}(D_1,\dots,D_p).
+\]
+By Jensen's inequality,
+\begin{align*}
+\log p(Y)
+&= \log \int\!\!\int q(f(X),U)\,
+\frac{p(Y\mid f(X))\, p(f(X)\mid U)\, p(U)}{p(f(X)\mid U)\, q(U)}\; df(X)\, dU \\
+&\ge \mathbb E_{q(f(X),U)}\!\left[\log p(Y\mid f(X)) + \log\frac{p(U)}{q(U)}\right] \\
+&= \mathbb E_{q(f(X))}\!\left[\log p(Y\mid f(X))\right] - \KL\!\left(q(U)\,\|\,p(U)\right)
+=: \mathcal L(q,\theta).
+\end{align*}
+The cancellation of $p(f(X)\mid U)$ in the second line holds because $\alpha$ does not
+depend on $q$.
+
+\paragraph{Marginals of $q$.}
+The likelihood factorizes over observations, so
+$\mathbb E_{q(f(X))}[\log p(Y\mid f(X))] = \sum_n \mathbb E_{q(f(x_n))}[\log\N(y_n\mid f(x_n),\sigma^2)]$, where
+\[
+q(f(x_n)) = \N(\mu_n, s_n), \qquad
+\mu_n = c_n \iKUU m, \qquad
+s_n = c_n \iKUU S_q \iKUU c_n^\top + r(x_n,x_n),
+\]
+and $c_n$ is the $n$-th row of $C_X$. For a Gaussian marginal,
+\[
+\mathbb E_{q(f(x_n))}\!\left[\log\N(y_n\mid f(x_n),\sigma^2)\right]
+= \log\N(y_n\mid \mu_n,\sigma^2) - \frac{s_n}{2\sigma^2}.
+\]
+
+\paragraph{Result.}
+\begin{align*}
+\mathcal L(q,\theta) = \sum_{n=1}^{N}\Bigg[
+&\log\N\!\left(y_n \,\middle|\, c_n\iKUU m,\; \sigma^2\right)
+- \frac{c_n\iKUU S_q\iKUU c_n^\top}{2\sigma^2}
+- \frac{r(x_n,x_n)}{2\sigma^2}\Bigg] \\
+&- \KL\!\left(q(U)\,\|\,\N(0,\KUU)\right),
+\end{align*}
+\[
+\KL = \tfrac12\left[\operatorname{tr}\!\left(\iKUU S_q\right) + m^\top\iKUU m - M
++ \log\det\KUU - \log\det S_q\right],
+\]
+where $M$ is the total number of regression inducing variables.
+
+\section{Optimal variational distribution and collapsed bound}\label{sec:optimal}
+
+Over unrestricted Gaussians $q(U)=\N(m,S_q)$, setting $\partial\mathcal L/\partial S_q = 0$
+and $\partial\mathcal L/\partial m = 0$ gives
+\[
+S_q^\ast = S^\ast = \KUU\left(\KUU + \sigma^{-2} C_X^\top C_X\right)^{-1}\KUU,
+\qquad
+m^\ast = \sigma^{-2}\, S^\ast \iKUU C_X^\top Y,
+\]
+and the collapsed bound
+\[
+\mathcal L^\ast(\theta) = \log\N\!\left(Y \,\middle|\, 0,\; C_X\iKUU C_X^\top + \sigma^2 I\right)
+- \frac{1}{2\sigma^2}\sum_{n=1}^N r(x_n,x_n) \;\le\; \log p(Y).
+\]
+The terms of $\mathcal L$ involving $S_q$ do not contain $Y$, so $S^\ast$ is independent of
+$Y$. The weights are computed from the same covariance that the optimal $q$ attains.
+
+\section{Remarks}
+
+\begin{remark}[Restricted family]
+With $q(U)\in\mathcal N_{str}$,
+\[
+\max_{q\in\mathcal N_{str}} \mathcal L(q,\theta) \le \mathcal L^\ast(\theta) \le \log p(Y).
+\]
+In general $(D+VV^\top)^{-1} \neq S^\ast$: the weights use $S^\ast$, while $q$ uses its best
+approximation within $\mathcal N_{str}$.
+\end{remark}
+
+\begin{remark}[Only the diagonal of $r$]
+The ELBO uses only $r(x_n,x_n)$, and $S^\ast$ contains no $r$ term. The exact posterior
+$\mathrm{Cov}(U\mid Y) = \KUU - C_X^\top\left[C_X\iKUU C_X^\top + r(X,X) + \sigma^2 I\right]^{-1}C_X$
+uses the full $r(X,X)$ and costs $O(N^3)$; $S^\ast$ costs $O(NM^2)$.
+\end{remark}
+
+\begin{remark}[Gradients]
+$\alpha(X)$ depends on $\theta$ through the fixed point, with
+\[
+\frac{d\alpha}{d\theta} = \left(I - \frac{\partial\Phi}{\partial\alpha}\right)^{-1}\frac{\partial\Phi}{\partial\theta}.
+\]
+Treating $\alpha(X)$ as constant during an update gives a partial gradient of a valid bound.
+\end{remark}
+
+\begin{remark}[Minibatching]
+For fixed $\alpha$, the sum over $n$ admits unbiased minibatch estimates. $S^\ast$ requires
+$C_X^\top C_X = \sum_n c_n^\top c_n$ over all of $X$, which must be recomputed periodically
+or approximated.
+\end{remark}
+
+\end{document}

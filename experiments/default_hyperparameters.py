@@ -144,6 +144,11 @@ def multidataset_defaults(*, device, input_root):
         runs[name] = matched_runs(device=device, budget=budget, batch_size=batch,
             primary_patches=16 if name == "flight" else 8,
             alternative_patches=8 if name == "flight" else 4, dimension=dimension)
+    data["periodic_heat"] = DatasetSpec("periodic_heat", "periodic_heat", 2, .8, 0., 31, simulation={
+        "cells": 80, "diffusivity": [0.6, 0.025], "angles": [0, 90], "periods": [10, 10],
+        "baseline": 1.0, "amplitude": 0.8, "time": 0.015, "time_steps": 40, "relative_noise_std": 0.001})
+    runs["periodic_heat"] = matched_runs(device=device, budget=1024, batch_size=1024,
+        primary_patches=8, alternative_patches=4, dimension=2)
     for function in ("michalewicz", "g_function"):
         for dimension in (3, 5, 10):
             for count in (50000, 100000):
@@ -212,6 +217,17 @@ def gpw_size_ablation_defaults(*, device, input_root):
         "configurations": [
             {"name": "8x32_stitches8", "inducing_points": 256, "patches": 8, "stitches_per_edge": 8},
             {"name": "4x256_stitches16", "inducing_points": 1024, "patches": 4, "stitches_per_edge": 16}]}
+
+
+def gpw_exponential_toy_defaults():
+    """Approved local six-run toy, preserving the existing two-size controls."""
+    sizes = gpw_size_ablation_defaults(device="cpu", input_root="unused_for_generated_data")
+    return {"points": 8000, "extent": 6., "variance": 10., "lengthscale": 1.,
+        "noise_variance": 1., "data_seed": 31, "train_fraction": .8, "threads": 2,
+        "seeds": sizes["seeds"], "configurations": sizes["configurations"],
+        "stitch_modes": sizes["stitch_modes"], "q_rank": 64,
+        "epochs": sizes["epochs"], "warmup_epochs": sizes["warmup_epochs"],
+        "early_stopping": sizes["early_stopping"], "progress_every_epochs": sizes["progress_every_epochs"]}
 
 
 def matched_runs(*, device, budget, batch_size, primary_patches, alternative_patches, dimension):

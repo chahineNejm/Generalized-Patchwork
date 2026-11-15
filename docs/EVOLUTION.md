@@ -1,5 +1,38 @@
 # Evolution Log
 
+## 2026-11-15 - Periodic heat in the Kaggle catalog; anisotropic stitch_mode
+
+- User requested the periodic-heat stitching test with exactly the Kaggle GPW model and
+  protocol. Added catalog dataset periodic_heat (kind periodic_heat): the v2 heat-notebook
+  field (cells80, diffusivity0.6/0.025, angles0/90, periods10x10, baseline1, amplitude0.8,
+  time0.015, 40 steps) on all 6561 grid points, seeded Gaussian noise SD
+  0.001 x field SD, seed31 80/20 split and the standard min-max/training-only scaling.
+  GPW presets equal TCO's 2D matched_runs (1024 supports, 8 patches, noise0.1, epsilon0.01).
+  Select it in GPW_Ablations_Kaggle with DATASETS=['periodic_heat'].
+- DatasetSpec gains optional simulation (omitted from identity when None, so existing
+  prepared data stay valid). Catalog: 23 datasets, 189 full / 145 no-VNNGP runs.
+- Ablation-family notebooks install the heat extra; rebuilt with their builders.
+- experiments/anisotropic_heat.py: explicit stitch_mode fixed|none (default fixed, unchanged),
+  plus notebooks/GPW_Anisotropic_Heat_Stitch_Ablation.ipynb. Prior agreement weights unchanged.
+- 89 focused tests pass (CPU); no GPU training run.
+
+## 2026-11-14 - Local exponential-GP stitching diagnostic
+
+- User approved exponential GP generation, local CPU execution and all three
+  stitch modes; explicitly requested means and variances as well as point maps.
+  Use8000 uniform locations on[0,6]^2, covariance10*exp(-distance), noise variance1,
+  seed31, approved80/20 split and existing scaling. Exact dense sampling has no
+  added jitter or alternative generator. This is not the original R realization.
+- Preserve production local ARD RBF kernels and optimizer/numerical settings,
+  rank64,100/20 schedule and existing training-loss stopping. Compare8x32 with8
+  stitches per pair and4x256 with16; match geometry within each capacity/seed.
+  Save source snapshot, data, per-run archives, mean/latent-variance/observation-
+  variance maps with shared comparison scales and initial/final point layouts.
+- Six focused tests pass, including a real tiny end-to-end three-mode run,
+  exponential (not squared) distance, reproducible joint sampling, approved
+  defaults, noise added once, matched geometry and saved figures/archives.
+  Ruff and source compilation pass. Full approved experiment is in progress.
+
 ## 2026-11-14 - Two explicit capacities with size-specific stitching
 
 - User chose8 patches x32 supports (256 total) and4 x256 (1024 total),retaining

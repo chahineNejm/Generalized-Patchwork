@@ -47,3 +47,17 @@ def test_heat_experiment_saves_points_predictions_and_failure(tmp_path):
         run(replace(config, side=11), directory=tmp_path / "failed")
     failed = json.loads((tmp_path / "failed/status.json").read_text())
     assert failed["state"] == "failed" and "ValueError" in failed["traceback"]
+
+
+def test_no_stitch_mode_removes_constraints_and_keeps_supports(tmp_path):
+    config = HeatConfig(side=12, observations=40, supports_per_patch=8, stitches=3, q_rank=0,
+                        epochs=2, warmup_epochs=1, orientations=((0, 90),), snapshot_every=1,
+                        stitch_mode="none")
+    output = run(config, directory=tmp_path / "none")
+    metrics = json.loads((output / "orientation_0/metrics.json").read_text())
+    assert metrics["stitch_mode"] == "none" and metrics["stitch_count"] == 0 and metrics["q_rank"] == 0
+    with np.load(output / "orientation_0/predictions.npz") as data:
+        assert data["stitches"].shape == (1, 0, 2)
+        np.testing.assert_array_equal(data["initial_supports"], support_clouds(config, (0, 90)).numpy())
+    with pytest.raises(ValueError, match="stitch_mode"):
+        run(replace(config, stitch_mode="learned"), directory=tmp_path / "bad")

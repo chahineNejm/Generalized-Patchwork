@@ -27,14 +27,44 @@ class DatasetSpec:
     bounds: tuple[float, float, float, float] | None = None
     synthetic: dict | None = None
     subset_size: int | None = None
+    simulation: dict | None = None
+
+
+HEAT_SIMULATION_KEYS = {"cells", "diffusivity", "angles", "periods", "baseline", "amplitude",
+                        "time", "time_steps", "relative_noise_std"}
 
 
 def spec_record(spec):
-    """Preserve the existing full-data identity when no subset is requested."""
+    """Preserve existing identities when no subset or simulation is requested."""
     record = asdict(spec)
-    if spec.subset_size is None:
-        del record["subset_size"]
+    for key in ("subset_size", "simulation"):
+        if getattr(spec, key) is None:
+            del record[key]
     return json.loads(json.dumps(record))
+
+
+def periodic_heat_dataset(simulation, *, seed):
+    """Periodic-heat FEM field on its full grid, with seeded Gaussian observation noise."""
+    from experiments.periodic_heat_preview import PreviewConfig, simulate
+    from pwgp.data.types import RegressionDataset
+
+    if not isinstance(simulation, dict) or set(simulation) != HEAT_SIMULATION_KEYS:
+        raise ValueError(f"periodic_heat simulation requires exactly {sorted(HEAT_SIMULATION_KEYS)}")
+    noise = simulation["relative_noise_std"]
+    if not np.isfinite(noise) or noise < 0:
+        raise ValueError("relative_noise_std must be finite and nonnegative")
+    angles = tuple(simulation["angles"])
+    config = PreviewConfig(cells=simulation["cells"], diffusivity=tuple(simulation["diffusivity"]),
+        angle_pairs=(angles,), periods=tuple(simulation["periods"]), baseline=simulation["baseline"],
+        amplitude=simulation["amplitude"], time=simulation["time"], time_steps=simulation["time_steps"])
+    xy, _, temperature, tensors = simulate(config, angles)
+    scale = noise * float(temperature.std())
+    y = temperature + np.random.default_rng(seed).normal(scale=scale, size=len(temperature))
+    return RegressionDataset("periodic_heat", xy, y, ("x", "y"), "temperature", metadata={
+        "source": "experiments.periodic_heat_preview.simulate (P1 FEM, implicit Euler)",
+        "simulation": simulation, "grid_points": len(y), "noise_std": scale, "seed": seed,
+        "noise_definition": "relative_noise_std x SD of the noiseless field over all grid points",
+        "material_tensors": tensors.tolist()})
 
 
 def flight_subset(dataset, *, size, seed):
@@ -71,6 +101,8 @@ def acquire_split(spec, *, data_root):
     root = Path(data_root)
     if spec.subset_size is not None and spec.kind != "flight":
         raise ValueError("Explicit subset_size is supported only for FLIGHT")
+    if (spec.simulation is not None) != (spec.kind == "periodic_heat"):
+        raise ValueError("simulation settings are required for, and only for, periodic_heat")
     if spec.kind == "modis" and (spec.train_fraction is not None or spec.validation_fraction != 0):
         raise ValueError("MODIS uses the official split; train_fraction must be None and validation_fraction zero")
     if spec.kind not in ("oisst", "ukhousing", "modis") and spec.validation_fraction != 0:
@@ -110,6 +142,12 @@ def acquire_split(spec, *, data_root):
         manifest = {"dataset": "Heaton MODIS official split", "source_urls": [SOURCE],
                     "source_sha256": SHA256, "source_row_indices": "Stored in source_rows.npy"}
         split["source_rows"] = used
+    elif spec.kind == "periodic_heat":
+        dataset = periodic_heat_dataset(spec.simulation, seed=spec.seed)
+        split = prepare_split(dataset, train_fraction=spec.train_fraction, seed=spec.seed)
+        manifest = {"dataset": spec.name, "metadata": dataset.metadata,
+            "feature_names": list(dataset.feature_names), "target_name": dataset.target_name,
+            "retained_rows": len(dataset.y), "files": []}
     else:
         if spec.kind in ("michalewicz", "g_function"):
             if spec.synthetic is None:

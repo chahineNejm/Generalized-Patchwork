@@ -53,6 +53,7 @@ class HeatConfig:
     snapshot_every: int = 50
     seed: int = 31
     threads: int = 2
+    stitch_mode: str = "fixed"  # "fixed": stitches at x=0.5; "none": no stitch constraints
 
 
 def heat_operator(side, diffusivity):
@@ -127,6 +128,8 @@ def field(ax, values, config, title, *, vmax=None, cmap="inferno"):
 def run(config: HeatConfig, *, directory=None):
     if not 0 <= config.warmup_epochs < config.epochs or config.snapshot_every < 1:
         raise ValueError("Require 0 <= warmup_epochs < epochs and positive snapshot_every")
+    if config.stitch_mode not in ("fixed", "none"):
+        raise ValueError("stitch_mode must be 'fixed' or 'none'")
     if len(config.centers) != 2 or not config.orientations or config.stitches < 1:
         raise ValueError("Require exactly two centers, at least one orientation and positive stitches")
     if config.threads < 1 or not 1 <= config.observations < config.side**2:
@@ -172,6 +175,8 @@ def run(config: HeatConfig, *, directory=None):
         x, y = torch.from_numpy(xy[train]), torch.from_numpy(observations)
         stitches = torch.stack((torch.full((config.stitches,), 0.5, dtype=torch.float64),
                                 torch.linspace(0.05, 0.95, config.stitches, dtype=torch.float64)), -1)[None]
+        if config.stitch_mode == "none":
+            stitches = stitches[:, :0]
         point_fig, point_axes = plt.subplots(len(config.orientations), 2, figsize=(9, 4 * len(config.orientations)), squeeze=False, constrained_layout=True)
         fit_fig, fit_axes = plt.subplots(len(config.orientations), 4, figsize=(16, 3.8 * len(config.orientations)), squeeze=False, constrained_layout=True)
         rows = []
@@ -184,6 +189,8 @@ def run(config: HeatConfig, *, directory=None):
                 train_supports=True, train_stitches=False, train_hyperparameters=True,
                 lengthscale=config.lengthscale, outputscale=config.outputscale, noise_std=config.noise_std,
                 numerical=numerical)
+            if model.stitch_coefficients.shape[0] != stitches.shape[1]:
+                raise AssertionError("Constraint count does not match stitch_mode")
             def snapshot(epoch, current, history, folder=folder, angles=angles):
                 if epoch % config.snapshot_every == 0 or epoch == config.epochs:
                     torch.save(current.state_dict(), folder / "checkpoint.pt")
@@ -208,6 +215,8 @@ def run(config: HeatConfig, *, directory=None):
                 "outputscales": model.hyp.outputscales().detach().tolist(),
                 "noise_std": float(model.hyp.noise_std().detach()),
                 "mean_support_displacement": float(np.linalg.norm(end - supports.numpy(), axis=-1).mean()),
+                "stitch_mode": config.stitch_mode, "stitch_count": int(stitches.shape[1]),
+                "q_rank": config.q_rank,
                 "training_seconds": history.elapsed_seconds, "final_loss": history.losses[-1]}
             rows.append(metrics)
             torch.save(model.state_dict(), folder / "model.pt")

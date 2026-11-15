@@ -19,6 +19,95 @@ from pwgp.data.download import file_checksum
 from pwgp.run_records import record_failures
 
 
+def plot_toy_field(inputs, latent, *, destination, extent):
+    fig, ax = plt.subplots(figsize=(6, 5), constrained_layout=True)
+    artist = ax.scatter(*inputs.T, c=latent, s=3, cmap="viridis")
+    ax.set(title="Sampled exponential-GP latent field", xlabel="x1", ylabel="x2",
+           xlim=(0, extent), ylim=(0, extent), aspect="equal")
+    fig.colorbar(artist, ax=ax, label="Latent function")
+    fig.savefig(destination, dpi=150)
+    plt.close(fig)
+
+
+def toy_prediction_fields(directory, target_std):
+    """Recover both variances in original units from saved observation moments."""
+    directory = Path(directory)
+    with np.load(directory / "test_predictions.npz", allow_pickle=False) as rows:
+        values = {key: rows[key] for key in rows.files}
+    parameters = json.loads((directory / "learned_parameters.json").read_text())
+    noise_variance = (parameters["noise_std"] * target_std)**2
+    latent_variance = values["observation_variance"] - noise_variance
+    if not np.isfinite(latent_variance).all() or (latent_variance < 0).any():
+        raise ValueError("Saved observation variance is smaller than the learned noise variance")
+    return {**values, "latent_variance": latent_variance, "noise_variance": noise_variance}
+
+
+def plot_toy_predictions(predictions, latent, *, destination, extent, title):
+    fields = {"Latent truth": latent, "Predictive mean": predictions["mean"],
+              "Latent variance": predictions["latent_variance"],
+              "Observation variance": predictions["observation_variance"]}
+    fig, axes = plt.subplots(1, 4, figsize=(15, 4), constrained_layout=True)
+    for ax, (name, values) in zip(axes, fields.items(), strict=True):
+        artist = ax.scatter(*predictions["inputs"].T, c=values, s=5, cmap="viridis")
+        ax.set(title=name, xlabel="x1", ylabel="x2", xlim=(0, extent), ylim=(0, extent), aspect="equal")
+        fig.colorbar(artist, ax=ax, shrink=.8)
+    fig.suptitle(title)
+    fig.savefig(destination, dpi=150)
+    plt.close(fig)
+
+
+def draw_toy_points(axes, directory, preprocessing, *, extent, title):
+    directory = Path(directory)
+    origin, span = np.array(preprocessing["input_origin"]), np.array(preprocessing["input_span"])
+    with np.load(directory / "inducing_positions.npz", allow_pickle=False) as history:
+        positions = history["supports"][[0, -1]] * span + origin
+        epochs = history["epochs"][[0, -1]]
+    for ax, supports, epoch, label in zip(axes, positions, epochs, ("Initial", "Final"), strict=True):
+        for patch, points in enumerate(supports):
+            ax.scatter(*points.T, s=9, color=plt.get_cmap("tab10")(patch % 10), alpha=.8)
+        with np.load(directory / f"stitches_epoch_{epoch}.npz", allow_pickle=False) as saved:
+            stitches = saved["stitches"].reshape(-1, 2) * span + origin
+        if len(stitches):
+            ax.scatter(*stitches.T, s=28, marker="+", color="black", linewidths=1.1, label="Stitches")
+            ax.legend(loc="upper right", fontsize=8)
+        ax.set(title=f"{title}: {label} ({len(stitches)} stitches)", xlabel="x1", ylabel="x2",
+               xlim=(0, extent), ylim=(0, extent), aspect="equal")
+
+
+def plot_toy_points(directory, preprocessing, *, destination, extent, title):
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5), constrained_layout=True)
+    draw_toy_points(axes, directory, preprocessing, extent=extent, title=title)
+    fig.savefig(destination, dpi=150)
+    plt.close(fig)
+
+
+def plot_toy_comparison(directories, split, *, destination, extent, title):
+    """Three-mode mean/variance maps with shared scales and paired point layouts."""
+    modes = [json.loads((Path(path) / "config.json").read_text())["stitch_mode"] for path in directories]
+    saved = [toy_prediction_fields(path, split["target_std"]) for path in directories]
+    fields = ("mean", "latent_variance", "observation_variance")
+    names = ("Predictive mean", "Latent variance", "Observation variance")
+    fig, axes = plt.subplots(len(saved), 3, figsize=(12, 4 * len(saved)), constrained_layout=True, squeeze=False)
+    for column, (field, name) in enumerate(zip(fields, names, strict=True)):
+        vmin = min(float(row[field].min()) for row in saved)
+        vmax = max(float(row[field].max()) for row in saved)
+        for index, (mode, rows) in enumerate(zip(modes, saved, strict=True)):
+            artist = axes[index, column].scatter(*rows["inputs"].T, c=rows[field], s=5,
+                                                 cmap="viridis", vmin=vmin, vmax=vmax)
+            axes[index, column].set(title=f"{mode}: {name}", xlabel="x1", ylabel="x2",
+                xlim=(0, extent), ylim=(0, extent), aspect="equal")
+        fig.colorbar(artist, ax=list(axes[:, column]), shrink=.8)
+    fig.suptitle(title + " (held-out locations; shared scales within each column)")
+    fig.savefig(Path(destination) / "means_variances.png", dpi=150)
+    plt.close(fig)
+    fig, axes = plt.subplots(len(saved), 2, figsize=(11, 4 * len(saved)), constrained_layout=True, squeeze=False)
+    for row, mode, path in zip(axes, modes, directories, strict=True):
+        draw_toy_points(row, path, split["preprocessing"], extent=extent, title=mode)
+    fig.suptitle(title + "; supports colored by patch, stitches black crosses")
+    fig.savefig(Path(destination) / "point_positions.png", dpi=150)
+    plt.close(fig)
+
+
 def explore_dataset(split, *, directory):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=False)

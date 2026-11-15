@@ -1,0 +1,1218 @@
+{
+  "presets": [
+    {
+      "dataset": "OISST",
+      "label": "SVGP",
+      "config": {
+        "model": "svgp",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "OISST",
+      "label": "GPW",
+      "config": {
+        "model": "gpw",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "OISST",
+      "label": "ProSpar",
+      "config": {
+        "model": "prospar",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": {
+          "temperatures": 1.0,
+          "exponent": 1.0,
+          "inducing_nuggets": 0.01,
+          "prior_jitter": 0.0
+        }
+      }
+    },
+    {
+      "dataset": "OISST",
+      "label": "VNNGP",
+      "config": {
+        "model": "vnngp",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "OISST",
+      "label": "Standard Patchwork",
+      "config": {
+        "model": "patchwork",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "grid",
+        "exact_grid_shape": [
+          4,
+          2
+        ],
+        "exact_tree_patches": null,
+        "exact_training_points": "gpw_initial",
+        "exact_gpw_reference": {
+          "inducing_points": 512,
+          "patches": 8,
+          "seed": 31,
+          "threads": 2
+        },
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "OISST",
+      "label": "Standard Patchwork (GPW regions)",
+      "config": {
+        "model": "patchwork",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "gpw_voronoi",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "gpw_initial",
+        "exact_gpw_reference": {
+          "inducing_points": 512,
+          "patches": 8,
+          "seed": 31,
+          "threads": 2
+        },
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "OISST",
+      "label": "Standard Patchwork (PC tree)",
+      "config": {
+        "model": "patchwork",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 512,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 256,
+        "exact_stitches_per_edge": 5,
+        "exact_partition": "pc_tree",
+        "exact_grid_shape": null,
+        "exact_tree_patches": 8,
+        "exact_training_points": "gpw_initial",
+        "exact_gpw_reference": {
+          "inducing_points": 512,
+          "patches": 8,
+          "seed": 31,
+          "threads": 2
+        },
+        "batch_size": 512,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "UKHousing",
+      "label": "SVGP",
+      "config": {
+        "model": "svgp",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 1024,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 512,
+        "exact_stitches_per_edge": 2,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 1024,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "UKHousing",
+      "label": "GPW",
+      "config": {
+        "model": "gpw",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 1024,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 512,
+        "exact_stitches_per_edge": 2,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 1024,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "UKHousing",
+      "label": "ProSpar",
+      "config": {
+        "model": "prospar",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 1024,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 512,
+        "exact_stitches_per_edge": 2,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 1024,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "UKHousing",
+      "label": "VNNGP",
+      "config": {
+        "model": "vnngp",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 1024,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 512,
+        "exact_stitches_per_edge": 2,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 1024,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "UKHousing",
+      "label": "Standard Patchwork (legacy adaptive)",
+      "config": {
+        "model": "patchwork",
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "inducing_points": 1024,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "q_rank": 32,
+        "patch_neighbors": 2,
+        "vnngp_neighbors": 32,
+        "vnngp_batch_size": 512,
+        "exact_maximum_points": 512,
+        "exact_stitches_per_edge": 2,
+        "exact_partition": "adaptive",
+        "exact_grid_shape": null,
+        "exact_tree_patches": null,
+        "exact_training_points": "all",
+        "exact_gpw_reference": null,
+        "batch_size": 1024,
+        "prediction_batch_size": 256,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_structure": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "exact_learning_rate": 0.01,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "snapshot_every": 10,
+        "threads": 2,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "Heaton",
+      "label": "SVGP",
+      "config": {
+        "model": "svgp",
+        "inducing_points": 480,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "neighbors": 2,
+        "q_rank": 32,
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "batch_size": 2048,
+        "prediction_batch_size": 2048,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_supports": 0.001,
+        "learning_rate_stitches": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "threads": 2,
+        "snapshot_every": 10,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "Heaton",
+      "label": "GPW",
+      "config": {
+        "model": "patchwork",
+        "inducing_points": 480,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "neighbors": 2,
+        "q_rank": 32,
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "batch_size": 2048,
+        "prediction_batch_size": 2048,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_supports": 0.001,
+        "learning_rate_stitches": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "threads": 2,
+        "snapshot_every": 10,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    },
+    {
+      "dataset": "Heaton",
+      "label": "ProSpar",
+      "config": {
+        "model": "prospar",
+        "inducing_points": 480,
+        "patches": 8,
+        "stitches_per_edge": 8,
+        "neighbors": 2,
+        "q_rank": 32,
+        "epochs": 100,
+        "warmup_epochs": 20,
+        "batch_size": 2048,
+        "prediction_batch_size": 2048,
+        "lengthscale": 0.1,
+        "outputscale": 1.0,
+        "noise_std": 0.1,
+        "learning_rate_q": 0.002,
+        "learning_rate_supports": 0.001,
+        "learning_rate_stitches": 0.001,
+        "learning_rate_hyperparameters": 0.001,
+        "weight_epsilon": 0.01,
+        "seed": 31,
+        "threads": 2,
+        "snapshot_every": 10,
+        "device": "cuda:0",
+        "prospar": null
+      }
+    }
+  ],
+  "data": {
+    "day": "2025-01-15",
+    "bounds": [
+      -80.0,
+      -30.0,
+      20.0,
+      50.0
+    ],
+    "seed": 31,
+    "train_fraction": 0.64,
+    "validation_fraction": 0.16,
+    "save_inducing_positions": true
+  },
+  "schema": {
+    "UKConfig": [
+      "model",
+      "epochs",
+      "warmup_epochs",
+      "inducing_points",
+      "patches",
+      "stitches_per_edge",
+      "q_rank",
+      "patch_neighbors",
+      "vnngp_neighbors",
+      "vnngp_batch_size",
+      "exact_maximum_points",
+      "exact_stitches_per_edge",
+      "exact_partition",
+      "exact_grid_shape",
+      "exact_tree_patches",
+      "exact_training_points",
+      "exact_gpw_reference",
+      "batch_size",
+      "prediction_batch_size",
+      "lengthscale",
+      "outputscale",
+      "noise_std",
+      "learning_rate_q",
+      "learning_rate_structure",
+      "learning_rate_hyperparameters",
+      "exact_learning_rate",
+      "weight_epsilon",
+      "seed",
+      "snapshot_every",
+      "threads",
+      "device",
+      "prospar"
+    ],
+    "HeatonConfig": [
+      "model",
+      "inducing_points",
+      "patches",
+      "stitches_per_edge",
+      "neighbors",
+      "q_rank",
+      "epochs",
+      "warmup_epochs",
+      "batch_size",
+      "prediction_batch_size",
+      "lengthscale",
+      "outputscale",
+      "noise_std",
+      "learning_rate_q",
+      "learning_rate_supports",
+      "learning_rate_stitches",
+      "learning_rate_hyperparameters",
+      "weight_epsilon",
+      "seed",
+      "threads",
+      "snapshot_every",
+      "device",
+      "prospar"
+    ],
+    "NumericalConfig": [
+      "prior_jitter",
+      "min_variational_cholesky",
+      "variance_floor",
+      "weight_epsilon"
+    ],
+    "ProSparConfig": [
+      "temperatures",
+      "exponent",
+      "inducing_nuggets",
+      "prior_jitter"
+    ],
+    "HyperparameterBounds": [
+      "lengthscale",
+      "outputscale",
+      "noise_std"
+    ],
+    "OptimizerConfig": [
+      "learning_rate_q",
+      "learning_rate_supports",
+      "learning_rate_stitches",
+      "learning_rate_hyperparameters",
+      "warmup_fraction",
+      "alternate_patchwork_updates",
+      "gradient_clip",
+      "weight_decay"
+    ]
+  },
+  "constructors": {
+    "SVGP": {
+      "supports": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "train_supports": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_hyperparameters": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "lengthscale": {
+        "default": 0.2,
+        "kind": "KEYWORD_ONLY"
+      },
+      "outputscale": {
+        "default": 1.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "noise_std": {
+        "default": 0.05,
+        "kind": "KEYWORD_ONLY"
+      },
+      "numerical": {
+        "default": {
+          "prior_jitter": 0.0001,
+          "min_variational_cholesky": 0.001,
+          "variance_floor": 1e-12,
+          "weight_epsilon": 1e-08
+        },
+        "kind": "KEYWORD_ONLY"
+      },
+      "bounds": {
+        "default": {
+          "lengthscale": [
+            0.02,
+            3.0
+          ],
+          "outputscale": [
+            0.02,
+            30.0
+          ],
+          "noise_std": [
+            0.0001,
+            1.0
+          ]
+        },
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "GPW": {
+      "supports": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "stitch_points": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "edges": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "q_rank": {
+        "default": 8,
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_supports": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_stitches": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_hyperparameters": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "lengthscale": {
+        "default": 0.2,
+        "kind": "KEYWORD_ONLY"
+      },
+      "outputscale": {
+        "default": 1.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "noise_std": {
+        "default": 0.05,
+        "kind": "KEYWORD_ONLY"
+      },
+      "numerical": {
+        "default": {
+          "prior_jitter": 0.0001,
+          "min_variational_cholesky": 0.001,
+          "variance_floor": 1e-12,
+          "weight_epsilon": 1e-08
+        },
+        "kind": "KEYWORD_ONLY"
+      },
+      "bounds": {
+        "default": {
+          "lengthscale": [
+            0.02,
+            3.0
+          ],
+          "outputscale": [
+            0.02,
+            30.0
+          ],
+          "noise_std": [
+            0.0001,
+            1.0
+          ]
+        },
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "ProSpar": {
+      "supports": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "temperatures": {
+        "default": "REQUIRED",
+        "kind": "KEYWORD_ONLY"
+      },
+      "exponent": {
+        "default": "REQUIRED",
+        "kind": "KEYWORD_ONLY"
+      },
+      "inducing_nuggets": {
+        "default": "REQUIRED",
+        "kind": "KEYWORD_ONLY"
+      },
+      "prior_jitter": {
+        "default": "REQUIRED",
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_supports": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_hyperparameters": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "lengthscale": {
+        "default": 0.2,
+        "kind": "KEYWORD_ONLY"
+      },
+      "outputscale": {
+        "default": 1.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "noise_std": {
+        "default": 0.05,
+        "kind": "KEYWORD_ONLY"
+      },
+      "numerical": {
+        "default": {
+          "prior_jitter": 0.0001,
+          "min_variational_cholesky": 0.001,
+          "variance_floor": 1e-12,
+          "weight_epsilon": 1e-08
+        },
+        "kind": "KEYWORD_ONLY"
+      },
+      "bounds": {
+        "default": {
+          "lengthscale": [
+            0.02,
+            3.0
+          ],
+          "outputscale": [
+            0.02,
+            30.0
+          ],
+          "noise_std": [
+            0.0001,
+            1.0
+          ]
+        },
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "VNNGP": {
+      "train_x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "neighbors": {
+        "default": 32,
+        "kind": "KEYWORD_ONLY"
+      },
+      "batch_size": {
+        "default": 512,
+        "kind": "KEYWORD_ONLY"
+      },
+      "lengthscale": {
+        "default": 0.1,
+        "kind": "KEYWORD_ONLY"
+      },
+      "outputscale": {
+        "default": 1.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "noise_std": {
+        "default": 0.1,
+        "kind": "KEYWORD_ONLY"
+      },
+      "jitter": {
+        "default": 0.0001,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "Standard Patchwork": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "y": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "maximum_points": {
+        "default": 512,
+        "kind": "KEYWORD_ONLY"
+      },
+      "stitches_per_edge": {
+        "default": 2,
+        "kind": "KEYWORD_ONLY"
+      },
+      "lengthscale": {
+        "default": 0.1,
+        "kind": "KEYWORD_ONLY"
+      },
+      "outputscale": {
+        "default": 1.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "noise_std": {
+        "default": 0.1,
+        "kind": "KEYWORD_ONLY"
+      },
+      "jitter": {
+        "default": 0.0001,
+        "kind": "KEYWORD_ONLY"
+      },
+      "partition": {
+        "default": "adaptive",
+        "kind": "KEYWORD_ONLY"
+      },
+      "grid_shape": {
+        "default": null,
+        "kind": "KEYWORD_ONLY"
+      },
+      "centers": {
+        "default": null,
+        "kind": "KEYWORD_ONLY"
+      },
+      "tree_patches": {
+        "default": null,
+        "kind": "KEYWORD_ONLY"
+      },
+      "seed": {
+        "default": 0,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "Nested Kriging": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "y": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "groups": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "kernel": {
+        "default": "matern52",
+        "kind": "KEYWORD_ONLY"
+      },
+      "lengthscale": {
+        "default": 0.2,
+        "kind": "KEYWORD_ONLY"
+      },
+      "outputscale": {
+        "default": 1.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "noise_std": {
+        "default": 0.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "jitter": {
+        "default": 0.0,
+        "kind": "KEYWORD_ONLY"
+      },
+      "train_hyperparameters": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "bounds": {
+        "default": {
+          "lengthscale": [
+            0.02,
+            3.0
+          ],
+          "outputscale": [
+            0.02,
+            30.0
+          ],
+          "noise_std": [
+            0.0001,
+            1.0
+          ]
+        },
+        "kind": "KEYWORD_ONLY"
+      }
+    }
+  },
+  "prediction": {
+    "SVGP": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "observation_noise": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "GPW": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "observation_noise": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "ProSpar": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "observation_noise": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "VNNGP": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "observation_noise": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "Standard Patchwork": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "observation_noise": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      },
+      "state": {
+        "default": null,
+        "kind": "KEYWORD_ONLY"
+      }
+    },
+    "Nested Kriging": {
+      "x": {
+        "default": "REQUIRED",
+        "kind": "POSITIONAL_OR_KEYWORD"
+      },
+      "observation_noise": {
+        "default": true,
+        "kind": "KEYWORD_ONLY"
+      }
+    }
+  },
+  "fit": {
+    "model": {
+      "default": "REQUIRED",
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "x": {
+      "default": "REQUIRED",
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "y": {
+      "default": "REQUIRED",
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "epochs": {
+      "default": "REQUIRED",
+      "kind": "KEYWORD_ONLY"
+    },
+    "batch_size": {
+      "default": "REQUIRED",
+      "kind": "KEYWORD_ONLY"
+    },
+    "seed": {
+      "default": 0,
+      "kind": "KEYWORD_ONLY"
+    },
+    "optimizer": {
+      "default": {
+        "learning_rate_q": 0.002,
+        "learning_rate_supports": 0.02,
+        "learning_rate_stitches": 0.05,
+        "learning_rate_hyperparameters": 0.01,
+        "warmup_fraction": 0.5,
+        "alternate_patchwork_updates": true,
+        "gradient_clip": 10.0,
+        "weight_decay": 0.0
+      },
+      "kind": "KEYWORD_ONLY"
+    },
+    "on_epoch": {
+      "default": null,
+      "kind": "KEYWORD_ONLY"
+    }
+  },
+  "nk_fit": {
+    "epochs": {
+      "default": "REQUIRED",
+      "kind": "KEYWORD_ONLY"
+    },
+    "learning_rate": {
+      "default": "REQUIRED",
+      "kind": "KEYWORD_ONLY"
+    },
+    "loo_batch_size": {
+      "default": "REQUIRED",
+      "kind": "KEYWORD_ONLY"
+    },
+    "seed": {
+      "default": 0,
+      "kind": "KEYWORD_ONLY"
+    },
+    "calibrate_variance": {
+      "default": true,
+      "kind": "KEYWORD_ONLY"
+    },
+    "on_epoch": {
+      "default": null,
+      "kind": "KEYWORD_ONLY"
+    }
+  },
+  "numerical": {
+    "prior_jitter": 0.0001,
+    "min_variational_cholesky": 0.001,
+    "variance_floor": 1e-12,
+    "weight_epsilon": 1e-08
+  },
+  "bounds": {
+    "lengthscale": [
+      0.02,
+      3.0
+    ],
+    "outputscale": [
+      0.02,
+      30.0
+    ],
+    "noise_std": [
+      0.0001,
+      1.0
+    ]
+  },
+  "optimizer": {
+    "learning_rate_q": 0.002,
+    "learning_rate_supports": 0.02,
+    "learning_rate_stitches": 0.05,
+    "learning_rate_hyperparameters": 0.01,
+    "warmup_fraction": 0.5,
+    "alternate_patchwork_updates": true,
+    "gradient_clip": 10.0,
+    "weight_decay": 0.0
+  },
+  "adam": {
+    "params": {
+      "default": "REQUIRED",
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "lr": {
+      "default": 0.001,
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "betas": {
+      "default": [
+        0.9,
+        0.999
+      ],
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "eps": {
+      "default": 1e-08,
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "weight_decay": {
+      "default": 0,
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "amsgrad": {
+      "default": false,
+      "kind": "POSITIONAL_OR_KEYWORD"
+    },
+    "foreach": {
+      "default": null,
+      "kind": "KEYWORD_ONLY"
+    },
+    "maximize": {
+      "default": false,
+      "kind": "KEYWORD_ONLY"
+    },
+    "capturable": {
+      "default": false,
+      "kind": "KEYWORD_ONLY"
+    },
+    "differentiable": {
+      "default": false,
+      "kind": "KEYWORD_ONLY"
+    },
+    "fused": {
+      "default": null,
+      "kind": "KEYWORD_ONLY"
+    },
+    "decoupled_weight_decay": {
+      "default": false,
+      "kind": "KEYWORD_ONLY"
+    }
+  }
+}

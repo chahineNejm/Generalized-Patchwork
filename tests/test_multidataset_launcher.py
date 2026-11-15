@@ -34,9 +34,9 @@ def request(**values):
 
 def test_catalog_all_approved_capacities_and_schedules():
     data, runs, deferred = multidataset_defaults(device="cpu", input_root="manual")
-    assert len(data) == 22 and len(deferred) == 2
+    assert len(data) == 23 and len(deferred) == 2
     plan = worker.make_plan(request(datasets=list(data)))
-    assert (plan["total_runs"], plan["total_epochs"]) == (179, 537)
+    assert (plan["total_runs"], plan["total_epochs"]) == (189, 567)
     assert all(row["config"]["epochs"] == 3 for row in plan["plan"]["runs"])
     for name, spec in data.items():
         for _, config in runs[name]:
@@ -59,7 +59,7 @@ def test_no_vnngp_all_datasets_flight_last_preserves_other_configs():
     datasets = [name for name in data if name != "flight"] + ["flight"]
     complete = worker.make_plan(request(datasets=datasets))["plan"]
     result = worker.make_plan(request(datasets=datasets, excluded_model_types=["vnngp"]))
-    assert result["total_runs"] == 137 and result["total_epochs"] == 411
+    assert result["total_runs"] == 145 and result["total_epochs"] == 435
     assert result["plan"]["data"][-1]["name"] == "flight"
     assert result["plan"]["excluded_model_types"] == ["vnngp"]
     assert result["plan"]["runs"] == [r for r in complete["runs"] if r["config"]["model"] != "vnngp"]
