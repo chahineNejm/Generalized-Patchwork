@@ -149,6 +149,16 @@ def multidataset_defaults(*, device, input_root):
         "baseline": 1.0, "amplitude": 0.8, "time": 0.015, "time_steps": 40, "relative_noise_std": 0.001})
     runs["periodic_heat"] = matched_runs(device=device, budget=1024, batch_size=1024,
         primary_patches=8, alternative_patches=4, dimension=2)
+    data["periodic_heat_gap"] = replace(data["periodic_heat"], name="periodic_heat_gap", simulation={
+        **data["periodic_heat"].simulation, "gap_width": 0.05, "gap_side": "right", "near_interface_width": 0.1})
+    runs["periodic_heat_gap"] = runs["periodic_heat"]
+    data["periodic_heat_jagged"] = replace(data["periodic_heat_gap"], name="periodic_heat_jagged", simulation={
+        **data["periodic_heat_gap"].simulation, "periods": [5, 4],
+        "interface_amplitude": 0.06, "interface_teeth": 4})
+    runs["periodic_heat_jagged"] = runs["periodic_heat"]
+    data["periodic_heat_jagged_full"] = replace(data["periodic_heat"], name="periodic_heat_jagged_full", simulation={
+        **data["periodic_heat"].simulation, "periods": [5, 4], "interface_amplitude": 0.06, "interface_teeth": 4})
+    runs["periodic_heat_jagged_full"] = runs["periodic_heat"]
     for function in ("michalewicz", "g_function"):
         for dimension in (3, 5, 10):
             for count in (50000, 100000):
@@ -208,6 +218,17 @@ def gpw_shared_kernel_defaults(*, device, input_root):
     defaults = gpw_ablation_defaults(device=device, input_root=input_root)
     return {**{key:value for key,value in defaults.items() if key not in ("ranks", "stitch_modes")},
             "seeds": [31, 32, 33], "q_rank": 32}
+
+
+def interface_stitching_defaults(*, device, input_root):
+    """Interface-gap stitching study: small grid-aligned GPW, ranks0/8, all stitch modes."""
+    defaults = gpw_ablation_defaults(device=device, input_root=input_root)
+    datasets = ["periodic_heat_jagged", "periodic_heat_gap", "periodic_heat_jagged_full"]
+    grid = {"gpw_partition": "grid", "gpw_grid_shape": [2, 1], "stitches_per_edge": 8, "patch_neighbors": 1}
+    return {"datasets": datasets, "seeds": [31, 32, 33, 34, 35], "ranks": [0, 8],
+            "stitch_modes": ["none", "fixed", "learned"], "inducing_points": 64, "patches": 2,
+            "epochs": 1000, "warmup_epochs": 50, "early_stopping": defaults["early_stopping"],
+            "model_overrides": {name: dict(grid) for name in datasets}, "progress_every_epochs": 100}
 
 
 def gpw_scaling_defaults(*, device, input_root):

@@ -5,7 +5,9 @@ from dataclasses import replace
 
 def bind_patchwork_reference(runs, reference):
     """Bind matched baselines to the explicitly selected GPW initialization."""
-    expected = {key: getattr(reference, key) for key in ("inducing_points", "patches", "seed", "threads")}
+    from experiments.ukhousing_benchmark import gpw_reference
+
+    expected = gpw_reference(reference)
     result = []
     for name, config in runs:
         if config.model == "patchwork" and config.exact_training_points == "gpw_initial":

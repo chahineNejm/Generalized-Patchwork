@@ -30,6 +30,8 @@ from pwgp import SVGP, GeneralizedPatchworkGP, ProSparGP, fit
 from pwgp.config import HyperparameterBounds, NumericalConfig, OptimizerConfig, ProSparConfig
 from pwgp.data.download import file_checksum
 from pwgp.initialization import (
+    grid_initialization,
+    grid_stitches,
     hierarchical_initialization,
     hierarchical_supports,
     initialize_stitches,
@@ -53,6 +55,8 @@ class UKConfig:
     kernel_mode: str = "local"
     q_rank: int = 32
     patch_neighbors: int = 2
+    gpw_partition: str = "kmeans"  # "kmeans" or "grid" (Standard Patchwork checkerboard)
+    gpw_grid_shape: tuple[int, int] | None = None
     vnngp_neighbors: int = 32
     vnngp_batch_size: int = 512
     exact_maximum_points: int = 512
@@ -115,9 +119,38 @@ def scores(y, mean, variance):
             "mean_interval_width": float(np.mean(2 * 1.959963984540054 * sd))}
 
 
+GPW_REFERENCE_KEYS = {"inducing_points", "patches", "seed", "threads"}
+
+
+def gpw_reference(config):
+    """Initialization identity; grid partitions add their explicit geometry."""
+    if config.gpw_partition not in ("kmeans", "grid"):
+        raise ValueError("gpw_partition must be 'kmeans' or 'grid'")
+    reference = {key: getattr(config, key) for key in sorted(GPW_REFERENCE_KEYS)}
+    if config.gpw_partition == "kmeans":
+        if config.gpw_grid_shape is not None:
+            raise ValueError("gpw_grid_shape is used only with gpw_partition='grid'")
+        return reference
+    shape = config.gpw_grid_shape
+    if (shape is None or len(shape) != 2 or any(type(v) is not int or v < 1 for v in shape)
+            or shape[0] * shape[1] != config.patches):
+        raise ValueError("gpw_partition='grid' requires integer gpw_grid_shape whose product equals patches")
+    return {**reference, "partition": "grid", "grid_shape": list(shape)}
+
+
+def gpw_candidate_graph(config, x, supports):
+    """Candidate edges/stitches: k-means neighbor graph, or the fixed grid boundaries."""
+    if config.gpw_partition == "grid":
+        return grid_stitches(x, tuple(config.gpw_grid_shape), config.stitches_per_edge)
+    edges = patch_neighbor_graph(supports, neighbors=config.patch_neighbors)
+    return edges, initialize_stitches(supports, edges, config.stitches_per_edge)
+
+
 def initial_gpw_points(x, reference, split):
     """Use the comparison's exact shared initialization or construct it explicitly."""
-    if reference is None or set(reference) != {"inducing_points", "patches", "seed", "threads"}:
+    grid = reference is not None and reference.get("partition") == "grid"
+    keys = GPW_REFERENCE_KEYS | ({"partition", "grid_shape"} if grid else set())
+    if reference is None or set(reference) != keys:
         raise ValueError("Matched Patchwork requires an explicit GPW initialization reference; use select_runs")
     if reference["inducing_points"] % reference["patches"]:
         raise ValueError("Reference GPW inducing budget must divide evenly across patches")
@@ -128,6 +161,9 @@ def initial_gpw_points(x, reference, split):
         if not torch.equal(x[initial["indices"]], initial["supports"]):
             raise ValueError("Shared GPW locations do not match their source training rows")
         return initial
+    if grid:
+        return grid_initialization(x, tuple(reference["grid_shape"]),
+                                   reference["inducing_points"] // reference["patches"], seed=reference["seed"])
     previous_threads = torch.get_num_threads()
     torch.set_num_threads(reference["threads"])
     try:
@@ -153,11 +189,9 @@ def build_model(config, split):
             raise ValueError("GPW stitch_mode must be none, fixed or learned")
         if config.inducing_points % config.patches:
             raise ValueError("GPW inducing budget must divide evenly across patches")
-        initial = initial_gpw_points(x, {key: getattr(config, key)
-            for key in ("inducing_points", "patches", "seed", "threads")}, split)
+        initial = initial_gpw_points(x, gpw_reference(config), split)
         supports = initial["supports"]
-        candidate_edges = patch_neighbor_graph(supports, neighbors=config.patch_neighbors)
-        candidate_stitches = initialize_stitches(supports, candidate_edges, config.stitches_per_edge)
+        candidate_edges, candidate_stitches = gpw_candidate_graph(config, x, supports)
         edges = [] if config.stitch_mode == "none" else candidate_edges
         stitches = candidate_stitches[:0] if config.stitch_mode == "none" else candidate_stitches
         model = GeneralizedPatchworkGP(supports.to(device), stitches.to(device), edges,

@@ -52,6 +52,8 @@ class PreviewConfig:
     noise_std: float = 0.03
     weight_epsilon: float = 0.01
     seed: int = 31
+    interface_amplitude: float = 0.0  # zigzag material interface x = 0.5 +/- amplitude; 0 = straight
+    interface_teeth: int = 0  # zigzag periods along y (required when interface_amplitude > 0)
 
     def validate(self):
         if self.cells < 4 or self.cells % 2:
@@ -72,6 +74,18 @@ class PreviewConfig:
             raise ValueError("Require at least two stitches and strictly interior initial stitch coordinates")
         if not 0 <= self.q_rank <= 2 * self.supports_per_patch:
             raise ValueError("q_rank must lie between zero and the total support count")
+        if not np.isfinite(self.interface_amplitude) or not 0 <= self.interface_amplitude < 0.25:
+            raise ValueError("interface_amplitude must lie in [0, 0.25)")
+        if (self.interface_amplitude > 0) != (isinstance(self.interface_teeth, int) and self.interface_teeth > 0):
+            raise ValueError("A zigzag interface requires a positive integer interface_teeth, and only then")
+
+
+def interface_position(y, config):
+    """Material interface x(y): straight at 0.5, or a zigzag of the given amplitude/teeth."""
+    if config.interface_amplitude == 0:
+        return np.full_like(np.asarray(y, dtype=np.float64), 0.5)
+    phase = (np.asarray(y) * config.interface_teeth) % 1.0
+    return 0.5 + config.interface_amplitude * (4 * np.abs(phase - 0.5) - 1)
 
 
 def tensor_at_angle(diffusivity, angle):
@@ -90,7 +104,7 @@ def assemble_heat(config, angles):
 
     @BilinearForm
     def diffusion(u, v, w):
-        right = w.x[0] >= 0.5
+        right = w.x[0] >= interface_position(w.x[1], config)
         xx = np.where(right, tensors[1, 0, 0], tensors[0, 0, 0])
         xy = np.where(right, tensors[1, 0, 1], tensors[0, 0, 1])
         yy = np.where(right, tensors[1, 1, 1], tensors[0, 1, 1])

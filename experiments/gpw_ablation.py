@@ -9,8 +9,12 @@ import torch
 
 from experiments.default_hyperparameters import multidataset_defaults
 from experiments.training_control import EarlyStoppingConfig
-from experiments.ukhousing_benchmark import UKConfig, initial_gpw_points
-from pwgp.initialization import initialize_stitches, patch_neighbor_graph
+from experiments.ukhousing_benchmark import (
+    UKConfig,
+    gpw_candidate_graph,
+    gpw_reference,
+    initial_gpw_points,
+)
 
 
 def distinct_values(values, name, predicate):
@@ -98,11 +102,11 @@ def geometry_digest(arrays):
 
 def bind_initialization(split, config):
     """Construct one immutable training-row initialization per model seed."""
-    reference = {k: getattr(config, k) for k in ("inducing_points", "patches", "seed", "threads")}
-    initial = initial_gpw_points(split["x"][split["train"]], reference,
+    reference = gpw_reference(config)
+    x = split["x"][split["train"]]
+    initial = initial_gpw_points(x, reference,
                                {k: v for k, v in split.items() if not k.startswith("gpw_initialization")})
-    edges = patch_neighbor_graph(initial["supports"], neighbors=config.patch_neighbors)
-    stitches = initialize_stitches(initial["supports"], edges, config.stitches_per_edge)
+    edges, stitches = gpw_candidate_graph(config, x, initial["supports"])
     geometry = {"supports": initial["supports"].numpy(), "centers": initial["centers"].numpy(),
         "indices": np.asarray(split["train"])[initial["indices"].numpy()],
         "candidate_edges": np.asarray(edges, dtype=np.int64).reshape(-1, 2),

@@ -53,7 +53,10 @@ class HeatConfig:
     snapshot_every: int = 50
     seed: int = 31
     threads: int = 2
-    stitch_mode: str = "fixed"  # "fixed": stitches at x=0.5; "none": no stitch constraints
+    stitch_mode: str = "fixed"  # "fixed": stitches at x=0.5; "none": no stitches; "independent": separate plate GPs
+    gap_width: float = 0.0  # training-free band of this width beside the interface x=0.5
+    gap_side: str = "right"  # side of x=0.5 holding the gap: "right" or "left"
+    near_interface_width: float = 0.1  # |x-0.5| below this (outside the gap) is scored as near-interface
 
 
 def heat_operator(side, diffusivity):
@@ -128,8 +131,12 @@ def field(ax, values, config, title, *, vmax=None, cmap="inferno"):
 def run(config: HeatConfig, *, directory=None):
     if not 0 <= config.warmup_epochs < config.epochs or config.snapshot_every < 1:
         raise ValueError("Require 0 <= warmup_epochs < epochs and positive snapshot_every")
-    if config.stitch_mode not in ("fixed", "none"):
-        raise ValueError("stitch_mode must be 'fixed' or 'none'")
+    if config.stitch_mode not in ("fixed", "none", "independent"):
+        raise ValueError("stitch_mode must be 'fixed', 'none' or 'independent'")
+    if not 0 <= config.gap_width < 0.5 or config.gap_side not in ("right", "left"):
+        raise ValueError("Require 0 <= gap_width < 0.5 and gap_side 'right' or 'left'")
+    if not 0 < config.near_interface_width < 0.5:
+        raise ValueError("near_interface_width must lie in (0, 0.5)")
     if len(config.centers) != 2 or not config.orientations or config.stitches < 1:
         raise ValueError("Require exactly two centers, at least one orientation and positive stitches")
     if config.threads < 1 or not 1 <= config.observations < config.side**2:
@@ -152,7 +159,12 @@ def run(config: HeatConfig, *, directory=None):
         torch.set_num_threads(config.threads)
         xy, initial_heat, temperature = simulate(config)
         rng = np.random.default_rng(config.seed)
-        train = rng.choice(len(xy), config.observations, replace=False)
+        offset = xy[:, 0] - 0.5 if config.gap_side == "right" else 0.5 - xy[:, 0]
+        in_gap = (offset >= 0) & (offset < config.gap_width) if config.gap_width > 0 else np.zeros(len(xy), bool)
+        eligible = np.flatnonzero(~in_gap)
+        if config.observations > len(eligible):
+            raise ValueError(f"Requested {config.observations} observations from {len(eligible)} grid points outside the gap")
+        train = rng.choice(eligible, config.observations, replace=False)
         test = np.setdiff1d(np.arange(len(xy)), train)
         center, scale = float(temperature[train].mean()), float(temperature[train].std())
         if scale <= 0:
@@ -170,13 +182,18 @@ def run(config: HeatConfig, *, directory=None):
             "dataset_sha256": _file_digest(output / "data.npz"), "target_mean": center, "target_std": scale,
             "physics": "dimensionless equal heat capacity; insulated edges; perfect thermal contact",
             "solver": "conservative finite volumes, harmonic face diffusivity, scipy expm_multiply",
-            "fusion_covariance": "Cov(local_functions | U, Delta_S=0)",
+            "fusion_covariance": ("Cov(local_functions | U, Delta_S=0)" if config.stitch_mode != "independent"
+                else "none: one single-patch GP per plate, trained only on that plate's observations"),
+            "gap": {"width": config.gap_width, "side": config.gap_side, "grid_points": int(in_gap.sum())},
             "objective": "ELBO"})
         x, y = torch.from_numpy(xy[train]), torch.from_numpy(observations)
         stitches = torch.stack((torch.full((config.stitches,), 0.5, dtype=torch.float64),
                                 torch.linspace(0.05, 0.95, config.stitches, dtype=torch.float64)), -1)[None]
-        if config.stitch_mode == "none":
+        if config.stitch_mode in ("none", "independent"):
             stitches = stitches[:, :0]
+        plate = (xy[:, 0] >= 0.5).astype(np.int64)  # cell centers never lie on x=0.5
+        regions = {"gap": in_gap, "near_interface": ~in_gap & (np.abs(xy[:, 0] - 0.5) < config.near_interface_width)}
+        regions["interior"] = ~regions["gap"] & ~regions["near_interface"]
         point_fig, point_axes = plt.subplots(len(config.orientations), 2, figsize=(9, 4 * len(config.orientations)), squeeze=False, constrained_layout=True)
         fit_fig, fit_axes = plt.subplots(len(config.orientations), 4, figsize=(16, 3.8 * len(config.orientations)), squeeze=False, constrained_layout=True)
         rows = []
@@ -185,42 +202,81 @@ def run(config: HeatConfig, *, directory=None):
             folder = output / f"orientation_{index}"
             folder.mkdir()
             supports = support_clouds(config, angles)
-            model = GeneralizedPatchworkGP(supports, stitches, [(0, 1)], q_rank=config.q_rank,
-                train_supports=True, train_stitches=False, train_hyperparameters=True,
+            def snapshot(epoch, current, history, folder=folder, angles=angles, name="checkpoint.pt"):
+                if epoch % config.snapshot_every == 0 or epoch == config.epochs:
+                    torch.save(current.state_dict(), folder / name)
+                    if name == "checkpoint.pt":
+                        fig, ax = plt.subplots(figsize=(5, 4), constrained_layout=True)
+                        field(ax, temperature, config, f"{angles}: epoch {epoch}")
+                        for patch, color in enumerate(("cyan", "lime")):
+                            ax.scatter(*current.supports()[patch].detach().numpy().T, c=color, s=12)
+                        fig.savefig(folder / "progress.png", dpi=130)
+                        plt.close(fig)
+            options = dict(q_rank=config.q_rank, train_supports=True, train_stitches=False, train_hyperparameters=True,
                 lengthscale=config.lengthscale, outputscale=config.outputscale, noise_std=config.noise_std,
                 numerical=numerical)
-            if model.stitch_coefficients.shape[0] != stitches.shape[1]:
-                raise AssertionError("Constraint count does not match stitch_mode")
-            def snapshot(epoch, current, history, folder=folder, angles=angles):
-                if epoch % config.snapshot_every == 0 or epoch == config.epochs:
-                    torch.save(current.state_dict(), folder / "checkpoint.pt")
-                    fig, ax = plt.subplots(figsize=(5, 4), constrained_layout=True)
-                    field(ax, temperature, config, f"{angles}: epoch {epoch}")
-                    for patch, color in enumerate(("cyan", "lime")):
-                        ax.scatter(*current.supports()[patch].detach().numpy().T, c=color, s=12)
-                    fig.savefig(folder / "progress.png", dpi=130)
-                    plt.close(fig)
-            history = fit(model, x, y, epochs=config.epochs, batch_size=len(x), seed=config.seed,
-                          optimizer=optimizer, on_epoch=snapshot)
-            mean, variance = predict_batched(model, torch.from_numpy(xy), batch_size=256, observation_noise=False)
-            end = model.supports().detach().numpy()
+            if config.stitch_mode == "independent":
+                models, histories = [], []
+                mean, variance = torch.zeros(len(xy), dtype=torch.float64), torch.zeros(len(xy), dtype=torch.float64)
+                noise = np.zeros(len(xy))
+                for side in (0, 1):
+                    rows_side = plate[train] == side
+                    if not rows_side.any():
+                        raise ValueError(f"Plate {side} has no training observations")
+                    torch.manual_seed(config.seed)
+                    local = GeneralizedPatchworkGP(supports[side:side + 1], stitches[:0], [], **options)
+                    histories.append(fit(local, x[rows_side], y[rows_side], epochs=config.epochs,
+                        batch_size=int(rows_side.sum()), seed=config.seed, optimizer=optimizer,
+                        on_epoch=lambda e, c, h, side=side, save=snapshot: save(e, c, h, name=f"checkpoint_plate{side}.pt")))
+                    where = torch.from_numpy(plate == side)
+                    m, v = predict_batched(local, torch.from_numpy(xy[plate == side]), batch_size=256, observation_noise=False)
+                    mean[where], variance[where] = m, v
+                    noise[plate == side] = float(local.hyp.noise_std().detach())
+                    models.append(local)
+                end = np.concatenate([model.supports().detach().numpy() for model in models])
+                learned = {"lengthscales": [model.hyp.lengthscales().detach().tolist()[0] for model in models],
+                    "outputscales": [model.hyp.outputscales().detach().tolist()[0] for model in models],
+                    "noise_std": [float(model.hyp.noise_std().detach()) for model in models]}
+                elapsed = sum(h.elapsed_seconds for h in histories)
+                final_loss = [h.losses[-1] for h in histories]
+                state = {f"plate{side}": model.state_dict() for side, model in enumerate(models)}
+                history_record = [asdict(h) for h in histories]
+            else:
+                model = GeneralizedPatchworkGP(supports, stitches, [(0, 1)], **options)
+                if model.stitch_coefficients.shape[0] != stitches.shape[1]:
+                    raise AssertionError("Constraint count does not match stitch_mode")
+                history = fit(model, x, y, epochs=config.epochs, batch_size=len(x), seed=config.seed,
+                              optimizer=optimizer, on_epoch=snapshot)
+                mean, variance = predict_batched(model, torch.from_numpy(xy), batch_size=256, observation_noise=False)
+                end = model.supports().detach().numpy()
+                noise = np.full(len(xy), float(model.hyp.noise_std().detach()))
+                learned = {"lengthscales": model.hyp.lengthscales().detach().tolist(),
+                    "outputscales": model.hyp.outputscales().detach().tolist(),
+                    "noise_std": float(model.hyp.noise_std().detach())}
+                elapsed, final_loss, state, history_record = history.elapsed_seconds, history.losses[-1], model.state_dict(), asdict(history)
             error = truth[test] - mean.numpy()[test]
-            obs_variance = variance.numpy()[test] + float(model.hyp.noise_std().detach())**2
+            obs_variance = variance.numpy()[test] + noise[test]**2
             noisy_error = test_y - mean.numpy()[test]
+            pointwise_nlpd = 0.5 * (np.log(2 * np.pi * obs_variance) + noisy_error**2 / obs_variance)
+            covered = np.abs(noisy_error) <= 1.96 * np.sqrt(obs_variance)
+            region_metrics = {}
+            for region, mask in regions.items():
+                selected = mask[test]
+                region_metrics[region] = None if not selected.any() else {"test_points": int(selected.sum()),
+                    "rmse_standardized": float(np.sqrt(np.mean(error[selected]**2))),
+                    "nlpd_standardized": float(np.mean(pointwise_nlpd[selected])),
+                    "coverage_95": float(np.mean(covered[selected]))}
             metrics = {"angles_degrees": angles, "heldout_rmse_standardized": float(np.sqrt(np.mean(error**2))),
                 "heldout_rmse_temperature": float(scale * np.sqrt(np.mean(error**2))),
-                "nlpd_standardized": float(np.mean(0.5 * (np.log(2 * np.pi * obs_variance) + noisy_error**2 / obs_variance))),
-                "coverage_95": float(np.mean(np.abs(noisy_error) <= 1.96 * np.sqrt(obs_variance))),
-                "lengthscales": model.hyp.lengthscales().detach().tolist(),
-                "outputscales": model.hyp.outputscales().detach().tolist(),
-                "noise_std": float(model.hyp.noise_std().detach()),
+                "nlpd_standardized": float(np.mean(pointwise_nlpd)),
+                "coverage_95": float(np.mean(covered)), "regions": region_metrics, **learned,
                 "mean_support_displacement": float(np.linalg.norm(end - supports.numpy(), axis=-1).mean()),
                 "stitch_mode": config.stitch_mode, "stitch_count": int(stitches.shape[1]),
                 "q_rank": config.q_rank,
-                "training_seconds": history.elapsed_seconds, "final_loss": history.losses[-1]}
+                "training_seconds": elapsed, "final_loss": final_loss}
             rows.append(metrics)
-            torch.save(model.state_dict(), folder / "model.pt")
-            (folder / "history.json").write_text(json.dumps(asdict(history), indent=2))
+            torch.save(state, folder / "model.pt")
+            (folder / "history.json").write_text(json.dumps(history_record, indent=2))
             (folder / "metrics.json").write_text(json.dumps(metrics, indent=2))
             np.savez_compressed(folder / "predictions.npz", initial_supports=supports.numpy(), final_supports=end,
                                 stitches=stitches.numpy(), mean=mean.numpy(), latent_variance=variance.numpy())
@@ -237,7 +293,7 @@ def run(config: HeatConfig, *, directory=None):
             predicted = mean.numpy() * scale + center
             for ax, values, title, vmax in zip(fit_axes[index],
                     (temperature, predicted, np.abs(predicted - temperature), variance.sqrt().numpy() * scale),
-                    (f"Truth | start {angles}", "GPW mean", "Absolute error", "Latent SD (full R)"),
+                    (f"Truth | start {angles}", f"Mean ({config.stitch_mode})", "Absolute error", "Latent SD"),
                     (temperature.max(), temperature.max(), None, None), strict=True):
                 im = field(ax, values, config, title, vmax=vmax)
                 fit_fig.colorbar(im, ax=ax, shrink=0.7)
@@ -245,7 +301,7 @@ def run(config: HeatConfig, *, directory=None):
             point_fig.savefig(output / "points.png", dpi=150)
             fit_fig.savefig(output / "fits.png", dpi=140)
             print(json.dumps(metrics), flush=True)
-            del snapshot, model
+            del snapshot
             gc.collect()
         plt.close(point_fig)
         plt.close(fit_fig)

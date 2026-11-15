@@ -78,6 +78,55 @@ def hierarchical_initialization(
             "centers": torch.as_tensor(outer.cluster_centers_, dtype=x.dtype, device=x.device)}
 
 
+def grid_initialization(
+    x: torch.Tensor,
+    grid_shape: tuple[int, int],
+    supports_per_patch: int,
+    *,
+    seed: int = 0,
+) -> dict[str, torch.Tensor]:
+    """Supports sampled inside the fixed checkerboard cells of Standard Patchwork.
+
+    Only rows strictly inside the unit square are eligible, as for every observed
+    support; boundary rows are not moved.
+    """
+    from pwgp.partitions import checkerboard_partition
+
+    values = _numpy(x)
+    interior = np.flatnonzero(((values > 0) & (values < 1)).all(axis=1))
+    labels, bounds, *_ = checkerboard_partition(values[interior], grid_shape=tuple(grid_shape),
+                                                 stitches_per_edge=1)
+    groups: list[torch.Tensor] = []
+    selected: list[torch.Tensor] = []
+    for patch in range(grid_shape[0] * grid_shape[1]):
+        rows = interior[labels == patch]
+        if len(rows) < supports_per_patch:
+            raise ValueError(f"Grid cell {patch} has {len(rows)} interior points for {supports_per_patch} supports")
+        local_x = x[torch.as_tensor(rows, device=x.device)]
+        local_indices = observed_support_indices(local_x, supports_per_patch, seed=seed + 100 + patch)
+        groups.append(local_x[local_indices].clone())
+        selected.append(torch.as_tensor(rows, dtype=torch.long, device=x.device)[local_indices])
+    return {"supports": torch.stack(groups), "indices": torch.stack(selected),
+            "centers": torch.as_tensor(bounds.mean(1), dtype=x.dtype, device=x.device)}
+
+
+def grid_stitches(
+    x: torch.Tensor, grid_shape: tuple[int, int], stitches_per_edge: int
+) -> tuple[list[tuple[int, int]], torch.Tensor]:
+    """Edges and evenly spaced boundary stitches of the Standard Patchwork checkerboard."""
+    from pwgp.partitions import checkerboard_partition
+
+    values = _numpy(x)
+    interior = values[((values > 0) & (values < 1)).all(axis=1)]
+    _, _, points, point_edges, _ = checkerboard_partition(
+        interior, grid_shape=tuple(grid_shape), stitches_per_edge=stitches_per_edge)
+    edges = list(dict.fromkeys(tuple(edge) for edge in point_edges))
+    grouped = [points[[i for i, edge in enumerate(point_edges) if tuple(edge) == e]] for e in edges]
+    if any(len(group) != stitches_per_edge for group in grouped):
+        raise ValueError("Each grid boundary must carry exactly stitches_per_edge stitches")
+    return edges, torch.as_tensor(np.stack(grouped), dtype=x.dtype, device=x.device)
+
+
 def hierarchical_supports(x: torch.Tensor, patches: int, supports_per_patch: int, *, seed: int = 0) -> torch.Tensor:
     """Cluster observations into patches, then initialize local supports."""
     return hierarchical_initialization(x, patches, supports_per_patch, seed=seed)["supports"]

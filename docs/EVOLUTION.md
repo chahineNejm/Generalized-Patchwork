@@ -1,5 +1,55 @@
 # Evolution Log
 
+## 2026-11-15 - Interface stitching study notebook
+
+- notebooks/GPW_Interface_Stitching_Kaggle.ipynb (builder
+  experiments/build_interface_stitching_kaggle.py, defaults
+  interface_stitching_defaults): study gpw_stitch_rank on periodic_heat_jagged,
+  periodic_heat_gap and the new no-gap control periodic_heat_jagged_full; 2 patches x
+  32 supports on the grid split, 8 stitches per edge, patch_neighbors 1; ranks 0/8 x
+  stitches none/fixed/learned x seeds 31-35 = 90 runs, 1000 epochs max, 50 warm-up.
+- Training cell reports per-dataset mean (SD) over seeds by condition, including
+  gap / near-interface / interior region metrics, and per-seed gap RMSE.
+- Catalog now 26 datasets (launcher counts updated).
+
+## 2026-11-15 - Periodic heat interface-gap and jagged-interface datasets
+
+- periodic_heat_gap: the periodic_heat field with an interface gap: training rows with
+  0 <= x-0.5 < 0.05 move to test; targets re-standardized on the remaining training rows;
+  test split into test_gap / test_near_interface (|x-0.5| < 0.1) / test_interior, each
+  scored and reported as <region>_<metric>_standardized columns in comparison.csv.
+- periodic_heat_jagged (user-chosen variant 3 with more right-plate amplitude): periods
+  x5/y4 (left SD 0.22, right SD 0.20 vs 0.06 before), zigzag material interface
+  x = 0.5 +/- 0.06 with 4 teeth along y, same 0.05 gap and region scoring. New explicit
+  PreviewConfig interface_amplitude/interface_teeth (defaults 0 = straight, unchanged).
+- Region arrays persist in prepared data. Catalog: 25 datasets (209 full / 161 no-VNNGP
+  runs). 378 tests pass. No GPU training run.
+
+## 2026-11-15 - Anisotropic heat: interface gap, region metrics, independent baseline
+
+- User asked to adapt the two-plate anisotropic heat test so stitching can matter.
+  New HeatConfig options (defaults keep the original behavior and split): gap_width /
+  gap_side remove training points from a band beside x=0.5 (test points kept);
+  near_interface_width defines region scoring. Metrics add RMSE/NLPD/coverage for the
+  gap band, near-interface band and interior.
+- New stitch_mode 'independent' (split normally): one single-patch GP per plate,
+  trained only on that plate's observations and predicting only its plate.
+- Notebook defaults (editable): CONDITIONS fixed/12, none/0, independent/0;
+  OVERRIDES observations=200, gap_width=0.08 (right side), time=0.04. Prior agreement
+  weights unchanged. 5 anisotropic tests pass; no long training run.
+
+## 2026-11-15 - GPW grid initialization aligned with Standard Patchwork
+
+- User requested the periodic-heat stitching runs with patches split on the material
+  line, starting from the Standard Patchwork system. New explicit UKConfig options
+  gpw_partition='kmeans'|'grid' (default kmeans, unchanged) and gpw_grid_shape. Grid:
+  supports sampled (seed+100+patch) from interior training rows inside the Standard
+  Patchwork checkerboard cells; candidate edges and evenly spaced boundary stitches are
+  exactly the checkerboard ones (grid (2,1): stitches on x=0.5). patch_neighbors is not
+  used by grid graphs. Grid references add partition/grid_shape; k-means identities and
+  existing references are unchanged. Matched Patchwork gpw_initial follows grid rows.
+- 10 new tests; full suite 357 passed before (anisotropic tests need a git checkout).
+
 ## 2026-11-15 - GPW / Standard Patchwork patch-count scaling (S01 OISST, S12 FLIGHT800k)
 
 - User approved: OISST and FLIGHT800k (seeded 800,000-row subset, 80/20); P=2,4,8,16;

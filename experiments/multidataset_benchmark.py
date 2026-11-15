@@ -243,8 +243,10 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
                 mean=raw_mean, observation_variance=raw_variance)
             if label == "test":
                 plot_predictions(split["raw_y"][indices], raw_mean, raw_variance, destination=visuals / "predictions.png")
+        regions = {f"{label[len('test_'):]}_{key}_standardized": value for label, values in all_scores.items()
+                   if label.startswith("test_") for key, value in values["standardized"].items()}
         metrics = {**{f"{key}_{scale}": value for scale, values in all_scores["test"].items()
-                     for key, value in values.items()}, "target_name": split["target_name"], "final_loss": losses[-1],
+                     for key, value in values.items()}, **regions, "target_name": split["target_name"], "final_loss": losses[-1],
             "epochs_completed": len(losses), "stopped_early": stopped,
             "initialization_seconds": initialization_seconds, "training_seconds": training_seconds,
             "prediction_seconds": prediction_seconds, "test_points": len(split["test"]),

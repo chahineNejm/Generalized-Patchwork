@@ -61,3 +61,20 @@ def test_no_stitch_mode_removes_constraints_and_keeps_supports(tmp_path):
         np.testing.assert_array_equal(data["initial_supports"], support_clouds(config, (0, 90)).numpy())
     with pytest.raises(ValueError, match="stitch_mode"):
         run(replace(config, stitch_mode="learned"), directory=tmp_path / "bad")
+
+
+def test_gap_regions_and_independent_baseline(tmp_path):
+    config = HeatConfig(side=12, observations=40, supports_per_patch=8, stitches=3, q_rank=0,
+                        epochs=2, warmup_epochs=1, orientations=((0, 90),), snapshot_every=1,
+                        gap_width=0.17, time=0.04)
+    for mode in ("none", "independent"):
+        output = run(replace(config, stitch_mode=mode), directory=tmp_path / mode)
+        with np.load(output / "data.npz") as data:
+            x = data["xy"][data["train"], 0]
+            assert not ((x >= 0.5) & (x < 0.67)).any()
+        metrics = json.loads((output / "orientation_0/metrics.json").read_text())
+        assert set(metrics["regions"]) == {"gap", "near_interface", "interior"}
+        assert metrics["regions"]["gap"]["test_points"] > 0 and metrics["stitch_count"] == 0
+    assert isinstance(metrics["noise_std"], list) and len(metrics["noise_std"]) == 2
+    with pytest.raises(ValueError, match="gap_width"):
+        run(replace(config, gap_width=0.6), directory=tmp_path / "bad_gap")

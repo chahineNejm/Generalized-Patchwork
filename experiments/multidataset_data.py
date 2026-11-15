@@ -32,6 +32,9 @@ class DatasetSpec:
 
 HEAT_SIMULATION_KEYS = {"cells", "diffusivity", "angles", "periods", "baseline", "amplitude",
                         "time", "time_steps", "relative_noise_std"}
+HEAT_REGION_KEYS = {"gap_width", "gap_side", "near_interface_width"}
+HEAT_INTERFACE_KEYS = {"interface_amplitude", "interface_teeth"}
+REGION_SPLITS = ("test_gap", "test_near_interface", "test_interior")
 
 
 def spec_record(spec):
@@ -48,15 +51,21 @@ def periodic_heat_dataset(simulation, *, seed):
     from experiments.periodic_heat_preview import PreviewConfig, simulate
     from pwgp.data.types import RegressionDataset
 
-    if not isinstance(simulation, dict) or set(simulation) != HEAT_SIMULATION_KEYS:
-        raise ValueError(f"periodic_heat simulation requires exactly {sorted(HEAT_SIMULATION_KEYS)}")
+    optional = HEAT_REGION_KEYS | HEAT_INTERFACE_KEYS
+    if not isinstance(simulation, dict) or set(simulation) - optional != HEAT_SIMULATION_KEYS:
+        raise ValueError(f"periodic_heat simulation requires exactly {sorted(HEAT_SIMULATION_KEYS)}"
+                         f" plus optionally all of {sorted(HEAT_REGION_KEYS)} and/or {sorted(HEAT_INTERFACE_KEYS)}")
+    for group in (HEAT_REGION_KEYS, HEAT_INTERFACE_KEYS):
+        if set(simulation) & group and not group <= set(simulation):
+            raise ValueError(f"These settings must be given together: all of {sorted(group)}")
     noise = simulation["relative_noise_std"]
     if not np.isfinite(noise) or noise < 0:
         raise ValueError("relative_noise_std must be finite and nonnegative")
     angles = tuple(simulation["angles"])
     config = PreviewConfig(cells=simulation["cells"], diffusivity=tuple(simulation["diffusivity"]),
         angle_pairs=(angles,), periods=tuple(simulation["periods"]), baseline=simulation["baseline"],
-        amplitude=simulation["amplitude"], time=simulation["time"], time_steps=simulation["time_steps"])
+        amplitude=simulation["amplitude"], time=simulation["time"], time_steps=simulation["time_steps"],
+        **{key: simulation[key] for key in HEAT_INTERFACE_KEYS if key in simulation})
     xy, _, temperature, tensors = simulate(config, angles)
     scale = noise * float(temperature.std())
     y = temperature + np.random.default_rng(seed).normal(scale=scale, size=len(temperature))
@@ -95,6 +104,35 @@ def verify_manual_inputs(specs):
             raise ValueError(f"{spec.name}: input checksum mismatch; expected {expected}, actual {actual}")
     if missing:
         raise FileNotFoundError("Required inputs are not attached; no data substitutions:\n" + "\n".join(missing))
+
+
+def interface_gap_split(split, settings):
+    """Move training rows in a band beside x=0.5 to test; label test regions; rescale targets."""
+    width, side, near = settings["gap_width"], settings["gap_side"], settings["near_interface_width"]
+    if not 0 < width < 0.5 or side not in ("right", "left") or not 0 < near < 0.5:
+        raise ValueError("Require 0 < gap_width < 0.5, gap_side right/left and 0 < near_interface_width < 0.5")
+    x = np.asarray(split["raw_x"], dtype=np.float64)[:, 0]
+    offset = x - 0.5 if side == "right" else 0.5 - x
+    in_gap = (offset >= 0) & (offset < width)
+    near_mask = ~in_gap & (np.abs(x - 0.5) < near)
+    train = split["train"][~in_gap[split["train"]]]
+    test = np.concatenate((split["test"], split["train"][in_gap[split["train"]]]))
+    regions = {"test_gap": test[in_gap[test]], "test_near_interface": test[near_mask[test]],
+               "test_interior": test[~in_gap[test] & ~near_mask[test]]}
+    if any(len(rows) == 0 for rows in (train, *regions.values())):
+        raise ValueError("Interface-gap split requires nonempty training rows and test regions")
+    center, scale = float(split["raw_y"][train].mean()), float(split["raw_y"][train].std())
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError("Training target standard deviation must be positive and finite")
+    preprocessing = {**split["preprocessing"], "target_mean": center, "target_std": scale,
+        "target_statistics_fit_on": "training rows outside the interface gap",
+        "interface_gap": {"width": width, "side": side, "near_interface_width": near,
+            "moved_training_rows": int(in_gap[split["train"]].sum()),
+            "region_counts": {key: len(rows) for key, rows in regions.items()}}}
+    return {**split, **regions, "train": train, "test": test,
+            "y": torch.tensor((split["raw_y"] - center) / scale, dtype=torch.float64),
+            "target_mean": center, "target_std": scale, "target_offset": np.full(len(split["raw_y"]), center),
+            "score_splits": ["test", *REGION_SPLITS], "preprocessing": preprocessing}
 
 
 def acquire_split(spec, *, data_root):
@@ -145,6 +183,8 @@ def acquire_split(spec, *, data_root):
     elif spec.kind == "periodic_heat":
         dataset = periodic_heat_dataset(spec.simulation, seed=spec.seed)
         split = prepare_split(dataset, train_fraction=spec.train_fraction, seed=spec.seed)
+        if HEAT_REGION_KEYS <= set(spec.simulation):
+            split = interface_gap_split(split, spec.simulation)
         manifest = {"dataset": spec.name, "metadata": dataset.metadata,
             "feature_names": list(dataset.feature_names), "target_name": dataset.target_name,
             "retained_rows": len(dataset.y), "files": []}
@@ -188,7 +228,8 @@ def prepare_dataset(spec, *, directory, data_root):
 
         explore_multidataset(split, directory=directory / "visuals")
         arrays = {key: split[key].numpy() if isinstance(split[key], torch.Tensor) else split[key]
-                  for key in ("x", "y", "raw_x", "raw_y", "train", "validation", "test", "target_offset")}
+                  for key in ("x", "y", "raw_x", "raw_y", "train", "validation", "test", "target_offset",
+                              *REGION_SPLITS) if key in split}
         np.savez_compressed(directory / "data.npz", **arrays)
         np.savez_compressed(directory / "split.npz", **{key: split[key] for key in ("train", "validation", "test")})
         if "source_rows" in split:
