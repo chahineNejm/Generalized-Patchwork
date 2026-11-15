@@ -210,6 +210,16 @@ def gpw_shared_kernel_defaults(*, device, input_root):
             "seeds": [31, 32, 33], "q_rank": 32}
 
 
+def gpw_scaling_defaults(*, device, input_root):
+    """Approved OISST/FLIGHT800k patch-count scaling: GPW and matched PC-tree Patchwork."""
+    defaults = gpw_ablation_defaults(device=device, input_root=input_root)
+    return {"datasets": ["oisst", "flight"], "seeds": [31], "patch_counts": [2, 4, 8, 16],
+            "inducing_points": 2048, "stitches_per_boundary": {"2": 64, "4": 64, "8": 32, "16": 32},
+            "patch_neighbors": 2, "data_overrides": {"flight": {"subset_size": 800000}},
+            "epochs": defaults["epochs"], "warmup_epochs": defaults["warmup_epochs"],
+            "early_stopping": defaults["early_stopping"], "progress_every_epochs": defaults["progress_every_epochs"]}
+
+
 def gpw_size_ablation_defaults(*, device, input_root):
     """Two explicitly approved capacities with size-specific stitch counts."""
     base = gpw_flight_ablation_defaults(device=device, input_root=input_root)

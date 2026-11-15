@@ -56,6 +56,10 @@ def make_plan(request):
             from experiments.benchmark_repeats import make_plan as repeat_plan
 
             return repeat_plan(request)
+        if request["study"] == "gpw_scaling":
+            from experiments.gpw_scaling import make_plan as scaling_plan
+
+            return scaling_plan(request)
         if request["study"] != "gpw_stitch_rank":
             raise ValueError(f"Unknown study: {request['study']}; no substitute comparison")
         from experiments.gpw_ablation import make_plan as ablation_plan
@@ -137,7 +141,7 @@ def execute(request):
         raise ValueError("Execution plan changed since settings; rerun settings explicitly")
     specs = [DatasetSpec(**values) for values in plan["data"]]
     study = plan["study"]["type"] if "study" in plan else None
-    if study not in (None, "gpw_stitch_rank", "benchmark_repeats", "gpw_kernel_sharing"):
+    if study not in (None, "gpw_stitch_rank", "benchmark_repeats", "gpw_kernel_sharing", "gpw_scaling"):
         raise ValueError(f"Unknown execution study: {study}")
     directory = Path(request["directory"])
     if action == "preflight":
@@ -233,6 +237,11 @@ def execute(request):
                             "inducing_points": config.inducing_points, "patches": config.patches})
                     if study == "benchmark_repeats":
                         summary["base_model"] = row["base_name"]
+                    if study == "gpw_scaling":
+                        summary.update(base_model=row["base_name"], patch_count=row["patch_count"],
+                            stitches_per_boundary=row["stitches_per_boundary"],
+                            patches=row["patch_count"], q_rank=config.q_rank if config.model == "gpw" else None,
+                            stitch_mode=config.stitch_mode if config.model == "gpw" else None)
                     if study == "gpw_kernel_sharing":
                         summary["kernel_mode"] = config.kernel_mode
                     local_rows.append(summary)

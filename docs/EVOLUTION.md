@@ -1,5 +1,21 @@
 # Evolution Log
 
+## 2026-11-15 - GPW / Standard Patchwork patch-count scaling (S01 OISST, S12 FLIGHT800k)
+
+- User approved: OISST and FLIGHT800k (seeded 800,000-row subset, 80/20); P=2,4,8,16;
+  fixed total 2048 inducing points (GPW 2048/P per patch; Standard Patchwork uses the
+  same-P, same-seed GPW selected rows/targets); 64 stitches per boundary for P=2,4 and
+  32 for P=8,16 in both models; GPW Kaggle default (rank32, learned stitches); seed31.
+- New study gpw_scaling (experiments/gpw_scaling.py) dispatched by multidataset_worker;
+  GPW patch_neighbors=min(2,P-1) (P=2 has one neighbor). Scaling controls cannot be
+  overridden. comparison.csv records base_model, patch_count and stitches_per_boundary.
+- notebooks/GPW_Scaling_Kaggle.ipynb (builder experiments/build_gpw_scaling_kaggle.py):
+  16 runs by default, editable SEEDS, gated training, pivot tables of RMSE/NLPD/coverage,
+  training seconds and peak CUDA memory by patch count. Standard Patchwork remains a
+  reduced-data baseline (selected 2048 targets), not an equal-information comparison.
+- 13 new tests (plan, seeds, rejected overrides, notebook reproducibility, short CPU worker
+  run); 139 related tests pass. No GPU training run.
+
 ## 2026-11-15 - Periodic heat in the Kaggle catalog; anisotropic stitch_mode
 
 - User requested the periodic-heat stitching test with exactly the Kaggle GPW model and
