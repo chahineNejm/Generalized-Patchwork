@@ -24,6 +24,9 @@ def test_default_plan_has_matched_gpw_and_patchwork_per_patch_count():
     assert result["total_runs"] == 16 and result["plan"]["study"]["type"] == "gpw_scaling"
     assert [s["name"] for s in result["plan"]["data"]] == ["oisst", "flight"]
     assert result["plan"]["data"][1]["subset_size"] == 800000
+    oisst = result["plan"]["data"][0]
+    assert (oisst["train_fraction"], oisst["validation_fraction"]) == (0.906411, 0.0)
+    assert 21370 - int(oisst["train_fraction"] * 21370) == 2000
     expected = {2: 64, 4: 64, 8: 32, 16: 32}
     for row in runs:
         config, count = row["config"], row["patch_count"]
@@ -110,3 +113,19 @@ def test_short_scaling_worker_runs_both_models_per_patch_count(tmp_path, monkeyp
         "GPW P2 seed31": 3, "Standard Patchwork (PC tree) P2 seed31": 3,
         "GPW P4 seed31": 2, "Standard Patchwork (PC tree) P4 seed31": 2}
     assert sum(kind == "complete" for kind, _ in events) == 4
+
+
+def test_oisst_split_allows_no_validation_and_keeps_test_count():
+    import numpy as np
+
+    from experiments.oisst_benchmark import OISSTConfig, prepare_split
+    from pwgp.data.types import RegressionDataset
+
+    rng = np.random.default_rng(0)
+    x = np.column_stack((rng.uniform(281, 329, 21370), rng.uniform(21, 49, 21370)))
+    dataset = RegressionDataset("oisst", x, rng.normal(size=21370), ("longitude", "latitude"), "sst")
+    config = OISSTConfig("2025-01-15", (-80.0, -30.0, 20.0, 50.0), 31, 0.906411, 0.0, True)
+    split = prepare_split(dataset, config)
+    assert (len(split["train"]), len(split["validation"]), len(split["test"])) == (19370, 0, 2000)
+    with pytest.raises(ValueError, match="nonempty test"):
+        prepare_split(dataset, OISSTConfig("2025-01-15", (-80.0, -30.0, 20.0, 50.0), 31, 0.9, 0.1, True))

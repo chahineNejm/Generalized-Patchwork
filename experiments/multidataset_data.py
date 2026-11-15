@@ -169,7 +169,7 @@ def acquire_split(spec, *, data_root):
                 "bytes": path.stat().st_size} for path in dataset.source_files]}
     if spec.kind in ("oisst", "ukhousing"):
         split["target_offset"] = np.full(len(split["raw_y"]), split["target_mean"])
-        split["score_splits"] = ["validation", "test"]
+        split["score_splits"] = ["validation", "test"] if len(split["validation"]) else ["test"]
         split["seed"] = spec.seed
         split["preprocessing"] = {key: split[key] for key in
             ("target_mean", "target_std", "input_transform", "target_transform")}

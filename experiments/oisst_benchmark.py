@@ -60,8 +60,8 @@ def prepare_split(dataset, config):
     west, east, south, north = config.bounds
     if not -180 <= west < east <= 0 or not -90 <= south < north <= 90:
         raise ValueError("This OISST protocol requires a western-hemisphere ROI with west < east")
-    if not 0 < config.train_fraction < 1 or not 0 < config.validation_fraction < 1 - config.train_fraction:
-        raise ValueError("Train/validation fractions must be positive and leave a nonempty test fraction")
+    if not 0 < config.train_fraction < 1 or not 0 <= config.validation_fraction < 1 - config.train_fraction:
+        raise ValueError("Train fraction must be positive, validation nonnegative, leaving a nonempty test fraction")
     if x.shape != (len(y), 2) or not np.isfinite(x).all() or not np.isfinite(y).all():
         raise ValueError("OISST split requires finite x[N,2], y[N]")
     normalized = (x - [west % 360, south]) / [east - west, north - south]
@@ -70,8 +70,9 @@ def prepare_split(dataset, config):
     indices = np.random.default_rng(config.seed).permutation(len(y))
     nt, nv = int(config.train_fraction * len(y)), int(config.validation_fraction * len(y))
     groups = {"train": indices[:nt], "validation": indices[nt:nt + nv], "test": indices[nt + nv:]}
-    if any(len(rows) == 0 for rows in groups.values()):
-        raise ValueError("Every OISST split must be nonempty")
+    if any(len(groups[name]) == 0 for name in ("train", "test")) or (
+            config.validation_fraction > 0 and len(groups["validation"]) == 0):
+        raise ValueError("OISST train/test, and validation when requested, must be nonempty")
     center, scale = float(y[groups["train"]].mean()), float(y[groups["train"]].std())
     if not np.isfinite(scale) or scale <= 0:
         raise ValueError("Training target SD must be finite and positive")

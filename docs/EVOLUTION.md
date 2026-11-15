@@ -15,6 +15,10 @@
   reduced-data baseline (selected 2048 targets), not an equal-information comparison.
 - 13 new tests (plan, seeds, rejected overrides, notebook reproducibility, short CPU worker
   run); 139 related tests pass. No GPU training run.
+- User then approved OISST without validation for this study: train_fraction 0.906411,
+  validation_fraction 0 -> 19,370 train / 2,000 test (seed31). OISST prepare_split now
+  accepts validation_fraction=0 (train/test must be nonempty); empty validation is not
+  scored. Other OISST experiments keep their approved 64/16/20 split.
 
 ## 2026-11-15 - Periodic heat in the Kaggle catalog; anisotropic stitch_mode
 

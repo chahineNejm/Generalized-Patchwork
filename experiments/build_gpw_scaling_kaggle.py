@@ -32,6 +32,8 @@ def build_notebook(root):
 
     Defaults: P = 2, 4, 8, 16; 2048 points; 64 stitches for P = 2, 4 and 32 for
     P = 8, 16; seed31; FLIGHT uses the approved seeded 800,000-row subset, 80/20.
+    OISST uses a train/test split without validation: 19,370 train / 2,000 test
+    (seed31; this differs from the 64/16/20 split of the other OISST experiments).
     That is 16 runs. Edit SEEDS to add model seeds (data seed stays 31); each
     added seed adds 16 runs. Existing 100/20 schedule and training-loss stopping.
 
