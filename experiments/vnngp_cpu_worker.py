@@ -1,4 +1,4 @@
-"""Single-dataset CPU sessions with explicitly requested, verified continuation."""
+"""CPU VNNGP stages with explicitly requested, verified session continuation."""
 
 import importlib.metadata
 import json
@@ -170,7 +170,8 @@ def evaluate(model, split, config, output, deadline):
     return True
 
 
-def run_session(directory, plan, *, source_provenance, on_complete=None):
+def run_session(directory, plan, *, source_provenance, on_complete=None, deadline=None,
+                archive_directory=None, on_seed_saved=None):
     directory = Path(directory)
     if read_json(directory / "plan.json") != plan:
         raise ValueError("Resume plan changed; start a separate experiment instead")
@@ -185,7 +186,8 @@ def run_session(directory, plan, *, source_provenance, on_complete=None):
         raise ValueError("All requested seeds are already complete; no implicit retraining")
     split = load_prepared(DatasetSpec(**plan["data"]), directory / "prepared")
     settings = plan["settings"]
-    deadline = time.monotonic() + settings["session_hours"] * 3600
+    if deadline is None:
+        deadline = time.monotonic() + settings["session_hours"] * 3600
     identity = {"plan_sha256": plan_hash(plan), "source": source_provenance,
                 "prepared_sha256": file_checksum(directory / "prepared/prepared.json")}
     sessions_path = directory / "sessions.json"
@@ -195,6 +197,8 @@ def run_session(directory, plan, *, source_provenance, on_complete=None):
     write_json(sessions_path, sessions)
     with record_failures(directory, status_key="state"):
         while progress["next_seed_index"] < len(plan["configs"]):
+            if time.monotonic() >= deadline:
+                break
             config = UKConfig(**plan["configs"][progress["next_seed_index"]])
             torch.set_num_threads(config.threads)
             faiss.omp_set_num_threads(config.threads)
@@ -268,8 +272,12 @@ def run_session(directory, plan, *, source_provenance, on_complete=None):
                 **read_json(directory / f"seed{values['seed']}" / "metrics.json")}
                 for values in plan["configs"][:progress["next_seed_index"]]]).to_csv(
                     directory / "comparison.csv", index=False)
-            destination = directory.parent / f"{directory.name}_seed{config.seed}.zip"
-            archive_session(directory, destination)
+            if on_seed_saved is not None:
+                on_seed_saved()
+            archive_root = directory if archive_directory is None else Path(archive_directory)
+            suffix = "" if archive_directory is None else f"_{directory.name}"
+            destination = archive_root.parent / f"{archive_root.name}{suffix}_seed{config.seed}.zip"
+            archive_session(archive_root, destination)
             print(f"Completed {plan['data']['name']} / VNNGP / seed{config.seed}", flush=True)
             if on_complete is not None:
                 on_complete(output, destination)
@@ -283,12 +291,20 @@ def run_session(directory, plan, *, source_provenance, on_complete=None):
 def execute(request):
     _, source = source_snapshot(request["source_provenance"])
     if request["action"] == "settings":
+        if "datasets" in request:
+            from experiments.vnngp_cpu_schedule import make_schedule
+
+            return make_schedule(request)
         return make_plan(request)
     if request["execute_training"] is not True:
         raise RuntimeError("Set RUN_TRAINING=True explicitly after reviewing the plan")
     plan = request["plan"]
     if request["plan_sha256"] != plan_hash(plan):
         raise ValueError("Plan checksum mismatch")
+    if "dataset_plans" in plan:
+        from experiments.vnngp_cpu_schedule import execute_schedule
+
+        return execute_schedule(request, source)
     directory = Path(request["directory"])
     if request["action"] == "start":
         directory.mkdir(parents=True, exist_ok=False)

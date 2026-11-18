@@ -1,5 +1,31 @@
 # Evolution Log
 
+## 2026-11-18 - VNNGP CPU schedule matches the main results table
+
+- User clarified that the notebook must run every dataset in the table, not
+  require one DATASET selection. Default DATASETS now lists California,PROTEIN,
+  TCO,OISST,TCO.L2,ICETHICK,SARCOS,MODIS,FLIGHT,Michalewicz D5/train50k and
+  G-function D5/train50k; exclude UKHousing,heat and other synthetic settings.
+  Retain the approved FLIGHT800k subset/80-20 split, fixed data seeds and all
+  existing dataset protocols. Seeds31-33 mean33 requested VNNGP runs. No model,
+  likelihood,kernel,numerical,initialization,training or scoring change.
+- Queue resumes only through the explicit resume action into a new directory.
+  Save both dataset and seed cursors, checkpoint state and cumulative CSV;
+  every seed ZIP contains the whole queue state before the next seed begins.
+  One shared10-hour deadline covers the full schedule, including preparation
+  after the session begins, rather than restarting a timer per dataset.
+  Source/dependency/config/checksum checks and failure propagation remain;
+  validate all pending manual sources before starting models. Existing
+  single-dataset worker calls remain explicit and supported, not a fallback.
+- Verification:23 CPU checkpoint/queue tests and46 existing launcher/source/
+  training-control tests pass (69 total), plus scoped Ruff,source compilation
+  and diff whitespace checks. Queue tests cover33-run table selection,a fresh
+  source worker,mid-seed and between-dataset continuation,completed-prefix
+  preservation,one shared time budget,whole-queue seed ZIPs/cumulative metrics,
+  changed-plan refusal and loud input/training failures blocking later datasets.
+  No GP algebra changed; full suite was not rerun for this launcher-only change.
+  No real-data CPU schedule has been run locally.
+
 ## 2026-11-18 - Explicit VNNGP CPU continuation
 
 - User approved K32 first (K256 later), RBF ARD,100 maximum epochs, existing

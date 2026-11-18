@@ -4,6 +4,11 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Correct the VNNGP CPU notebook to run all11 main-table datasets/seeds in
+  one finite resumable queue, with one shared10-hour budget and per-seed full
+  queue archives/cumulative metrics. Keep single-dataset worker API explicit.
+  Verified69 focused tests, scoped Ruff and source compilation; no real-data run.
+
 - [x] Separate VNNGP CPU Kaggle notebook: one selected dataset, editable seeds,
   K32/RBF ARD,100/20 with existing Adam rates/stopping, explicit portable
   minibatch continuation in10-hour chunks. Exact training equivalence,

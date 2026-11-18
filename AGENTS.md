@@ -216,7 +216,8 @@ variational precision. The current phase is the algorithm and data foundation.
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.
 - The separate VNNGP CPU notebook permits explicit portable continuation only:
-  one user-selected dataset, editable seeds31-33,K32,RBF ARD,100/20, existing
+  all11 main-table datasets by default, editable DATASETS/seeds31-33 (33 runs),
+  K32,RBF ARD,100/20, existing
   rates/stopping/batch/numerics, paper0.6931 initial kernel/noise variances.
   CPU sessions pause at minibatch boundaries after about10 training hours;
   preserve optimizer/RNG/minibatch/partial-loss/stopping state and validate
@@ -224,6 +225,9 @@ variational precision. The current phase is the algorithm and data foundation.
   Periodic checkpoints are every5 minutes plus pause/final; session files
   are not durable backups. Retain per-seed/session ZIPs. Do not add automatic
   relaunch, migration, skipping or continuation to existing benchmark runners.
+  The whole dataset/seed queue shares one10-hour session budget and is archived
+  after every completed seed. Main-table selection excludes UKHousing/extra
+  synthetics/heat and retains explicit FLIGHT800k and D5/train50k synthetic cases.
 - VNNGP stochastic KL also uses Cholesky plus two triangular solves on its SPD
   neighbor covariance; do not restore upstream batched torch.linalg.solve.
   Verify values and gradients against the pinned upstream KL implementation.

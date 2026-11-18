@@ -11,15 +11,22 @@ repository rules, planned work, and technical history.
 ## VNNGP CPU Sessions
 
 Open `notebooks/VNNGP_CPU_Kaggle.ipynb` with Internet enabled and no accelerator.
-Set `DATASET` explicitly, edit `SEEDS` (31-33 initially), review the full plan,
+The editable `DATASETS` list defaults to the11 datasets in the main paper table:
+California,PROTEIN,TCO,OISST,TCO.L2,ICETHICK,SARCOS,MODIS,FLIGHT,and the D5/train50k
+Michalewicz/G-function cases. UKHousing and extra synthetic/heat cases are excluded.
+FLIGHT explicitly uses the approved800k subset. Attach airline.npz,airline.json
+and icethk.txt; all manual sources are checked before training. Edit `SEEDS`
+(31-33 initially:33 runs), review the full plan,
 then set `RUN_TRAINING=True`. Defaults: K32,RBF ARD,100 maximum epochs,20 warm-up,
 existing Adam rates0.002/0.001 and training-loss stopping. Paper initialization
 uses lengthscales/output variance/noise variance0.6931, not the historical
 benchmark initialization. Data and split policies remain unchanged.
 
-The separate runner pauses after about10 training hours, at minibatch boundaries.
+The separate runner pauses after about10 session hours, at minibatch boundaries;
+one shared time budget covers all datasets/seeds, not10 hours per dataset.
 Portable per-seed/session ZIPs under `/kaggle/working/gpw_vnngp_cpu` include prepared
-data, source, optimizer/RNG/minibatch/partial-loss/stopping state and results.
+data, source, optimizer/RNG/minibatch/partial-loss/stopping state, the whole dataset
+queue cursor and results. Cumulative `comparison.csv` updates after every seed.
 Save/download a ZIP; next session attach it and explicitly select `ACTION="resume"`
 and its exact `RESUME_ARCHIVE` path, retaining all plan settings. The runner checks
 source commit, dependency versions, data checksums, configurations and graph.

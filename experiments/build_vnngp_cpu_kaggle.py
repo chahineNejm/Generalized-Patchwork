@@ -1,19 +1,22 @@
-"""Build the single-dataset VNNGP CPU notebook with explicit portable continuation."""
+"""Build the main-table VNNGP CPU schedule with explicit portable continuation."""
 
 import json
 from pathlib import Path
 
 from experiments.build_heaton_colab import cell
 from experiments.colab_source import github_bootstrap, source_metadata
-from experiments.default_hyperparameters import vnngp_cpu_defaults
+from experiments.default_hyperparameters import vnngp_cpu_table_defaults
 
 
 def build_notebook(root):
-    defaults = vnngp_cpu_defaults()
+    defaults = vnngp_cpu_table_defaults()
     cells = [cell("markdown", """
-    # VNNGP on CPU: one dataset at a time
+    # VNNGP on CPU: all main-table datasets
 
-    Enable Internet; accelerator None. Choose DATASET and edit SEEDS below.
+    Enable Internet; accelerator None. DATASETS selects all11 table datasets,
+    excluding UKHousing, the heat cases and extra synthetic configurations.
+    Editable SEEDS=[31,32,33] gives33 sequential runs. Attach the approved
+    airline.npz,airline.json and icethk.txt inputs at INPUT_ROOT before starting.
     K=32 now; K=256 remains an explicit later choice. RBF ARD, fixed inducing
     locations at all training inputs, mean-field q(U). Maximum100 epochs,
     20 warm-up, Adam0.002 for q and0.001 for kernel/noise after warm-up.
@@ -36,8 +39,8 @@ def build_notebook(root):
     Each completed seed and session saves a portable ZIP under
     /kaggle/working/gpw_vnngp_cpu. Save/download it before session storage disappears.
     In the next session attach that ZIP as a Kaggle input, set ACTION="resume"
-    and RESUME_ARCHIVE to its exact path. Keep DATASET, SEEDS and settings unchanged.
-    Resume never happens automatically. It continues the saved finite seed list;
+    and RESUME_ARCHIVE to its exact path. Keep DATASETS, SEEDS and settings unchanged.
+    Resume never happens automatically. It continues the saved dataset/seed list;
     changing/adding seeds creates a separate experiment, not a checkpoint migration.
     A finished job rejects resume. Failures remain loud; no retries or substitutions.
 
@@ -59,24 +62,27 @@ def call_worker(action, **values):
     return run_worker(ROOT, {"action": action, "source_provenance": SOURCE_PROVENANCE, **values},
         module="experiments.vnngp_cpu_worker", jobs_directory=WORK_ROOT / "worker_jobs",
         on_event=show_event)''', stage="install", requires=("checkout",), invalidates=("settings", "training")),
-        cell("markdown", """## 2. Select one dataset and editable model seeds
+        cell("markdown", """## 2. Main-table datasets and editable model seeds
 
-    Set DATASET to one catalog name, e.g. "oisst", "tco_l2", "protein", "sarcos",
-    "california", "icethick", "flight", "modis", "ukhousing", or
-    "michalewicz_d5_n50000" / "g_function_d5_n50000".
-    INPUT_ROOT is needed only for manual sources. FLIGHT uses its full approved
-    source unless DATA_OVERRIDES={"subset_size":800000} is explicitly selected.
-    Adding seeds multiplies compute. All selected seeds run sequentially until
-    the session pauses or the finite plan completes. No training during settings.
+    The default list matches the paper table. The two synthetic cases use D5,
+    train50k/test12.5k. FLIGHT explicitly retains the approved800k subset and
+    80/20 split. Other existing data/split protocols remain unchanged.
+    Edit DATASETS to select/reorder runs; DATA_OVERRIDES is keyed by dataset.
+    Remove its flight entry if flight is deselected. All manual inputs are checked
+    before training; a missing input raises, never skips that dataset.
+    Adding seeds multiplies compute. All seeds run for each dataset before
+    proceeding to the next. One shared10-hour budget covers the whole session,
+    not10 hours per dataset. Each completed seed ZIP includes the whole queue
+    state and cumulative comparison.csv. No training during settings.
     """),
         cell("code", f'''from datetime import UTC, datetime
 from IPython.display import FileLink, display
 import pandas as pd
 
-DATASET = None  # Set the exact dataset name; never choose a source implicitly.
+DATASETS = {defaults["datasets"]!r}
 SEEDS = {defaults["seeds"]!r}
 INPUT_ROOT = "/kaggle/input/datasets/chahinenejma/gpw-kaggle-inputs"
-DATA_OVERRIDES = {{}}
+DATA_OVERRIDES = {defaults["data_overrides"]!r}
 EPOCHS = {defaults["epochs"]}
 WARMUP_EPOCHS = {defaults["warmup_epochs"]}
 NEIGHBORS = {defaults["neighbors"]}
@@ -101,7 +107,7 @@ def show_event(event):
 
 if NOISE_VARIANCE <= 0:
     raise ValueError("Initial noise variance must be positive")
-settings = call_worker("settings", dataset=DATASET, seeds=SEEDS, input_root=INPUT_ROOT,
+settings = call_worker("settings", datasets=DATASETS, seeds=SEEDS, input_root=INPUT_ROOT,
     data_overrides=DATA_OVERRIDES, overrides={{"epochs": EPOCHS, "warmup_epochs": WARMUP_EPOCHS,
     "neighbors": NEIGHBORS, "learning_rate_q": LEARNING_RATE_Q,
     "learning_rate_hyperparameters": LEARNING_RATE_HYPERPARAMETERS,
@@ -110,11 +116,12 @@ settings = call_worker("settings", dataset=DATASET, seeds=SEEDS, input_root=INPU
     "checkpoint_seconds": CHECKPOINT_SECONDS, "threads": THREADS, "batch_size": BATCH_SIZE,
     "prediction_batch_size": PREDICTION_BATCH_SIZE, "progress_every_epochs": PROGRESS_EVERY_EPOCHS}})
 PLAN, PLAN_SHA256 = settings["plan"], settings["plan_sha256"]
-print("Dataset:", DATASET, "Model seeds:", SEEDS, "Data seed:", PLAN["data"]["seed"])
+print("Datasets:", DATASETS, "Model seeds:", SEEDS)
 print("Total runs:", settings["total_runs"], "Maximum total epochs:", settings["maximum_epochs"])
-display(pd.DataFrame(PLAN["configs"]))
-print("Data protocol:", PLAN["data"])
-print("Training controls:", PLAN["settings"])''', stage="settings", requires=("install",), invalidates=("training",)),
+display(pd.DataFrame([{{"dataset": part["data"]["name"], **config}}
+    for part in PLAN["dataset_plans"] for config in part["configs"]]))
+display(pd.DataFrame([part["data"] for part in PLAN["dataset_plans"]]))
+print("Training controls:", PLAN["dataset_plans"][0]["settings"])''', stage="settings", requires=("install",), invalidates=("training",)),
         cell("markdown", """## 3. Start or explicitly resume one session
 
     For a new experiment use ACTION="start". For continuation use ACTION="resume"

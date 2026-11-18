@@ -183,6 +183,13 @@ def vnngp_cpu_defaults():
             "session_hours": 10.0, "checkpoint_seconds": 300.0, "progress_every_epochs": 20}
 
 
+def vnngp_cpu_table_defaults():
+    """The eleven main-table datasets; retain the approved FLIGHT800k subset."""
+    return {**vnngp_cpu_defaults(), "datasets": ["california", "protein", "tco", "oisst", "tco_l2",
+        "icethick", "sarcos", "modis", "flight", "michalewicz_d5_n50000", "g_function_d5_n50000"],
+        "data_overrides": {"flight": {"subset_size": 800000}}}
+
+
 def multidataset_notebook_defaults(*, device, input_root):
     """Approved reduced batch; retain every existing GPW/ProSpar size."""
     _, runs, _ = multidataset_defaults(device=device, input_root=input_root)
