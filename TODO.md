@@ -4,6 +4,12 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Separate VNNGP CPU Kaggle notebook: one selected dataset, editable seeds,
+  K32/RBF ARD,100/20 with existing Adam rates/stopping, explicit portable
+  minibatch continuation in10-hour chunks. Exact training equivalence,
+  checkpoint/archive identity, worker flow and full suite verified locally;
+  long Kaggle execution remains untested.
+
 - [~] Run the approved local exponential-GP toy: two capacities, rank64,
   none/fixed/learned stitches; show means, both variances and initial/final points.
 

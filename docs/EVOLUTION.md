@@ -1,5 +1,40 @@
 # Evolution Log
 
+## 2026-11-18 - Explicit VNNGP CPU continuation
+
+- User approved K32 first (K256 later), RBF ARD,100 maximum epochs, existing
+  Adam rates q0.002/kernel-noise0.001,20 warm-up and existing loss stopping
+  (patience10,relative threshold0.001,last model). No validation grid or new
+  learning-rate schedule. Retain existing512 batch/two-thread/numerical settings
+  and dataset preparation protocols, not the VNNGP paper's Matérn/split protocol.
+- Earlier user accepted remaining paper settings: initial lengthscales and
+  output variance0.6931,GaussianLikelihood noise variance0.6931 (converted to
+  SD for our API). These are recorded explicitly, not mixed silently with
+  historical benchmark initializations. Seeds31-33 are visible/editable;
+  dataset selection is required, never invented. Existing inducing order stays
+  the prepared training order; this is not random-order paper replication.
+- User explicitly approved10-hour CPU session chunks with continuation at
+  minibatch boundaries. Separate runner preserves Adam, all RNG states,
+  current minibatch permutation/cursor, partial epoch loss, early-stopping
+  state and training time. Periodic five-minute checkpoints and pause/final
+  checkpoints use atomic replacement; unexpected termination can lose work
+  after the last checkpoint. No changes to existing fresh-run benchmarks.
+- Resume is an explicit new-directory archive action; source/dependency/plan,
+  verified prepared data, fixed inducing locations/order and exact neighbor
+  graph must match. A completed seed/collection is never retrained implicitly.
+  Every seed/session ZIP includes data/source/state/results. Kaggle relaunch
+  and durable external persistence remain the user's actions. Scoring checks
+  the deadline between batches; incomplete prediction splits recompute on
+  explicit resume, not training. The time limit is soft and excludes setup/ZIP.
+- Verification:391-test full suite passed (the tests present at launch), then
+  all13 final CPU-specific tests passed, including bitwise interrupted/full
+  training and prediction parity across five cut points, existing-loop parity,
+  early stopping, pre-step deadline pause, loud identity/integrity errors,
+  portable two-seed pause/resume/scoring/archives and a fresh verified-source
+  subprocess. Source compilation and scoped Ruff pass. Global src/tests Ruff
+  reports one pre-existing unused manifest in test_periodic_heat_dataset.py:55;
+  left unrelated code unchanged. No long Kaggle/CPU benchmark execution claimed.
+
 ## 2026-11-15 - Interface stitching study notebook
 
 - notebooks/GPW_Interface_Stitching_Kaggle.ipynb (builder

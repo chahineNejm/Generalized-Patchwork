@@ -8,6 +8,28 @@ Coding agents must read [AGENTS.md](AGENTS.md), [TODO.md](TODO.md), and
 [docs/EVOLUTION.md](docs/EVOLUTION.md) before making changes. They record the
 repository rules, planned work, and technical history.
 
+## VNNGP CPU Sessions
+
+Open `notebooks/VNNGP_CPU_Kaggle.ipynb` with Internet enabled and no accelerator.
+Set `DATASET` explicitly, edit `SEEDS` (31-33 initially), review the full plan,
+then set `RUN_TRAINING=True`. Defaults: K32,RBF ARD,100 maximum epochs,20 warm-up,
+existing Adam rates0.002/0.001 and training-loss stopping. Paper initialization
+uses lengthscales/output variance/noise variance0.6931, not the historical
+benchmark initialization. Data and split policies remain unchanged.
+
+The separate runner pauses after about10 training hours, at minibatch boundaries.
+Portable per-seed/session ZIPs under `/kaggle/working/gpw_vnngp_cpu` include prepared
+data, source, optimizer/RNG/minibatch/partial-loss/stopping state and results.
+Save/download a ZIP; next session attach it and explicitly select `ACTION="resume"`
+and its exact `RESUME_ARCHIVE` path, retaining all plan settings. The runner checks
+source commit, dependency versions, data checksums, configurations and graph.
+Changed code/dependencies raise, rather than migrate checkpoints. Existing
+benchmark runners retain their fresh-run-only policy. Kaggle sessions do not
+restart themselves; output must be saved externally. Periodic checkpoints are
+every5 minutes plus pause/final; unexpected termination can lose later work.
+Setup/ZIP time is additional; unfinished prediction splits restart on explicit
+resume. No long CPU benchmark or Kaggle-session execution is claimed by local tests.
+
 ## Local Exponential-GP Toy
 
 Run `python -m experiments.exponential_toy` locally on CPU. Approved settings
