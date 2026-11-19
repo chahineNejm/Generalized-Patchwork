@@ -70,10 +70,11 @@ def test_direct_patchwork_matches_dense_joint_likelihood_and_conditioning(maximu
     assert all(p.grad is not None and torch.isfinite(p.grad).all() for p in model.parameters())
 
 
-def test_vnngp_search_and_predict_match_official_strategy():
+@pytest.mark.parametrize("jitter", [1e-4, 1e-3])
+def test_vnngp_search_and_predict_match_official_strategy(jitter):
     torch.manual_seed(9)
     x = torch.rand(25, 2, dtype=torch.float64)
-    model = VNNGP(x, neighbors=4, batch_size=8)
+    model = VNNGP(x, neighbors=4, batch_size=8, jitter=jitter)
     graph = model.variational_strategy.nn_xinduce_idx
     for i in range(4, len(x)):
         nearest = torch.cdist(x[i:i + 1].float(), x[:i].float()).topk(4, largest=False).indices.flatten()
@@ -92,11 +93,12 @@ def test_vnngp_search_and_predict_match_official_strategy():
 
 
 @pytest.mark.parametrize("neighbors,batch_size", [(4, 8), (32, 512)])
-def test_vnngp_stochastic_kl_values_and_gradients_match_upstream(neighbors, batch_size):
+@pytest.mark.parametrize("jitter", [1e-4, 1e-3])
+def test_vnngp_stochastic_kl_values_and_gradients_match_upstream(neighbors, batch_size, jitter):
     torch.manual_seed(31)
     torch.set_num_threads(2)
     x = torch.rand(neighbors + batch_size, 2, dtype=torch.float64)
-    model = VNNGP(x, neighbors=neighbors, batch_size=batch_size)
+    model = VNNGP(x, neighbors=neighbors, batch_size=batch_size, jitter=jitter)
     strategy = model.variational_strategy
     q = strategy._variational_distribution
     with torch.no_grad():
@@ -161,6 +163,8 @@ def test_model_runner_end_to_end(name, tmp_path, monkeypatch):
     if name == "prospar":
         config = replace(config, prospar=ProSparConfig(
             temperatures=(1.0, 2.0, 3.0), exponent=1.0, inducing_nuggets=0.02, prior_jitter=0.0))
+    if name == "vnngp":
+        config = replace(config, vnngp_jitter=1e-3)
     result = run_ukhousing(config, split, directory=tmp_path / name)
     assert references[0]() is None
     assert (result / "model.pt").stat().st_size > 0
@@ -173,6 +177,9 @@ def test_model_runner_end_to_end(name, tmp_path, monkeypatch):
     assert (result / "maps.png").stat().st_size > 0
     metadata = json.loads((result / "model_metadata.json").read_text())
     assert metadata["package_version"]
+    if name == "vnngp":
+        assert json.loads((result / "config.json").read_text())["vnngp_jitter"] == 1e-3
+        assert json.loads((result / "environment.json").read_text())["numerical"]["prior_jitter"] == 1e-3
     if name == "prospar":
         assert metadata["model_class"].endswith("ProSparGP")
         learned = json.loads((result / "learned_parameters.json").read_text())

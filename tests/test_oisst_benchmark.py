@@ -59,6 +59,7 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
                           warmup_epochs=config.warmup_epochs if config.model == "patchwork" else 1,
                           inducing_points=8, patches=2,
                           q_rank=2, patch_neighbors=1, stitches_per_edge=2, vnngp_neighbors=4,
+                          vnngp_jitter=1e-3 if config.model == "vnngp" else config.vnngp_jitter,
                           vnngp_batch_size=16, exact_maximum_points=16, exact_stitches_per_edge=2,
                           exact_grid_shape=(2, 1), exact_tree_patches=2,
                           batch_size=32, snapshot_every=2, prediction_batch_size=8)) for name, config in runs]
@@ -75,6 +76,9 @@ def test_five_model_comparison_artifacts_and_memory_release(tmp_path, monkeypatc
     for (name, config), (path, archive, metrics) in zip(runs, completed, strict=True):
         assert metrics["model"] == name and np.isfinite(metrics["nlpd"])
         environment = json.loads((path / "environment.json").read_text())
+        if config.model == "vnngp":
+            assert environment["numerical"]["prior_jitter"] == 1e-3
+            assert environment["active_prior_jitter"] == 1e-3
         assert environment["fusion_covariance"] == (
             "Cov(local_functions | U, Delta_S=0)" if config.model == "gpw" else None)
         for filename in ("training.png", "metrics.png", "progress.png", "maps.png", "hyperparameters.png"):

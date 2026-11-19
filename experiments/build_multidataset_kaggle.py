@@ -106,6 +106,9 @@ def call_worker(action, *, on_event=None, **values):
         an explicit selection conflicting with an exclusion raises.
         Unknown names raise.
         MODEL_OVERRIDES is {dataset: {model_name: {field: value}}}.
+        VNNGP jitter is notebook-editable: for example,
+        MODEL_OVERRIDES={"oisst": {"VNNGP": {"vnngp_jitter": 1e-3}}}.
+        Its unchanged default is1e-4; this affects only VNNGP, with no escalation.
         DATA_OVERRIDES is {dataset: {field: value}}; no source/schema relabeling.
 
         Example short selection: DATASETS=["california"] and

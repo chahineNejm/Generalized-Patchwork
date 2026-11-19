@@ -138,6 +138,9 @@ def test_settings_and_notebook(tmp_path):
     result = make_plan(request)
     assert result["total_runs"] == 1
     assert result["plan"]["configs"][0]["vnngp_neighbors"] == 32
+    assert result["plan"]["configs"][0]["vnngp_jitter"] == 1e-4
+    changed = make_plan({**request, "overrides": {"vnngp_jitter": 1e-3}})
+    assert changed["plan"]["configs"][0]["vnngp_jitter"] == 1e-3
     assert result["plan"]["configs"][0]["noise_std"]**2 == pytest.approx(.6931)
     with pytest.raises(ValueError, match="distinct"):
         make_plan({**request, "seeds": [31, 31]})
@@ -149,6 +152,8 @@ def test_settings_and_notebook(tmp_path):
     assert 'SEEDS = [31, 32, 33]' in source
     assert 'RUN_TRAINING = False' in source
     assert 'RESUME_ARCHIVE = None' in source
+    assert 'VNNGP_JITTER = 0.0001' in source
+    assert '"vnngp_jitter": VNNGP_JITTER' in source
 
 
 def test_worker_start_pause_resume_seeds_and_results(tmp_path, monkeypatch):
@@ -174,7 +179,7 @@ def test_worker_start_pause_resume_seeds_and_results(tmp_path, monkeypatch):
     monkeypatch.setattr(worker, "train_chunk", lambda *args, **kwargs: training(*args, **kwargs, max_batches=1))
     settings = make_plan({"dataset": "protein", "seeds": [31, 32], "input_root": "unused",
         "data_overrides": {}, "overrides": {"epochs": 3, "warmup_epochs": 1,
-        "neighbors": 3, "batch_size": 5, "threads": 1}})
+        "neighbors": 3, "batch_size": 5, "threads": 1, "vnngp_jitter": 1e-3}})
     request = {"action": "start", "execute_training": True, "plan": settings["plan"],
         "plan_sha256": settings["plan_sha256"], "directory": str(tmp_path / "job"),
         "data_root": str(tmp_path / "data"), "source_provenance": {"commit": "test"},
@@ -192,6 +197,7 @@ def test_worker_start_pause_resume_seeds_and_results(tmp_path, monkeypatch):
         assert json.loads((path / "status.json").read_text())["state"] == "complete"
         assert json.loads((path / "metrics.json").read_text())["rmse_standardized"] > 0
         assert (path / "test_predictions.npz").exists()
+        assert json.loads((path / "model_metadata.json").read_text())["numerical"]["prior_jitter"] == 1e-3
         assert (tmp_path / f"continued_seed{seed}.zip").exists()
     with pytest.raises(ValueError, match="already complete"):
         worker.execute({**request, "action": "resume", "directory": str(tmp_path / "finished"),

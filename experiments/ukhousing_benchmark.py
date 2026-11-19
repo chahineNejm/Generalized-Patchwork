@@ -59,6 +59,7 @@ class UKConfig:
     gpw_grid_shape: tuple[int, int] | None = None
     vnngp_neighbors: int = 32
     vnngp_batch_size: int = 512
+    vnngp_jitter: float = 1e-4
     exact_maximum_points: int = 512
     exact_stitches_per_edge: int = 2
     exact_partition: str = "adaptive"
@@ -81,6 +82,16 @@ class UKConfig:
     threads: int = 2
     device: str = "cuda:0"
     prospar: ProSparConfig | None = None
+
+    def __post_init__(self):
+        if (isinstance(self.vnngp_jitter, bool) or not isinstance(self.vnngp_jitter, (int, float))
+                or not np.isfinite(self.vnngp_jitter) or self.vnngp_jitter < 0):
+            raise ValueError("vnngp_jitter must be finite and nonnegative")
+
+
+def model_numerical(config):
+    return NumericalConfig(weight_epsilon=config.weight_epsilon,
+        prior_jitter=config.vnngp_jitter if config.model == "vnngp" else NumericalConfig().prior_jitter)
 
 
 def prepare_split(x, y, *, seed=31, train_fraction=0.64, validation_fraction=0.16):
@@ -178,7 +189,7 @@ def build_model(config, split):
         raise ValueError("kernel_mode must be local, or shared for GPW only")
     x, y = split["x"][split["train"]], split["y"][split["train"]]
     device = torch.device(config.device)
-    numerical = NumericalConfig(weight_epsilon=config.weight_epsilon)
+    numerical = model_numerical(config)
     options = {"lengthscale": config.lengthscale, "outputscale": config.outputscale,
                "noise_std": config.noise_std}
     if config.model == "svgp":
@@ -380,7 +391,7 @@ def _execute_ukhousing(config, split, *, output, on_snapshot):
                    "gpu": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
                    "kernel": "ARD RBF", "likelihood": "Gaussian",
                    "dtype": "float64", "bounds": asdict(HyperparameterBounds()),
-                   "numerical": asdict(NumericalConfig(weight_epsilon=config.weight_epsilon)),
+                   "numerical": asdict(model_numerical(config)),
                    "fusion_covariance": "Cov(local_functions | U, Delta_S=0)" if config.model == "gpw" else None,
                    "standard_patchwork_objective": "joint_negative_log_likelihood(Y, Delta_S=0)"
                    if config.model == "patchwork" else None,

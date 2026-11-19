@@ -71,6 +71,14 @@ per-epoch histories and seed means/sample SDs in `kernel_summary.json`.
 
 ## Benchmark Repeats
 
+VNNGP jitter is configurable from the notebook, without editing package files:
+add `"vnngp_jitter": 1e-3` to the selected VNNGP entry in `MODEL_OVERRIDES`,
+for example `{"oisst": {"VNNGP": {"vnngp_jitter": 1e-3}}}`. Keep any other
+explicit overrides in that entry. The unchanged default is `1e-4`; no automatic
+escalation is used. Only VNNGP is affected, and config/numerical metadata record
+the effective value. In the CPU notebook edit `VNNGP_JITTER` in settings instead.
+Changing jitter requires a fresh run, not continuation of an older checkpoint.
+
 Open `notebooks/Benchmark_Repeats_Kaggle.ipynb` in Kaggle with Internet/GPU.
 No attached input bundle is needed for this selection. Run stages in order,
 review the44-run plan, then set `RUN_TRAINING=True` in the training cell.

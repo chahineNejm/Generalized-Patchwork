@@ -26,9 +26,9 @@ from experiments.multidataset_data import DatasetSpec, load_prepared, prepare_da
 from experiments.multidataset_worker import plan_hash
 from experiments.oisst_benchmark import learned_parameters
 from experiments.oisst_worker import emit, source_snapshot
-from experiments.ukhousing_benchmark import UKConfig, build_model, scores
+from experiments.ukhousing_benchmark import UKConfig, build_model, model_numerical, scores
 from experiments.vnngp_cpu_training import make_stopper, train_chunk
-from pwgp.config import HyperparameterBounds, NumericalConfig
+from pwgp.config import HyperparameterBounds
 from pwgp.data.download import file_checksum
 from pwgp.run_records import record_failures
 
@@ -64,6 +64,7 @@ def make_plan(request):
     configs = [asdict(UKConfig(model="vnngp", device="cpu", seed=seed,
         epochs=base["epochs"], warmup_epochs=base["warmup_epochs"],
         vnngp_neighbors=base["neighbors"], vnngp_batch_size=base["batch_size"],
+        vnngp_jitter=base["vnngp_jitter"],
         lengthscale=base["lengthscale"], outputscale=base["outputscale"], noise_std=base["noise_std"],
         learning_rate_q=base["learning_rate_q"], learning_rate_hyperparameters=base["learning_rate_hyperparameters"],
         prediction_batch_size=base["prediction_batch_size"], threads=base["threads"])) for seed in seeds]
@@ -213,7 +214,7 @@ def run_session(directory, plan, *, source_provenance, on_complete=None, deadlin
             write_json(output / "model_metadata.json", {"class": f"{type(model).__module__}.{type(model).__name__}",
                 "inducing_points": len(split["train"]), "locations": "fixed prepared training rows",
                 "kernel": plan["kernel"], "bounds": asdict(HyperparameterBounds()),
-                "numerical": asdict(NumericalConfig()), "gradient_clip": 10.0,
+                "numerical": asdict(model_numerical(config)), "gradient_clip": 10.0,
                 "dtype": "float64", "hardware": current, "model_seed": config.seed,
                 "data_seed": split["seed"], "early_stopping": settings["early_stopping"]})
             checkpoint = output / "checkpoint.pt"

@@ -1,5 +1,22 @@
 # Evolution Log
 
+## 2026-11-19 - Notebook-controlled VNNGP fixed jitter
+
+- User requested notebook-only control after discussing an explicit1e-3 trial.
+  Add UKConfig.vnngp_jitter with the unchanged1e-4 default; regular per-model
+  MODEL_OVERRIDES carry it through fresh workers. CPU settings expose the same
+  field as VNNGP_JITTER. No kernel,objective,optimizer,warm-up,stopping or device
+  changes; other models retain their existing numerics and ProSpar override.
+- Reject nonfinite,negative and nonnumeric jitter; zero explicitly means no
+  diagonal jitter, with ordinary Cholesky failure behavior,never a solver retry.
+  Build and saved numerical metadata share the effective VNNGP value. Changing
+  jitter/source is a new experiment,not an automatic checkpoint migration.
+- Verification:full suite414 tests pass (422s);scoped Ruff,source compilation
+  and notebook regeneration pass. Tests cover configuration propagation,
+  invalid values,other-model isolation,upstream prediction/KL value-gradient
+  parity at1e-4/1e-3,effective saved metadata and CPU checkpoint continuation.
+  No real-data/GPU training performed or claim that jitter fixes underfitting.
+
 ## 2026-11-18 - VNNGP CPU schedule matches the main results table
 
 - User clarified that the notebook must run every dataset in the table, not

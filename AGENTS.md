@@ -215,6 +215,10 @@ variational precision. The current phase is the algorithm and data foundation.
 - VNNGP uses pinned GPyTorch with explicitly selected CPU FAISS searches and
   no numerical retry/jitter escalation. Prediction equations match its official
   mean-field conditional, using two triangular solves for CUDA compatibility.
+  Its fixed jitter is notebook-editable via vnngp_jitter (default unchanged1e-4);
+  CPU settings expose VNNGP_JITTER. Validate finite/nonnegative values, save the
+  effective prior jitter in config/numerical metadata, and never apply it to other
+  models or silently migrate checkpoints after a jitter/source change.
 - The separate VNNGP CPU notebook permits explicit portable continuation only:
   all11 main-table datasets by default, editable DATASETS/seeds31-33 (33 runs),
   K32,RBF ARD,100/20, existing

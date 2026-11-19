@@ -178,7 +178,7 @@ def vnngp_cpu_defaults():
     return {"seeds": [31, 32, 33], "neighbors": 32, "epochs": 100, "warmup_epochs": 20,
             "lengthscale": 0.6931, "outputscale": 0.6931, "noise_std": 0.6931**0.5,
             "learning_rate_q": 0.002, "learning_rate_hyperparameters": 0.001,
-            "batch_size": 512, "threads": 2, "prediction_batch_size": 256,
+            "batch_size": 512, "threads": 2, "prediction_batch_size": 256, "vnngp_jitter": 1e-4,
             "early_stopping": {"patience": 10, "relative_min_improvement": 0.001},
             "session_hours": 10.0, "checkpoint_seconds": 300.0, "progress_every_epochs": 20}
 

@@ -4,6 +4,10 @@ Status: `[ ]` planned, `[~]` in progress, `[x]` implemented and verified.
 
 ## Foundation
 
+- [x] Expose VNNGP-only fixed jitter in regular notebook overrides and CPU
+  notebook settings; preserve1e-4 defaults and verify saved effective numerics.
+  All414 tests,scoped Ruff,source compilation and notebook regeneration pass.
+
 - [x] Correct the VNNGP CPU notebook to run all11 main-table datasets/seeds in
   one finite resumable queue, with one shared10-hour budget and per-seed full
   queue archives/cumulative metrics. Keep single-dataset worker API explicit.

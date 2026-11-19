@@ -86,6 +86,7 @@ DATA_OVERRIDES = {defaults["data_overrides"]!r}
 EPOCHS = {defaults["epochs"]}
 WARMUP_EPOCHS = {defaults["warmup_epochs"]}
 NEIGHBORS = {defaults["neighbors"]}
+VNNGP_JITTER = {defaults["vnngp_jitter"]}
 LEARNING_RATE_Q = {defaults["learning_rate_q"]}
 LEARNING_RATE_HYPERPARAMETERS = {defaults["learning_rate_hyperparameters"]}
 LENGTHSCALE = {defaults["lengthscale"]}
@@ -109,7 +110,7 @@ if NOISE_VARIANCE <= 0:
     raise ValueError("Initial noise variance must be positive")
 settings = call_worker("settings", datasets=DATASETS, seeds=SEEDS, input_root=INPUT_ROOT,
     data_overrides=DATA_OVERRIDES, overrides={{"epochs": EPOCHS, "warmup_epochs": WARMUP_EPOCHS,
-    "neighbors": NEIGHBORS, "learning_rate_q": LEARNING_RATE_Q,
+    "neighbors": NEIGHBORS, "vnngp_jitter": VNNGP_JITTER, "learning_rate_q": LEARNING_RATE_Q,
     "learning_rate_hyperparameters": LEARNING_RATE_HYPERPARAMETERS,
     "lengthscale": LENGTHSCALE, "outputscale": OUTPUT_VARIANCE, "noise_std": NOISE_VARIANCE**0.5,
     "early_stopping": EARLY_STOPPING, "session_hours": SESSION_HOURS,

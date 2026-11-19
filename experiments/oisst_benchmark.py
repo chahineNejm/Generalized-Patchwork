@@ -33,8 +33,8 @@ from experiments.exploratory_analysis import (
     plot_positions,
     plot_training,
 )
-from experiments.ukhousing_benchmark import UKConfig, build_model, scores, train
-from pwgp.config import HyperparameterBounds, NumericalConfig, OptimizerConfig
+from experiments.ukhousing_benchmark import UKConfig, build_model, model_numerical, scores, train
+from pwgp.config import HyperparameterBounds, OptimizerConfig
 from pwgp.data import DatasetManager
 from pwgp.data.download import file_checksum
 from pwgp.models.standard_patchwork import StandardPatchworkGP
@@ -189,12 +189,12 @@ def run_model(config, split, *, directory, save_inducing_positions, on_snapshot=
             "device": str(device), "threads": config.threads,
             "gpu": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
             "bounds": asdict(HyperparameterBounds()),
-            "numerical": asdict(NumericalConfig(weight_epsilon=config.weight_epsilon)),
+            "numerical": asdict(model_numerical(config)),
             "fusion_covariance": "Cov(local_functions | U, Delta_S=0)" if config.model == "gpw" else None,
             "standard_patchwork_objective": "joint_negative_log_likelihood(Y, Delta_S=0)"
             if config.model == "patchwork" else None,
             "active_prior_jitter": config.prospar.prior_jitter if config.model == "prospar"
-            and config.prospar is not None else NumericalConfig().prior_jitter,
+            and config.prospar is not None else model_numerical(config).prior_jitter,
             "optimizer": {"method": "Adam", "learning_rate": config.exact_learning_rate,
                           "gradient_clip": 10.0, "warmup": "not_used"}
             if config.model == "patchwork" else asdict(OptimizerConfig(
